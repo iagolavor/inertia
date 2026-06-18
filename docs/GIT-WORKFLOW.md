@@ -104,7 +104,7 @@ When `development` is ready for a release:
 ```bash
 git checkout development
 git pull origin development
-gh pr create --base master --head development --title "Release v0.x.x" --label update
+gh pr create --base master --head development --title "Release v0.x.x" --label release
 # merge via GitHub — direct push to master is blocked
 git tag v0.x.x   # optional, after merge
 git push origin v0.x.x
