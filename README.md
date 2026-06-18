@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" alt="Inertia" width="200" />
+  <img src="docs/logo.jpg" alt="Inertia" width="200" />
 </p>
 
 **A local-first, P2P, ephemeral social network — for your inner circle.**
