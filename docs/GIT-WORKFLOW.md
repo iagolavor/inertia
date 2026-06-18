@@ -64,7 +64,13 @@ The repo uses **only these labels**. Apply **one primary label** per PR:
 gh pr edit <number> --add-label feature
 ```
 
-Release example:
+Release example (prefer the script — see [RELEASE.md](./RELEASE.md)):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/release-pr.ps1 -Version 0.2.0
+```
+
+Manual:
 
 ```bash
 gh pr create --base master --head development \
@@ -101,14 +107,15 @@ git push origin development
 
 When `development` is ready for a release:
 
-```bash
+```powershell
 git checkout development
 git pull origin development
-gh pr create --base master --head development --title "Release v0.x.x" --label release
-# merge via GitHub — direct push to master is blocked
-git tag v0.x.x   # optional, after merge
-git push origin v0.x.x
+powershell -ExecutionPolicy Bypass -File scripts/release-pr.ps1 -Version 0.2.0
+# merge the release PR on GitHub, then on master:
+powershell -ExecutionPolicy Bypass -File scripts/release-tag.ps1 -Version 0.2.0
 ```
+
+Full details: [RELEASE.md](./RELEASE.md).
 
 ## Hotfix (rare)
 

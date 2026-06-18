@@ -1,6 +1,7 @@
 {
   "name": "inertia",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "api": "cargo run -p inertia-api",
     "api:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-api.ps1",

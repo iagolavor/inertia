@@ -7,6 +7,8 @@
 
 **A local-first, P2P, ephemeral social network**
 
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
 No central accounts. No ads. No algorithms. Your data stays on your device.
 
 > Active prototype. The API and P2P stack run locally; there are no cloud services.
@@ -239,10 +241,12 @@ See [docs/VISION.md](docs/VISION.md) for technical decisions and open questions.
 
 ## Contributing
 
-This project is in its early stages. Issues and PRs are welcome — please read the [vision](docs/VISION.md) before proposing features that conflict with core principles (centralization, algorithmic feeds, permanent archives by default, etc.).
+This project is in its early stages. Issues and PRs are welcome — please read the [vision](docs/VISION.md) and [git workflow](docs/GIT-WORKFLOW.md) before opening a PR.
+
+By contributing, you agree that your work is licensed under the [AGPL-3.0-or-later](LICENSE) license.
 
 ---
 
 ## License
 
-[MIT](LICENSE)
+[GNU Affero General Public License v3.0 or later](LICENSE) — community-built software; share improvements when you run or distribute modified versions.
