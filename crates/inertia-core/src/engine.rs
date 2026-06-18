@@ -361,6 +361,30 @@ impl Engine {
             .collect())
     }
 
+    pub async fn p2p_status(&self) -> P2pStatus {
+        let guard = self.p2p.lock().await;
+        if let Some(p2p) = guard.as_ref() {
+            P2pStatus {
+                running: true,
+                peer_id: Some(p2p.peer_id_string()),
+                listen_addresses: p2p
+                    .listen_addresses()
+                    .await
+                    .into_iter()
+                    .map(|a| a.to_string())
+                    .collect(),
+                connected_peer_ids: p2p.connected_peer_ids().await,
+            }
+        } else {
+            P2pStatus {
+                running: false,
+                peer_id: None,
+                listen_addresses: Vec::new(),
+                connected_peer_ids: Vec::new(),
+            }
+        }
+    }
+
     /// Addresses embedded in invites — uses `INERTIA_P2P_ANNOUNCE` when set.
     pub async fn p2p_invite_addresses(&self, peer_id: Option<&str>) -> Vec<String> {
         if let Some(pid) = peer_id {
@@ -960,6 +984,14 @@ fn announced_p2p_multiaddrs(peer_id: &str) -> Vec<String> {
             }
         })
         .collect()
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct P2pStatus {
+    pub running: bool,
+    pub peer_id: Option<String>,
+    pub listen_addresses: Vec<String>,
+    pub connected_peer_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

@@ -105,6 +105,14 @@ impl P2pNode {
         swarm.listeners().cloned().collect()
     }
 
+    pub async fn connected_peer_ids(&self) -> Vec<String> {
+        let swarm = self.swarm.lock().await;
+        swarm
+            .connected_peers()
+            .map(|peer_id| peer_id.to_string())
+            .collect()
+    }
+
     pub async fn dial(&self, addr: Multiaddr) -> CoreResult<()> {
         let mut swarm = self.swarm.lock().await;
         swarm

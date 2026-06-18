@@ -19,6 +19,14 @@ export interface Contact {
   encryption_pubkey: string;
   last_seen: string | null;
   connection_state: 'online' | 'offline' | 'unreachable';
+  multiaddrs?: string[];
+}
+
+export interface P2pStatus {
+  running: boolean;
+  peer_id: string | null;
+  listen_addresses: string[];
+  connected_peer_ids: string[];
 }
 
 export interface InviteResponse {
@@ -215,6 +223,7 @@ export const api = {
     }),
   p2pAddresses: () =>
     request<{ peer_id: string | null; addresses: string[] }>('/p2p/addresses'),
+  p2pStatus: () => request<P2pStatus>('/p2p/status'),
   retryOutbox: (content_id: string, recipient_id: string) =>
     request<void>('/outbox/retry', {
       method: 'POST',
