@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" role="img" aria-label="Inertia">
   <title>Inertia</title>
   <g transform="translate(0, 2)">
-    <rect x="4" y="10" width="16" height="16" rx="5" fill="none" stroke="#ea580c" stroke-width="2"/>
-    <rect x="30" y="10" width="16" height="16" rx="5" fill="none" stroke="#ea580c" stroke-width="2"/>
-    <line x1="20" y1="18" x2="30" y2="18" stroke="#525252" stroke-width="2" stroke-linecap="round"/>
+    <rect x="4" y="10" width="16" height="16" rx="5" fill="none" stroke="#fb923c" stroke-width="2"/>
+    <rect x="30" y="10" width="16" height="16" rx="5" fill="none" stroke="#fb923c" stroke-width="2"/>
+    <line x1="20" y1="18" x2="30" y2="18" stroke="#a3a3a3" stroke-width="2" stroke-linecap="round"/>
   </g>
   <text
     x="62"
@@ -12,6 +12,6 @@
     font-weight="700"
     font-size="24"
     letter-spacing="-0.84"
-    fill="#171717"
+    fill="#fafafa"
   >Inertia</text>
 </svg>
