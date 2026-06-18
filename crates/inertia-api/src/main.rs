@@ -497,18 +497,17 @@ async fn start_p2p(
     State(state): State<AppState>,
     Json(body): Json<StartP2pRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
-    let port = body.listen_port.unwrap_or(0);
-    let peer_id = {
-        let mut engine = state.engine.lock().await;
-        engine.start_p2p(port).await.map_err(api_err)?
-    };
-    let addresses = {
-        let engine = state.engine.lock().await;
-        engine.p2p_listen_addresses().await.map_err(api_err)?
-    };
+    let port = body
+        .listen_port
+        .filter(|&p| p > 0)
+        .unwrap_or_else(inertia_core::default_p2p_listen_port);
+    let engine = state.engine.lock().await;
+    let peer_id = engine.start_p2p(port).await.map_err(api_err)?;
+    let addresses = engine.p2p_listen_addresses().await.map_err(api_err)?;
     Ok(Json(serde_json::json!({
         "peer_id": peer_id,
         "addresses": addresses,
+        "listen_port": port,
     })))
 }
 

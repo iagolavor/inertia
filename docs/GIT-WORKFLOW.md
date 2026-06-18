@@ -1,0 +1,101 @@
+# Git workflow
+
+Inertia uses a simple **git-flow** variant: one integration branch, short-lived feature branches, `master` stays releasable.
+
+## Branches
+
+| Branch | Purpose |
+|--------|---------|
+| `master` | Stable, releasable history. Tagged releases (when we tag). |
+| `development` | Integration branch — merge features here first. |
+| `feature/*` | New work. Branch from `development`, merge back to `development`. |
+| `fix/*` | Bug fixes. Branch from `development` (or `master` for hotfixes). |
+| `docs/*` | Documentation-only changes. |
+| `chore/*` | Tooling, CI, deps — no product logic. |
+
+## Naming convention
+
+```
+<type>/<short-kebab-description>
+```
+
+Examples:
+
+- `feature/phase0-p2p-reliability`
+- `feature/vps-relay-binary`
+- `fix/invite-expiry-timezone`
+- `docs/vps-relay-playbook`
+- `chore/vite-host-flag`
+
+Keep names **short**, **lowercase**, **hyphen-separated**. No issue numbers required (add if you use a tracker: `feature/42-p2p-relay`).
+
+## Pull requests
+
+**Default base branch: `development`** — not `master`.
+
+1. Push your feature branch: `git push -u origin feature/my-feature`
+2. Open a PR: **base** `development` ← **compare** `feature/my-feature`
+3. Merge via PR (squash or merge commit — prefer **merge commit** to match `--no-ff` locally)
+4. Delete the feature branch after merge
+
+With GitHub CLI:
+
+```bash
+gh pr create --base development --head feature/my-feature \
+  --title "Short title" \
+  --body "## Summary\n- …\n\n## Test plan\n- [ ] …"
+```
+
+Release PRs are the exception: `development` → `master` when cutting a stable release.
+
+## Day-to-day
+
+```bash
+# Start new work
+git checkout development
+git pull origin development
+git checkout -b feature/my-feature
+
+# … commit …
+
+# Finish (open a PR — base: development)
+git push -u origin feature/my-feature
+gh pr create --base development --head feature/my-feature
+
+# Or merge locally after review
+git checkout development
+git merge --no-ff feature/my-feature
+git push origin development
+```
+
+When `development` is ready for a release:
+
+```bash
+git checkout master
+git merge --no-ff development
+git tag v0.x.x   # optional
+git push origin master --tags
+```
+
+## Hotfix (rare)
+
+Urgent fix on `master` without waiting for other `development` work:
+
+```bash
+git checkout master
+git checkout -b fix/critical-bug
+# … fix …
+git checkout master && git merge --no-ff fix/critical-bug
+git checkout development && git merge --no-ff fix/critical-bug
+```
+
+## Rules
+
+- **Never force-push** `master` or `development` without team agreement.
+- **One feature per branch** — easier review and revert.
+- **Merge with `--no-ff`** when integrating features (keeps branch history visible).
+- Commits: imperative subject, body explains *why* when not obvious.
+
+## Current milestone
+
+VPS relay work is tracked in [MILESTONE-VPS-RELAY.md](./MILESTONE-VPS-RELAY.md). Phase 0 branches use the `feature/phase0-*` prefix.
