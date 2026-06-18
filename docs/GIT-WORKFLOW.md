@@ -50,7 +50,7 @@ Release PRs are the exception: `development` → `master` when cutting a stable 
 
 ## Labels
 
-Use **one primary label** per PR (and issue, when relevant). Names match branch intent:
+The repo uses **only these labels**. Apply **one primary label** per PR:
 
 | Label | Color | Use when | Typical branch |
 |-------|-------|----------|----------------|
@@ -58,14 +58,19 @@ Use **one primary label** per PR (and issue, when relevant). Names match branch 
 | `bugfix` | red | Fixes incorrect behavior | `fix/*` |
 | `docs` | blue | Documentation only | `docs/*` |
 | `refactor` | purple | Restructure without intended behavior change | `refactor/*` or structural `chore/*` |
+| `update` | amber | Sync `development` → `master` (release promotion) | `development` → `master` PR |
 
 ```bash
 gh pr edit <number> --add-label feature
 ```
 
-**Prefer these four** over default GitHub labels (`enhancement`, `bug`, `documentation`). Legacy labels may remain on the repo but should not be used for new work.
+Release example:
 
-Optional later: `chore` (tooling/CI/deps), `release` (`development` → `master`).
+```bash
+gh pr create --base master --head development \
+  --title "Release v0.x.x" \
+  --label update
+```
 
 ## Branch protection
 
@@ -99,7 +104,7 @@ When `development` is ready for a release:
 ```bash
 git checkout development
 git pull origin development
-gh pr create --base master --head development --title "Release v0.x.x"
+gh pr create --base master --head development --title "Release v0.x.x" --label update
 # merge via GitHub — direct push to master is blocked
 git tag v0.x.x   # optional, after merge
 git push origin v0.x.x
