@@ -58,7 +58,7 @@ The repo uses **only these labels**. Apply **one primary label** per PR:
 | `bugfix` | red | Fixes incorrect behavior | `fix/*` |
 | `docs` | blue | Documentation only | `docs/*` |
 | `refactor` | purple | Restructure without intended behavior change | `refactor/*` or structural `chore/*` |
-| `update` | amber | Sync `development` → `master` (release promotion) | `development` → `master` PR |
+| `release` | amber | Promote `development` → `master` (stable cut) | `development` → `master` PR |
 
 ```bash
 gh pr edit <number> --add-label feature
@@ -69,7 +69,7 @@ Release example:
 ```bash
 gh pr create --base master --head development \
   --title "Release v0.x.x" \
-  --label update
+  --label release
 ```
 
 ## Branch protection
