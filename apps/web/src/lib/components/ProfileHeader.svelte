@@ -27,7 +27,7 @@
   <div class="avatar-wrap">
     <Avatar {seed} alt={displayName} src={avatarUrl} {size} />
     <span class="avatar-status">
-      <StatusDot {online} loading={statusLoading} size={12} />
+      <StatusDot {online} loading={statusLoading} size={12} bordered />
     </span>
   </div>
   <div class="profile-meta">

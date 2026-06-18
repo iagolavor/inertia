@@ -91,6 +91,29 @@ export async function setIdentity(
 	await writeDeviceProfile(identity).catch(() => {});
 }
 
+export async function toggleApiBridge() {
+	if (identityState.loading) return;
+
+	if (!identityState.apiOnline) {
+		await refreshIdentity();
+		return;
+	}
+
+	identityState.loading = true;
+	try {
+		try {
+			await api.shutdownBridge();
+		} catch {
+			// Server may close the connection before the response completes.
+		}
+		identityState.apiOnline = false;
+		identityState.p2pInfo = null;
+		await syncFromLocalDb();
+	} finally {
+		identityState.loading = false;
+	}
+}
+
 export async function startP2pInBackground() {
 	try {
 		identityState.p2pInfo = await api.startP2p(0);

@@ -9,13 +9,14 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use inertia_core::Engine;
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
 #[derive(Clone)]
 struct AppState {
     engine: Arc<Mutex<Engine>>,
+    shutdown: Arc<Notify>,
 }
 
 #[derive(Deserialize)]
@@ -97,10 +98,15 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| PathBuf::from("./data"));
 
     let engine = Arc::new(Mutex::new(Engine::open(&data_dir).await?));
-    let state = AppState { engine };
+    let shutdown = Arc::new(Notify::new());
+    let state = AppState {
+        engine,
+        shutdown: shutdown.clone(),
+    };
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/shutdown", post(shutdown_bridge))
         .route("/identity", get(get_identity).post(init_identity))
         .route("/invite", post(create_invite))
         .route("/invite/preview", post(preview_invite))
@@ -133,8 +139,18 @@ async fn main() -> anyhow::Result<()> {
 
     info!(%addr, "inertia-api listening");
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            shutdown.notified().await;
+            info!("inertia-api shutting down");
+        })
+        .await?;
     Ok(())
+}
+
+async fn shutdown_bridge(State(state): State<AppState>) -> StatusCode {
+    state.shutdown.notify_one();
+    StatusCode::NO_CONTENT
 }
 
 async fn health() -> &'static str {

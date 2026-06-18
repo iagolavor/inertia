@@ -9,8 +9,7 @@
   import PostCard from '$lib/components/PostCard.svelte';
 
   import ProfileHeader from '$lib/components/ProfileHeader.svelte';
-
-  import StatusDot from '$lib/components/StatusDot.svelte';
+  import OnlineStatus from '$lib/components/OnlineStatus.svelte';
 
   import { identityState, refreshIdentity, setIdentity, startP2pInBackground } from '$lib/identity.svelte';
 
@@ -245,19 +244,7 @@
     >
 
       <p class="status-row">
-
-        <StatusDot
-
-          online={identityState.apiOnline}
-
-          loading={identityState.loading}
-
-          size={10}
-
-          showLabel
-
-        />
-
+        <OnlineStatus online={identityState.apiOnline} loading={identityState.loading} />
       </p>
 
       <p class="badge-local">Stored on this device</p>

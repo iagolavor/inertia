@@ -20,8 +20,8 @@ You work on **apps/web**: SvelteKit 5 PWA that talks to the local Rust API via `
 Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chronological feed) without algorithms or engagement UI.
 
 - CSS variables from `app.css` (`--bg`, `--surface`, `--accent`, etc.).
-- Status: `StatusDot` with `online` / `offline` label.
-- Reuse: `Avatar`, `ProfileHeader`, `PostCard`, `ComposePost`, `PhotoGrid`.
+- Status: `OnlineStatus` button (outline) + `StatusDot` on avatar overlay
+- Reuse: `Avatar`, `ProfileHeader`, `OnlineStatus`, `PostCard`, `ComposePost`, `PhotoGrid`.
 
 ## Data access
 

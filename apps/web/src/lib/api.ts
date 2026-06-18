@@ -172,5 +172,6 @@ export const api = {
     request<ProfilePhoto>('/profile/photos', {
       method: 'POST',
       body: JSON.stringify({ data_base64, caption: caption ?? null })
-    })
+    }),
+  shutdownBridge: () => request<void>('/shutdown', { method: 'POST' })
 };
