@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-**A local-first, P2P, ephemeral social network — for your inner circle.**
+**A local-first, P2P, ephemeral social network**
 
 No central accounts. No ads. No algorithms. Your data stays on your device.
 
@@ -17,9 +17,9 @@ No central accounts. No ads. No algorithms. Your data stays on your device.
 
 **Inertia** is a minimalist alternative to traditional social networks: share photos and posts with people you trust, delivered directly between devices when both are online.
 
-Instead of signing up on a server, your phone or computer generates a **cryptographic identity** (Ed25519/X25519 keypair). Your display name is just a local label. You add friends through **signed invites** (link or QR), with a safety code and short expiry.
+Instead of signing up on a server, your phone or computer generates a **cryptographic identity** (Ed25519/X25519 keypair). Your display name is just a local label. You add friends through signed invites (link or QR), with a safety code and short expiry.
 
-The feed is **chronological** and limited to your circle. Posts expire by default after **48 hours**; messages after **7 days**. If you want, you can **keep a local history** and **back up** your feed to continue on another device — always under your control.
+The feed is **chronological** and limited to your connections. Posts expire by default after **48 hours**; messages after **7 days**. If you want, you can keep a local history and **back up** your feed to continue on another device — always under your control.
 
 Further reading:
 
