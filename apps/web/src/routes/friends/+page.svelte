@@ -29,7 +29,7 @@
 </script>
 
 <div class="page-head">
-  <h1 class="page-title">Friends</h1>
+  <h1 class="page-title">Messages</h1>
   <a class="head-action" href="/friends/add" aria-label="Add friend">+</a>
 </div>
 <p class="subtitle">Direct messages with your circle — encrypted and ephemeral.</p>

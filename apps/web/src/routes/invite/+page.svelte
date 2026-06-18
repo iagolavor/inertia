@@ -90,7 +90,7 @@
     <ProfileHeader displayName={accepted.display_name} seed={accepted.signing_pubkey} size={72}>
       <p style="color: var(--muted); margin: 0.35rem 0 0;">They are saved locally on your device. No server was involved.</p>
       <p style="margin: 1rem 0 0;">
-        <a href="/messages">Send a message</a> · <a href="/friends">Back to friends</a>
+        <a href="/messages">Send a message</a> · <a href="/friends">Back to messages</a>
       </p>
     </ProfileHeader>
   </div>

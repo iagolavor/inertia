@@ -22,7 +22,7 @@
       const settings = await api.getSettings();
       enabled = settings.feed_history_enabled;
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Falha ao carregar definições';
+      error = e instanceof Error ? e.message : 'Failed to load settings';
     } finally {
       loading = false;
     }
@@ -40,11 +40,11 @@
       const settings = await api.setFeedHistoryEnabled(!enabled);
       enabled = settings.feed_history_enabled;
       message = enabled
-        ? 'Histórico ativo — novos posts ficam guardados localmente.'
-        : 'Modo efémero — só posts das últimas 48 horas.';
+        ? 'History enabled — new posts are saved locally.'
+        : 'Ephemeral mode — only posts from the last 48 hours.';
       onchanged?.();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Falha ao guardar';
+      error = e instanceof Error ? e.message : 'Failed to save';
     } finally {
       saving = false;
     }
@@ -62,9 +62,9 @@
       anchor.download = `inertia-feed-${new Date().toISOString().slice(0, 10)}.json`;
       anchor.click();
       URL.revokeObjectURL(url);
-      message = `Backup exportado (${backup.items.length} posts).`;
+      message = `Backup exported (${backup.items.length} posts).`;
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Falha ao exportar';
+      error = e instanceof Error ? e.message : 'Failed to export';
     }
   }
 
@@ -86,10 +86,10 @@
       const backup = JSON.parse(text) as FeedBackup;
       const report = await api.restoreFeedBackup(backup);
       enabled = true;
-      message = `Backup restaurado — ${report.items_imported} posts, ${report.blobs_imported} fotos novas.`;
+      message = `Backup restored — ${report.items_imported} posts, ${report.blobs_imported} new photos.`;
       onchanged?.();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Falha ao restaurar backup';
+      error = e instanceof Error ? e.message : 'Failed to restore backup';
     } finally {
       restoring = false;
     }
@@ -98,12 +98,12 @@
 
 <div class="history-panel">
   <p class="muted">
-    Por defeito o feed é efémero (48h). Podes acumular posts localmente e fazer backup para
-    continuar noutro dispositivo.
+    By default the feed is ephemeral (48h). You can accumulate posts locally and back up to
+    continue on another device.
   </p>
 
   {#if loading}
-    <p class="muted">A carregar…</p>
+    <p class="muted">Loading…</p>
   {:else}
     <label class="toggle-row">
       <input
@@ -112,12 +112,12 @@
         disabled={saving || restoring}
         onchange={toggleHistory}
       />
-      <span>Manter histórico do feed neste dispositivo</span>
+      <span>Keep feed history on this device</span>
     </label>
 
     <div class="actions">
       <button class="btn btn-secondary" type="button" onclick={exportBackup} disabled={restoring}>
-        Exportar backup
+        Export backup
       </button>
       <button
         class="btn btn-secondary"
@@ -125,7 +125,7 @@
         onclick={openRestorePicker}
         disabled={restoring}
       >
-        {restoring ? 'A restaurar…' : 'Restaurar backup'}
+        {restoring ? 'Restoring…' : 'Restore backup'}
       </button>
       <input
         bind:this={fileInput}

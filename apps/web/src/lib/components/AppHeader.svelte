@@ -8,13 +8,13 @@
     { href: '/', label: 'Feed', match: (path: string) => path === '/' },
     {
       href: '/friends',
-      label: 'Friends',
+      label: 'Messages',
       match: (path: string) => path.startsWith('/friends')
     },
-    { href: '/profile', label: 'Perfil', match: (path: string) => path.startsWith('/profile') },
+    { href: '/profile', label: 'Profile', match: (path: string) => path.startsWith('/profile') },
     {
       href: '/settings',
-      label: 'Config',
+      label: 'Settings',
       match: (path: string) => path.startsWith('/settings')
     }
   ] as const;

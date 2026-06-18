@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profile header explorations — Inertia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #fff;
+      --text: #111;
+      --muted: #737373;
+      --border: #e5e5e5;
+      --accent: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Archivo', system-ui, sans-serif;
+      background: #eee;
+      color: var(--text);
+      margin: 0;
+      padding: 2rem 1rem 3rem;
+    }
+    h1 { font-size: 1.25rem; margin: 0 0 0.35rem; }
+    .intro { color: var(--muted); font-size: 0.9rem; max-width: 42rem; margin-bottom: 2rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.25rem;
+      max-width: 1100px;
+    }
+    .panel {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .panel-label {
+      padding: 0.65rem 1rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .phone {
+      padding: 1rem 1.15rem 1.25rem;
+      max-width: 360px;
+    }
+    .avatar {
+      width: var(--av, 72px);
+      height: var(--av, 72px);
+      border-radius: 50%;
+      background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+      flex-shrink: 0;
+    }
+    .avatar.sm { --av: 56px; }
+    .avatar.md { --av: 72px; }
+    .avatar.lg { --av: 88px; }
+    .name { margin: 0; font-size: 0.95rem; font-weight: 700; }
+    .name-row { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
+    .edit {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      border: none; background: none; color: var(--muted);
+      font: inherit; font-size: 0.85rem; font-weight: 500; padding: 0; cursor: pointer;
+    }
+    .handle { margin: 0.15rem 0 0; font-size: 0.85rem; color: var(--muted); }
+    .bio { margin: 0.45rem 0 0; font-size: 0.9rem; line-height: 1.45; }
+    .meta { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--muted); }
+    .grid-tab {
+      margin-top: 1rem;
+      padding-top: 0.65rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* A — side-by-side, stats under handle */
+    .v-a { display: flex; align-items: flex-start; gap: 1rem; }
+    .v-a .info { flex: 1; min-width: 0; }
+
+    /* B — stats merged into handle line */
+    .v-b { display: flex; align-items: flex-start; gap: 1rem; }
+    .v-b .handle-line { margin: 0.2rem 0 0; font-size: 0.82rem; color: var(--muted); }
+
+    /* C — compact IG row, left-aligned stats */
+    .v-c-top { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 0.85rem; }
+    .v-c-stats { display: flex; gap: 1.5rem; }
+    .v-c-stats div { display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; }
+    .v-c-stats strong { font-size: 1rem; font-weight: 700; }
+    .v-c-stats span { font-size: 0.75rem; color: var(--muted); }
+
+    /* D — centered stack, no side stats row */
+    .v-d { text-align: left; }
+    .v-d .avatar-row { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 0.5rem; }
+    .v-d .avatar-row .meta { margin: 0; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <h1>Profile header explorations</h1>
+  <p class="intro">
+    Same name / handle / bio block in each variant. Compare how avatar and counts sit above the posts grid tab.
+    <strong>A</strong> is the recommended default (avatar left, inline stats under handle).
+  </p>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-label">A — Side-by-side · stats under handle</div>
+      <div class="phone v-a">
+        <div class="avatar md"></div>
+        <div class="info">
+          <div class="name-row">
+            <h2 class="name">Alex Morgan</h2>
+            <button type="button" class="edit">✎ Edit</button>
+          </div>
+          <p class="handle">@a3f9c2b1</p>
+          <p class="meta">12 posts · 4 connections</p>
+          <p class="bio">Building things that disappear on purpose.</p>
+        </div>
+      </div>
+      <div class="phone"><div class="grid-tab">Posts</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">B — Stats on handle line</div>
+      <div class="phone v-b">
+        <div class="avatar md"></div>
+        <div class="info">
+          <div class="name-row">
+            <h2 class="name">Alex Morgan</h2>
+            <button type="button" class="edit">✎ Edit</button>
+          </div>
+          <p class="handle-line">@a3f9c2b1 · 12 posts · 4 connections</p>
+          <p class="bio">Building things that disappear on purpose.</p>
+        </div>
+      </div>
+      <div class="phone"><div class="grid-tab">Posts</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">C — Compact IG row (left-aligned stats)</div>
+      <div class="phone">
+        <div class="v-c-top">
+          <div class="avatar sm"></div>
+          <div class="v-c-stats">
+            <div><strong>12</strong><span>posts</span></div>
+            <div><strong>4</strong><span>connections</span></div>
+          </div>
+        </div>
+        <div class="name-row">
+          <h2 class="name">Alex Morgan</h2>
+          <button type="button" class="edit">✎ Edit</button>
+        </div>
+        <p class="handle">@a3f9c2b1</p>
+        <p class="bio">Building things that disappear on purpose.</p>
+        <div class="grid-tab">Posts</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">D — Avatar + inline meta (no stat columns)</div>
+      <div class="phone v-d">
+        <div class="avatar-row">
+          <div class="avatar sm"></div>
+          <p class="meta">12 posts · 4 connections</p>
+        </div>
+        <div class="name-row">
+          <h2 class="name">Alex Morgan</h2>
+          <button type="button" class="edit">✎ Edit</button>
+        </div>
+        <p class="handle">@a3f9c2b1</p>
+        <p class="bio">Building things that disappear on purpose.</p>
+        <div class="grid-tab">Posts</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

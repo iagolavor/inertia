@@ -6,3 +6,4 @@ build
 dist
 .env
 *.db
+.p2p-docker-peer.json

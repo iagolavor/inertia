@@ -4,37 +4,37 @@
   import { identityState } from '$lib/identity.svelte';
 </script>
 
-<h1 class="page-title">Configurações</h1>
+<h1 class="page-title">Settings</h1>
 
 <section class="card settings-section">
-  <h2 class="section-title">Aparência</h2>
-  <p class="section-desc">Tema da interface neste dispositivo.</p>
+  <h2 class="section-title">Appearance</h2>
+  <p class="section-desc">Theme for this device.</p>
   <ThemeToggle />
 </section>
 
 {#if identityState.loading}
-  <p class="empty">A carregar…</p>
+  <p class="empty">Loading…</p>
 {:else if !identityState.apiOnline}
   <section class="card settings-section">
-    <h2 class="section-title">Feed e backup</h2>
-    <p class="section-desc muted">Liga o API bridge para gerir histórico e backups.</p>
+    <h2 class="section-title">Feed & backup</h2>
+    <p class="section-desc muted">Start the API bridge to manage feed history and backups.</p>
     <pre class="cmd">cargo run -p inertia-api</pre>
   </section>
 {:else if identityState.identity}
   <section class="card settings-section">
-    <h2 class="section-title">Feed e backup</h2>
+    <h2 class="section-title">Feed & backup</h2>
     <FeedHistoryPanel />
   </section>
 
   <section class="card settings-section">
-    <h2 class="section-title">Identidade</h2>
+    <h2 class="section-title">Identity</h2>
     <p class="section-desc">
-      Chaves criptográficas deste dispositivo. Usa o safety code para confirmar convites.
+      Cryptographic keys for this device. Use the safety code to verify invites.
     </p>
 
     <dl class="identity-list">
       <div class="identity-row">
-        <dt>Nome</dt>
+        <dt>Name</dt>
         <dd>{identityState.identity.display_name}</dd>
       </div>
       <div class="identity-row">
@@ -55,22 +55,22 @@
           {#if identityState.p2pInfo?.peer_id}
             {identityState.p2pInfo.peer_id}
           {:else}
-            <span class="muted">P2P a iniciar…</span>
+            <span class="muted">Starting P2P…</span>
           {/if}
         </dd>
       </div>
     </dl>
 
-    <p class="badge-local">Guardado apenas neste dispositivo</p>
+    <p class="badge-local">Stored on this device only</p>
   </section>
 {:else}
   <section class="card settings-section">
-    <h2 class="section-title">Identidade</h2>
+    <h2 class="section-title">Identity</h2>
     <p class="section-desc muted">
-      Ainda não tens perfil. Cria um no separador Perfil para ver as tuas chaves.
+      No profile yet. Create one on the Profile tab to see your keys.
     </p>
     <p style="margin-top: 0.75rem;">
-      <a class="btn" href="/profile">Ir para o perfil</a>
+      <a class="btn" href="/profile">Go to profile</a>
     </p>
   </section>
 {/if}

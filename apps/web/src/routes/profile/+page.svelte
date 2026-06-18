@@ -158,39 +158,40 @@
     </button>
   </div>
 {:else}
-  <section class="profile-top">
+  <section class="profile-header">
     <div class="avatar-wrap">
       <Avatar
         seed={identityState.identity.signing_pubkey}
         alt={identityState.identity.display_name}
         src={avatarUrl}
-        size={88}
+        size={72}
       />
     </div>
 
-    <div class="profile-stats">
-      <div class="stat">
-        <strong>{photos.length}</strong>
-        <span>posts</span>
+    <div class="profile-info">
+      <div class="name-row">
+        <h1 class="profile-name">{identityState.identity.display_name}</h1>
+        <button type="button" class="btn-edit-plain" onclick={openEdit}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0 0-3L16.5 4.5a2.1 2.1 0 0 0-3 0L3 15v5z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linejoin="round"
+            />
+            <path d="M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.75" />
+          </svg>
+          <span>Edit</span>
+        </button>
       </div>
-      <div class="stat">
-        <strong>{friendCount}</strong>
-        <span>friends</span>
-      </div>
+      <p class="profile-handle">{handle}</p>
+      <p class="profile-meta">{photos.length} posts · {friendCount} connections</p>
+      {#if bio}
+        <p class="profile-bio">{bio}</p>
+      {/if}
     </div>
   </section>
-
-  <section class="profile-info">
-    <h1 class="profile-name">{identityState.identity.display_name}</h1>
-    <p class="profile-handle">{handle}</p>
-    {#if bio}
-      <p class="profile-bio">{bio}</p>
-    {/if}
-  </section>
-
-  <div class="profile-actions">
-    <button type="button" class="btn-edit" onclick={openEdit}>Edit profile</button>
-  </div>
 
   <div class="grid-tabs">
     <div class="grid-tab active" aria-current="page">
@@ -249,11 +250,11 @@
     overflow-x: auto;
   }
 
-  .profile-top {
+  .profile-header {
     display: flex;
-    align-items: center;
-    gap: 2rem;
-    padding: 0.5rem 0 1.25rem;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
   }
 
   .avatar-wrap {
@@ -261,35 +262,16 @@
     line-height: 0;
   }
 
-  .profile-stats {
-    display: flex;
+  .profile-info {
     flex: 1;
-    justify-content: space-around;
-    gap: 1rem;
     min-width: 0;
   }
 
-  .stat {
+  .name-row {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 0.1rem;
-    min-width: 4rem;
-  }
-
-  .stat strong {
-    font-size: 1.15rem;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-
-  .stat span {
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
-
-  .profile-info {
-    margin-bottom: 0.85rem;
+    gap: 0.65rem;
+    flex-wrap: wrap;
   }
 
   .profile-name {
@@ -299,41 +281,47 @@
     line-height: 1.35;
   }
 
+  .btn-edit-plain {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .btn-edit-plain svg {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .btn-edit-plain:hover {
+    color: var(--text);
+  }
+
   .profile-handle {
     margin: 0.15rem 0 0;
     font-size: 0.85rem;
     color: var(--muted);
   }
 
+  .profile-meta {
+    margin: 0.2rem 0 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
   .profile-bio {
-    margin: 0.5rem 0 0;
+    margin: 0.45rem 0 0;
     font-size: 0.9rem;
     line-height: 1.45;
     white-space: pre-wrap;
     word-break: break-word;
-  }
-
-  .profile-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .btn-edit {
-    flex: 1;
-    padding: 0.45rem 1rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .btn-edit:hover {
-    background: color-mix(in srgb, var(--border) 25%, var(--surface));
   }
 
   .grid-tabs {
