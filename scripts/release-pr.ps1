@@ -58,7 +58,7 @@ $changes
 
 ## After merge
 
-On master after pulling: `powershell -ExecutionPolicy Bypass -File scripts/release-tag.ps1 -Version $tag`
+On master after pulling: `./scripts/release-tag.sh $tag`
 "@
 
 Write-Host "Creating release PR: $title"

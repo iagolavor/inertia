@@ -10,7 +10,7 @@ See also [GIT-WORKFLOW.md](./GIT-WORKFLOW.md) for branch rules.
 - Smoke-test locally (`npm run api`, `npm run web`, or your usual checklist).
 - Ensure `development` is ahead of `master`:
 
-```powershell
+```bash
 git fetch origin
 git rev-list --count origin/master..origin/development
 ```
@@ -19,8 +19,8 @@ git rev-list --count origin/master..origin/development
 
 Use the helper script (requires [GitHub CLI](https://cli.github.com/)):
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/release-pr.ps1 -Version 0.2.0
+```bash
+./scripts/release-pr.sh 0.2.0
 ```
 
 This opens a PR:
@@ -34,10 +34,10 @@ Review the generated PR body and edit if anything is missing.
 
 ### Manual alternative
 
-```powershell
-gh pr create --base master --head development `
-  --title "Release v0.2.0" `
-  --label release `
+```bash
+gh pr create --base master --head development \
+  --title "Release v0.2.0" \
+  --label release \
   --body-file path/to/body.md
 ```
 
@@ -50,10 +50,10 @@ gh pr create --base master --head development `
 
 After the release PR is merged:
 
-```powershell
+```bash
 git checkout master
 git pull origin master
-powershell -ExecutionPolicy Bypass -File scripts/release-tag.ps1 -Version 0.2.0
+./scripts/release-tag.sh 0.2.0
 ```
 
 This will:

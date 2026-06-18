@@ -66,8 +66,8 @@ gh pr edit <number> --add-label feature
 
 Release example (prefer the script — see [RELEASE.md](./RELEASE.md)):
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/release-pr.ps1 -Version 0.2.0
+```bash
+./scripts/release-pr.sh 0.2.0
 ```
 
 Manual:
@@ -107,12 +107,12 @@ git push origin development
 
 When `development` is ready for a release:
 
-```powershell
+```bash
 git checkout development
 git pull origin development
-powershell -ExecutionPolicy Bypass -File scripts/release-pr.ps1 -Version 0.2.0
+./scripts/release-pr.sh 0.2.0
 # merge the release PR on GitHub, then on master:
-powershell -ExecutionPolicy Bypass -File scripts/release-tag.ps1 -Version 0.2.0
+./scripts/release-tag.sh 0.2.0
 ```
 
 Full details: [RELEASE.md](./RELEASE.md).
