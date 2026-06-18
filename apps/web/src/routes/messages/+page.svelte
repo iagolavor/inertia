@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { api, type Contact, type InboxEntry } from '$lib/api';
   import Avatar from '$lib/components/Avatar.svelte';
+  import FormattedText from '$lib/components/FormattedText.svelte';
 
   let contacts = $state<Contact[]>([]);
   let inbox = $state<InboxEntry[]>([]);
@@ -99,7 +100,7 @@
           <strong>From {sender?.display_name ?? `${msg.sender_id.slice(0, 12)}...`}</strong>
           <span style="color: var(--muted); font-size: 0.8rem;">{formatTime(msg.received_at)}</span>
         </div>
-        <p style="margin: 0.75rem 0;">{msg.body}</p>
+        <FormattedText text={msg.body} />
         <p style="color: var(--muted); font-size: 0.75rem; margin: 0;">
           Expires: {formatTime(msg.expires_at)}
         </p>

@@ -1,6 +1,11 @@
 <script lang="ts">
   import { api } from '$lib/api';
   import { prepareImageForUpload } from '$lib/image';
+  import {
+    applyInlineFormat,
+    prefixSelectedLines,
+    type InlineFormat
+  } from '$lib/textFormat';
 
   interface Props {
     disabled?: boolean;
@@ -15,8 +20,19 @@
   let posting = $state(false);
   let error = $state('');
   let fileInput = $state<HTMLInputElement | null>(null);
+  let textareaEl = $state<HTMLTextAreaElement | null>(null);
 
   const canSend = $derived(!posting && !disabled && (body.trim().length > 0 || mediaBase64 !== null));
+
+  function applyFormat(format: InlineFormat) {
+    if (!textareaEl || posting || disabled) return;
+    body = applyInlineFormat(textareaEl, format);
+  }
+
+  function applyBulletList() {
+    if (!textareaEl || posting || disabled) return;
+    body = prefixSelectedLines(textareaEl, '- ');
+  }
 
   function onFileSelect(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -78,6 +94,27 @@
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       void publish();
+      return;
+    }
+
+    if (!(e.ctrlKey || e.metaKey) || posting || disabled) return;
+
+    const key = e.key.toLowerCase();
+    if (key === 'b' && !e.shiftKey) {
+      e.preventDefault();
+      applyFormat('bold');
+    } else if (key === 'i' && !e.shiftKey) {
+      e.preventDefault();
+      applyFormat('italic');
+    } else if (key === 'k' && !e.shiftKey) {
+      e.preventDefault();
+      applyFormat('link');
+    } else if (key === 'e' && e.shiftKey) {
+      e.preventDefault();
+      applyFormat('code');
+    } else if (key === 'x' && e.shiftKey) {
+      e.preventDefault();
+      applyFormat('strike');
     }
   }
 </script>
@@ -85,6 +122,7 @@
 <div class="composer" class:disabled>
   <div class="composer-box">
     <textarea
+      bind:this={textareaEl}
       bind:value={body}
       placeholder="Write here"
       rows="2"
@@ -94,56 +132,146 @@
 
     {#if mediaPreview}
       <div class="preview-wrap">
-        <img class="preview" src={mediaPreview} alt="Pré-visualização" />
+        <img class="preview" src={mediaPreview} alt="Preview" />
         <button
           type="button"
           class="remove-media"
           onclick={clearMedia}
           disabled={posting}
-          aria-label="Remover foto"
+          aria-label="Remove photo"
         >
           ×
         </button>
       </div>
     {/if}
 
-    <div class="composer-footer">
-      <button
-        type="button"
-        class="attach-btn"
-        onclick={openFilePicker}
-        disabled={posting || disabled}
-        aria-label="Adicionar foto"
-        title="Adicionar foto"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.75"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
+    <div class="composer-toolbar">
+      <div class="toolbar-start" role="toolbar" aria-label="Text formatting">
+        <button
+          type="button"
+          class="format-btn"
+          disabled={posting || disabled}
+          title="Bold (Ctrl+B)"
+          aria-label="Bold"
+          onclick={() => applyFormat('bold')}
+        >
+          <strong>B</strong>
+        </button>
+        <button
+          type="button"
+          class="format-btn"
+          disabled={posting || disabled}
+          title="Italic (Ctrl+I)"
+          aria-label="Italic"
+          onclick={() => applyFormat('italic')}
+        >
+          <em>I</em>
+        </button>
+        <button
+          type="button"
+          class="format-btn"
+          disabled={posting || disabled}
+          title="Strikethrough (Ctrl+Shift+X)"
+          aria-label="Strikethrough"
+          onclick={() => applyFormat('strike')}
+        >
+          <s>S</s>
+        </button>
+        <button
+          type="button"
+          class="format-btn format-btn-mono"
+          disabled={posting || disabled}
+          title="Code (Ctrl+Shift+E)"
+          aria-label="Code"
+          onclick={() => applyFormat('code')}
+        >
+          &lt;/&gt;
+        </button>
+        <button
+          type="button"
+          class="format-btn"
+          disabled={posting || disabled}
+          title="Link (Ctrl+K)"
+          aria-label="Link"
+          onclick={() => applyFormat('link')}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M10 13a5 5 0 007.54.54l2.5-2.5a5 5 0 00-7.07-7.07l-1.72 1.71"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M14 11a5 5 0 00-7.54-.54l-2.5 2.5a5 5 0 007.07 7.07l1.71-1.71"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+        <span class="format-sep" aria-hidden="true"></span>
+        <button
+          type="button"
+          class="format-btn"
+          disabled={posting || disabled}
+          title="Bullet list"
+          aria-label="Bullet list"
+          onclick={applyBulletList}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="5" cy="7" r="1.5" fill="currentColor" />
+            <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+            <circle cx="5" cy="17" r="1.5" fill="currentColor" />
+            <path
+              d="M9 7h11M9 12h11M9 17h11"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+        <span class="format-sep" aria-hidden="true"></span>
+        <button
+          type="button"
+          class="format-btn attach-btn"
+          onclick={openFilePicker}
+          disabled={posting || disabled}
+          aria-label="Add photo"
+          title="Add photo"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
 
-      <input
-        bind:this={fileInput}
-        type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp,image/*"
-        class="file-input"
-        disabled={posting || disabled}
-        onchange={onFileSelect}
-      />
+        <input
+          bind:this={fileInput}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp,image/*"
+          class="file-input"
+          disabled={posting || disabled}
+          onchange={onFileSelect}
+        />
+      </div>
 
       <button
         type="button"
         class="send-btn"
         onclick={publish}
         disabled={!canSend}
-        aria-label="Publicar"
-        title="Publicar (Ctrl+Enter)"
+        aria-label="Publish"
+        title="Publish (Ctrl+Enter)"
       >
         {#if posting}
           <span class="spinner" aria-hidden="true"></span>
@@ -210,6 +338,80 @@
     color: var(--muted);
   }
 
+  .composer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem 0.35rem;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+  }
+
+  .toolbar-start {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .toolbar-start::-webkit-scrollbar {
+    display: none;
+  }
+
+  .format-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.85rem;
+    height: 1.85rem;
+    padding: 0 0.35rem;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .format-btn strong,
+  .format-btn em,
+  .format-btn s {
+    font: inherit;
+    color: inherit;
+  }
+
+  .format-btn-mono {
+    font-family: ui-monospace, 'Cascadia Code', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .format-btn svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .format-btn:hover:not(:disabled) {
+    color: var(--text);
+    background: color-mix(in srgb, var(--border) 35%, transparent);
+  }
+
+  .format-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .format-sep {
+    width: 1px;
+    height: 1.1rem;
+    margin: 0 0.15rem;
+    background: var(--border);
+  }
+
   .preview-wrap {
     position: relative;
     margin: 0 1rem 0.5rem;
@@ -240,46 +442,23 @@
     cursor: pointer;
   }
 
-  .composer-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.35rem 0.5rem 0.5rem 0.35rem;
-    border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface) 65%, var(--bg));
-  }
-
-  .attach-btn,
-  .send-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    border-radius: 8px;
-    color: var(--muted);
-  }
-
-  .attach-btn {
-    width: 2.25rem;
-    height: 2.25rem;
-  }
-
-  .attach-btn svg {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-
   .attach-btn:hover:not(:disabled) {
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 10%, transparent);
   }
 
   .send-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 8px;
+    color: var(--accent);
     width: 2.35rem;
     height: 2.35rem;
-    color: var(--accent);
   }
 
   .send-btn svg {
@@ -300,6 +479,7 @@
     cursor: not-allowed;
   }
 
+  .format-btn:disabled,
   .attach-btn:disabled {
     opacity: 0.35;
     cursor: not-allowed;

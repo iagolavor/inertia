@@ -1,6 +1,7 @@
 <script lang="ts">
   import { blobUrl, type FeedItem } from '$lib/api';
   import Avatar from './Avatar.svelte';
+  import FormattedText from './FormattedText.svelte';
 
   interface Props {
     post: FeedItem;
@@ -43,7 +44,7 @@
   {/if}
 
   {#if post.body}
-    <p class="post-body">{post.body}</p>
+    <FormattedText text={post.body} class="post-body" />
   {/if}
 </article>
 
@@ -101,11 +102,8 @@
     background: var(--bg);
   }
 
-  .post-body {
-    margin: 0;
+  :global(.post-body) {
     font-size: 0.95rem;
     line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
   }
 </style>
