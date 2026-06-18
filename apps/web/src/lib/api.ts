@@ -1,5 +1,6 @@
 const API_BASE = '/api';
 const REQUEST_TIMEOUT_MS = 8_000;
+const UPLOAD_TIMEOUT_MS = 60_000;
 
 export interface Identity {
   signing_pubkey: string;
@@ -66,6 +67,11 @@ export interface ProfilePhoto {
   created_at: string;
 }
 
+export interface PublishPhotoResult {
+  photo: ProfilePhoto;
+  content_id: string;
+}
+
 export function blobUrl(hash: string): string {
   return `${API_BASE}/blobs/${hash}`;
 }
@@ -80,9 +86,13 @@ export interface OutboxEntry {
   content_type: 'message' | 'post';
 }
 
-async function fetchWithTimeout(path: string, init?: RequestInit): Promise<Response> {
+async function fetchWithTimeout(
+  path: string,
+  init?: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS
+): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     return await fetch(`${API_BASE}${path}`, {
@@ -100,13 +110,20 @@ async function fetchWithTimeout(path: string, init?: RequestInit): Promise<Respo
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetchWithTimeout(path, init);
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS
+): Promise<T> {
+  const res = await fetchWithTimeout(path, init, timeoutMs);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    const message = err.error ?? 'Request failed';
+    const message = err.error ?? res.statusText ?? 'Request failed';
     if (res.status === 409) {
       throw new Error('A profile already exists on this device');
+    }
+    if (res.status === 413) {
+      throw new Error('Imagem demasiado grande para o servidor');
     }
     throw new Error(message);
   }
@@ -163,15 +180,23 @@ export const api = {
     }),
   listFeed: () => request<FeedItem[]>('/feed'),
   createPost: (body: string, media_base64?: string) =>
-    request<{ content_id: string }>('/posts', {
-      method: 'POST',
-      body: JSON.stringify({ body, media_base64: media_base64 ?? null })
-    }),
+    request<{ content_id: string }>(
+      '/posts',
+      {
+        method: 'POST',
+        body: JSON.stringify({ body, media_base64: media_base64 ?? null })
+      },
+      UPLOAD_TIMEOUT_MS
+    ),
   listProfilePhotos: () => request<ProfilePhoto[]>('/profile/photos'),
   uploadProfilePhoto: (data_base64: string, caption?: string) =>
-    request<ProfilePhoto>('/profile/photos', {
-      method: 'POST',
-      body: JSON.stringify({ data_base64, caption: caption ?? null })
-    }),
+    request<PublishPhotoResult>(
+      '/profile/photos',
+      {
+        method: 'POST',
+        body: JSON.stringify({ data_base64, caption: caption ?? null })
+      },
+      UPLOAD_TIMEOUT_MS
+    ),
   shutdownBridge: () => request<void>('/shutdown', { method: 'POST' })
 };

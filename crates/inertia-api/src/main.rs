@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
+use axum::extract::{DefaultBodyLimit, Path, State};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -125,6 +125,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/p2p/friend-request", post(send_friend_request))
         .route("/outbox/retry", post(retry_outbox))
         .route("/expiry/sweep", post(expiry_sweep))
+        .layer(DefaultBodyLimit::max(8 * 1024 * 1024))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -270,6 +271,14 @@ async fn create_post(
 
     let media_ref = if let Some(ref b64) = body.media_base64 {
         let data = base64_decode(b64)?;
+        if data.len() > MAX_BLOB_BYTES {
+            return Err((
+                StatusCode::PAYLOAD_TOO_LARGE,
+                Json(ApiError {
+                    error: format!("image exceeds {} MB limit", MAX_BLOB_BYTES / (1024 * 1024)),
+                }),
+            ));
+        }
         Some(engine.store_blob(&data).await.map_err(api_err)?)
     } else {
         None
@@ -303,15 +312,25 @@ async fn list_profile_photos(
 async fn upload_profile_photo(
     State(state): State<AppState>,
     Json(body): Json<UploadPhotoRequest>,
-) -> Result<Json<inertia_core::ProfilePhoto>, (StatusCode, Json<ApiError>)> {
+) -> Result<Json<inertia_core::PublishPhotoResult>, (StatusCode, Json<ApiError>)> {
     let data = base64_decode(&body.data_base64)?;
+    if data.len() > MAX_BLOB_BYTES {
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            Json(ApiError {
+                error: format!("image exceeds {} MB limit", MAX_BLOB_BYTES / (1024 * 1024)),
+            }),
+        ));
+    }
     let engine = state.engine.lock().await;
     engine
-        .add_profile_photo(&data, body.caption.as_deref())
+        .publish_profile_photo(&data, body.caption.as_deref())
         .await
         .map(Json)
         .map_err(api_err)
 }
+
+const MAX_BLOB_BYTES: usize = 2 * 1024 * 1024;
 
 async fn get_blob(
     State(state): State<AppState>,
@@ -320,10 +339,24 @@ async fn get_blob(
     let engine = state.engine.lock().await;
     let data = engine.read_blob(&hash).await.map_err(api_err)?;
     Ok((
-        [(header::CONTENT_TYPE, "application/octet-stream")],
+        [(header::CONTENT_TYPE, blob_content_type(&data))],
         data,
     )
         .into_response())
+}
+
+fn blob_content_type(data: &[u8]) -> &'static str {
+    if data.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        "image/jpeg"
+    } else if data.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+        "image/png"
+    } else if data.starts_with(b"GIF87a") || data.starts_with(b"GIF89a") {
+        "image/gif"
+    } else if data.len() >= 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+        "image/webp"
+    } else {
+        "application/octet-stream"
+    }
 }
 
 fn base64_decode(input: &str) -> Result<Vec<u8>, (StatusCode, Json<ApiError>)> {

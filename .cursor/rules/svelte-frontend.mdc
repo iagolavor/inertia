@@ -21,7 +21,7 @@ Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chro
 
 - CSS variables from `app.css` (`--bg`, `--surface`, `--accent`, etc.).
 - Status: `OnlineStatus` button (outline) + `StatusDot` on avatar overlay
-- Reuse: `Avatar`, `ProfileHeader`, `OnlineStatus`, `PostCard`, `ComposePost`, `PhotoGrid`.
+- Reuse: `Avatar`, `ProfileHeader`, `OnlineStatus`, `NavDrawer`, `PostComposer`, `PostCard`, `PhotoGrid`.
 
 ## Data access
 

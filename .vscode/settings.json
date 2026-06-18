@@ -1,5 +1,6 @@
 {
   "terminal.integrated.env.windows": {
     "Path": "C:\\Program Files\\nodejs;${env:USERPROFILE}\\.cargo\\bin;${env:Path}"
-  }
+  },
+  "terminal.integrated.tabs.description": "${task}${separator}${local}"
 }

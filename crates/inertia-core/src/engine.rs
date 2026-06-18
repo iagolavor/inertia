@@ -317,7 +317,7 @@ impl Engine {
                 .with_mut(|store| {
                     store.insert_outbox(
                         &OutboxEntry {
-                            content_id: envelope_id.clone(),
+                            content_id: envelope_id,
                             recipient_id: contact.id.clone(),
                             status: DeliveryStatus::Pending,
                             expires_at: contact_envelope.expires_at,
@@ -329,32 +329,10 @@ impl Engine {
                     )
                 })
                 .await?;
-
-            let mut delivered = false;
-            if let (Some(p2p), Some(peer_id_str)) = (&self.p2p, contact.peer_id.as_ref()) {
-                if let Ok(peer_id) = peer_id_str.parse() {
-                    delivered = p2p
-                        .send_envelope_to_peer(peer_id, contact_envelope)
-                        .await
-                        .is_ok();
-                }
-            }
-
-            if !delivered {
-                self.store
-                    .with_mut(|store| {
-                        store.update_outbox_status(
-                            &envelope_id,
-                            &contact.id,
-                            DeliveryStatus::Failed,
-                        )
-                    })
-                    .await?;
-            }
         }
 
         drop(identity);
-        info!(%content_id, recipients = contacts.len(), "post created and queued");
+        info!(%content_id, recipients = contacts.len(), "post saved; outbox pending");
         Ok(content_id)
     }
 
@@ -422,11 +400,29 @@ impl Engine {
         data: &[u8],
         caption: Option<&str>,
     ) -> CoreResult<ProfilePhoto> {
-        let blob_hash = self
-            .store
-            .with_mut(|store| store.store_blob(data))
-            .await?;
+        let blob_hash = self.store_blob(data).await?;
+        self.insert_profile_photo_record(blob_hash, caption).await
+    }
 
+    pub async fn publish_profile_photo(
+        &self,
+        data: &[u8],
+        caption: Option<&str>,
+    ) -> CoreResult<PublishPhotoResult> {
+        let blob_hash = self.store_blob(data).await?;
+        let photo = self
+            .insert_profile_photo_record(blob_hash.clone(), caption)
+            .await?;
+        let body = caption.unwrap_or("");
+        let content_id = self.send_post(body, Some(&blob_hash)).await?;
+        Ok(PublishPhotoResult { photo, content_id })
+    }
+
+    async fn insert_profile_photo_record(
+        &self,
+        blob_hash: String,
+        caption: Option<&str>,
+    ) -> CoreResult<ProfilePhoto> {
         let photos = self
             .store
             .with(|store| store.list_profile_photos())
@@ -545,6 +541,12 @@ impl Engine {
     pub async fn run_expiry_sweep(&self) -> CoreResult<crate::storage::PurgeReport> {
         self.store.with(|store| store.purge_expired()).await
     }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PublishPhotoResult {
+    pub photo: ProfilePhoto,
+    pub content_id: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

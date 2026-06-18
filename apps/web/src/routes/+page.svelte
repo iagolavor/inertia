@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, type FeedItem } from '$lib/api';
-  import ComposePost from '$lib/components/ComposePost.svelte';
+  import PostComposer from '$lib/components/PostComposer.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
   import { identityState } from '$lib/identity.svelte';
 
@@ -39,12 +39,11 @@
     <pre class="cmd">cargo run -p inertia-api</pre>
   </div>
 {:else if identityState.identity}
-  <div class="card">
-    <h2>Feed</h2>
-    <p class="muted feed-hint">
-      Publica para os teus amigos P2P. Posts expiram em 48 horas.
-    </p>
-    <ComposePost onposted={loadFeed} />
+  <div class="card feed-composer">
+    <PostComposer
+      disabled={!identityState.apiOnline}
+      onposted={loadFeed}
+    />
   </div>
 
   <div class="card feed-list">
@@ -85,9 +84,8 @@
     color: var(--muted);
   }
 
-  .feed-hint {
-    margin: 0 0 1rem;
-    font-size: 0.875rem;
+  .feed-composer {
+    padding: 0.85rem;
   }
 
   .feed-list {

@@ -378,7 +378,7 @@ impl Store {
     }
 
     pub fn get_contact(&self, id: &str) -> CoreResult<Contact> {
-        let mut contacts = self.list_contacts()?;
+        let contacts = self.list_contacts()?;
         contacts
             .into_iter()
             .find(|c| c.id == id)

@@ -5,9 +5,8 @@
   import { api, blobUrl, type FeedItem, type ProfilePhoto } from '$lib/api';
 
   import PhotoGrid from '$lib/components/PhotoGrid.svelte';
-
   import PostCard from '$lib/components/PostCard.svelte';
-
+  import PostComposer from '$lib/components/PostComposer.svelte';
   import ProfileHeader from '$lib/components/ProfileHeader.svelte';
   import OnlineStatus from '$lib/components/OnlineStatus.svelte';
 
@@ -24,8 +23,6 @@
   let photos = $state<ProfilePhoto[]>([]);
 
   let ownPosts = $state<FeedItem[]>([]);
-
-  let photoUploading = $state(false);
 
 
 
@@ -117,46 +114,6 @@
 
 
 
-  async function uploadPhoto(file: File) {
-
-    photoUploading = true;
-
-    try {
-
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-
-        const reader = new FileReader();
-
-        reader.onload = () => resolve(reader.result as string);
-
-        reader.onerror = reject;
-
-        reader.readAsDataURL(file);
-
-      });
-
-      const data_base64 = dataUrl.split(',')[1];
-
-      if (!data_base64) return;
-
-      await api.uploadProfilePhoto(data_base64);
-
-      await loadProfileData();
-
-    } catch (e) {
-
-      error = e instanceof Error ? e.message : 'Falha ao carregar foto';
-
-    } finally {
-
-      photoUploading = false;
-
-    }
-
-  }
-
-
-
   const avatarUrl = $derived(
 
     photos.length > 0 ? blobUrl(photos[0].blob_hash) : null
@@ -164,12 +121,6 @@
   );
 
 </script>
-
-
-
-<h1>Profile</h1>
-
-<p class="subtitle">One profile per device, stored in your local database.</p>
 
 
 
@@ -297,7 +248,15 @@
 
   </div>
 
-  <PhotoGrid {photos} onupload={uploadPhoto} uploading={photoUploading} />
+  <div class="profile-composer">
+    <PostComposer
+      disabled={!identityState.apiOnline}
+      placeholder="Publica no teu perfil e feed…"
+      onposted={loadProfileData}
+    />
+  </div>
+
+  <PhotoGrid {photos} />
 
   <div class="card posts-card">
 
@@ -305,7 +264,7 @@
 
     {#if ownPosts.length === 0}
 
-      <p class="muted empty-posts">Ainda sem posts. <a href="/">Publica no feed</a>.</p>
+      <p class="muted empty-posts">Ainda sem posts.</p>
 
     {:else}
 
@@ -455,6 +414,10 @@
 
   .profile-card,
   .posts-card {
+    margin-bottom: 1rem;
+  }
+
+  .profile-composer {
     margin-bottom: 1rem;
   }
 

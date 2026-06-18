@@ -56,14 +56,30 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 
 ## Commands
 
-```bash
-# Frontend
-cd apps/web && npm run dev
+**Recommended — visible API logs in Cursor**
 
-# Backend
+1. `Terminal` → `Run Task…` → **`inertia-api`** — dedicated terminal tab, always shown  
+2. Or run **`dev`** to start API + web in two dedicated tabs  
+
+**Separate OS window (outside Cursor)**
+
+```powershell
+npm run api:window
+```
+
+**Manual**
+
+```bash
+# Terminal 1 — API (keep this tab visible)
 cargo run -p inertia-api
 
-# Checks
-cargo check -p inertia-core -p inertia-api
-cd apps/web && npm run check
+# Terminal 2 — web
+cd apps/web && npm run dev
+```
+
+**If rebuild fails with `Access is denied` on `inertia-api.exe`**, a previous instance is still running:
+
+```powershell
+npm run api:stop
+# then start again via task or: npm run api
 ```

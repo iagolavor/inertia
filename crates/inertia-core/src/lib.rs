@@ -10,7 +10,7 @@ pub mod storage;
 pub mod store_handle;
 
 pub use content::{ContentEnvelope, ContentType, DeliveryStatus, MessagePayload, PostPayload};
-pub use engine::{Engine, InvitePreview, InviteResponse};
+pub use engine::{Engine, InvitePreview, InviteResponse, PublishPhotoResult};
 pub use error::{CoreError, CoreResult};
 pub use identity::{Identity, MESSAGE_TTL_SECS, POST_TTL_SECS};
 pub use invite::{FriendInvite, INVITE_TTL_SECS};

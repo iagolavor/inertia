@@ -1,0 +1,11 @@
+{
+  "name": "inertia",
+  "private": true,
+  "scripts": {
+    "api": "cargo run -p inertia-api",
+    "api:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-api.ps1",
+    "api:restart": "powershell -ExecutionPolicy Bypass -File scripts/stop-api.ps1; cargo run -p inertia-api",
+    "api:window": "powershell -ExecutionPolicy Bypass -File scripts/start-api-window.ps1",
+    "web": "npm run dev --prefix apps/web"
+  }
+}

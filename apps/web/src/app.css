@@ -74,6 +74,7 @@ textarea {
   max-width: 720px;
   margin: 0 auto;
   padding: 1.5rem;
+  padding-top: 4rem;
 }
 
 .card {
@@ -145,23 +146,6 @@ textarea {
 .badge-pending { background: var(--badge-pending-bg); color: var(--warning); }
 .badge-failed { background: var(--badge-failed-bg); color: var(--danger); }
 .badge-delivered { background: var(--badge-success-bg); color: var(--success); }
-
-nav {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
-
-nav a {
-  color: var(--muted);
-  font-weight: 500;
-}
-
-nav a.active {
-  color: var(--accent);
-}
 
 h1 {
   font-size: 1.75rem;
