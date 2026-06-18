@@ -18,7 +18,8 @@
     return `há ${Math.floor(hours / 24)}d`;
   }
 
-  function timeLeft(iso: string): string {
+  function timeLeft(iso: string, archived: boolean): string {
+    if (archived) return 'guardado';
     const diff = new Date(iso).getTime() - Date.now();
     if (diff <= 0) return 'a expirar';
     const hours = Math.floor(diff / 3_600_000);
@@ -33,7 +34,7 @@
     <div class="post-meta">
       <span class="author">{post.author_name}</span>
       {#if post.is_own}<span class="own-badge">tu</span>{/if}
-      <span class="time">{timeAgo(post.created_at)} · {timeLeft(post.expires_at)}</span>
+      <span class="time">{timeAgo(post.created_at)} · {timeLeft(post.expires_at, post.is_archived)}</span>
     </div>
   </header>
 

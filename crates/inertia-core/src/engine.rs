@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,7 +13,10 @@ use crate::expiry::ExpiryScheduler;
 use crate::identity::Identity;
 use crate::invite::FriendInvite;
 use crate::p2p::{build_message_envelope, build_post_envelope, P2pEvent, P2pNode};
-use crate::storage::{ConnectionState, Contact, FeedItem, LocalPost, OutboxEntry, ProfilePhoto};
+use crate::storage::{
+    AppSettings, ArchivedFeedItem, ConnectionState, Contact, FeedBackup, FeedItem,
+    FeedRestoreReport, LocalPost, OutboxEntry, ProfilePhoto,
+};
 use crate::store_handle::StoreHandle;
 
 /// High-level facade over storage, identity, expiry, and P2P networking.
@@ -289,6 +293,8 @@ impl Engine {
         if identity.display_name.is_empty() {
             return Err(CoreError::IdentityNotInitialized);
         }
+        let display_name = identity.display_name.clone();
+        let signing_pubkey = identity.signing_pubkey.clone();
 
         let contacts = self.store.with(|store| store.list_contacts()).await?;
         let content_id = uuid::Uuid::new_v4().to_string();
@@ -305,6 +311,19 @@ impl Engine {
 
         self.store
             .with_mut(|store| store.insert_local_post(&local_post))
+            .await?;
+
+        let archive_item = ArchivedFeedItem {
+            content_id: content_id.clone(),
+            author_id: signing_pubkey.clone(),
+            author_name: display_name.clone(),
+            body: body.to_string(),
+            media_ref: media_ref.map(|s| s.to_string()),
+            created_at: now,
+            is_own: true,
+        };
+        self.store
+            .with_mut(|store| store.try_archive_feed_item(&archive_item))
             .await?;
 
         for contact in &contacts {
@@ -337,6 +356,35 @@ impl Engine {
     }
 
     pub async fn list_feed(&self) -> CoreResult<Vec<FeedItem>> {
+        let settings = self.store.with(|store| store.get_settings()).await?;
+        let ephemeral = self.collect_ephemeral_feed_items().await?;
+
+        let mut items = if settings.feed_history_enabled {
+            let archived = self
+                .store
+                .with(|store| store.list_feed_archive())
+                .await?
+                .into_iter()
+                .map(|item| item.to_feed_item())
+                .collect::<Vec<_>>();
+            let archived_ids: HashSet<String> =
+                archived.iter().map(|item| item.content_id.clone()).collect();
+            let mut merged = archived;
+            for item in ephemeral {
+                if !archived_ids.contains(&item.content_id) {
+                    merged.push(item);
+                }
+            }
+            merged
+        } else {
+            ephemeral
+        };
+
+        items.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(items)
+    }
+
+    async fn collect_ephemeral_feed_items(&self) -> CoreResult<Vec<FeedItem>> {
         let identity = self.identity.read().await;
         let display_name = identity.display_name.clone();
         let signing_pubkey = identity.signing_pubkey.clone();
@@ -345,7 +393,12 @@ impl Engine {
         let contacts = self.store.with(|store| store.list_contacts()).await?;
         let contact_names: std::collections::HashMap<String, String> = contacts
             .iter()
-            .map(|c| (c.id.clone(), c.display_name.clone()))
+            .flat_map(|c| {
+                [
+                    (c.id.clone(), c.display_name.clone()),
+                    (c.signing_pubkey.clone(), c.display_name.clone()),
+                ]
+            })
             .collect();
 
         let local_posts = self
@@ -368,6 +421,7 @@ impl Engine {
                 created_at: p.created_at,
                 expires_at: p.expires_at,
                 is_own: true,
+                is_archived: false,
             })
             .collect();
 
@@ -384,11 +438,48 @@ impl Engine {
                 created_at: entry.received_at,
                 expires_at: entry.expires_at,
                 is_own: false,
+                is_archived: false,
             });
         }
 
-        items.sort_by(|a, b| b.created_at.cmp(&a.created_at));
         Ok(items)
+    }
+
+    pub async fn get_settings(&self) -> CoreResult<AppSettings> {
+        self.store.with(|store| store.get_settings()).await
+    }
+
+    pub async fn set_feed_history_enabled(&self, enabled: bool) -> CoreResult<AppSettings> {
+        self.store
+            .with_mut(|store| store.set_feed_history_enabled(enabled))
+            .await?;
+
+        if enabled {
+            let ephemeral = self.collect_ephemeral_feed_items().await?;
+            for item in ephemeral {
+                let archived = ArchivedFeedItem::from(&item);
+                self.store
+                    .with_mut(|store| store.upsert_feed_archive(&archived))
+                    .await?;
+            }
+        }
+
+        self.get_settings().await
+    }
+
+    pub async fn export_feed_backup(&self) -> CoreResult<FeedBackup> {
+        self.store.with(|store| store.export_feed_backup()).await
+    }
+
+    pub async fn import_feed_backup(&self, backup: FeedBackup) -> CoreResult<FeedRestoreReport> {
+        let report = self
+            .store
+            .with_mut(|store| store.import_feed_backup(&backup))
+            .await?;
+        if !self.get_settings().await?.feed_history_enabled {
+            self.set_feed_history_enabled(true).await?;
+        }
+        Ok(report)
     }
 
     pub async fn list_profile_photos(&self) -> CoreResult<Vec<ProfilePhoto>> {

@@ -461,6 +461,33 @@ async fn process_incoming_envelope(
         })
         .await?;
 
+    if envelope.content_type == ContentType::Post {
+        let author_name = store
+            .with(|s| s.list_contacts())
+            .await
+            .ok()
+            .and_then(|contacts| {
+                contacts
+                    .into_iter()
+                    .find(|c| c.id == sender_id || c.signing_pubkey == sender_id)
+                    .map(|c| c.display_name)
+            })
+            .unwrap_or_else(|| "Friend".to_string());
+
+        let archive_item = crate::storage::ArchivedFeedItem {
+            content_id: envelope.id.clone(),
+            author_id: sender_id.clone(),
+            author_name,
+            body: body.clone(),
+            media_ref: media_ref.clone(),
+            created_at: envelope.created_at,
+            is_own: false,
+        };
+        let _ = store
+            .with_mut(|s| s.try_archive_feed_item(&archive_item))
+            .await;
+    }
+
     let _ = event_tx.send(P2pEvent::MessageReceived { sender_id, body });
     Ok(())
 }

@@ -16,6 +16,6 @@ pub use identity::{Identity, MESSAGE_TTL_SECS, POST_TTL_SECS};
 pub use invite::{FriendInvite, INVITE_TTL_SECS};
 pub use p2p::{FriendAccept, FriendRequest, P2pEvent, P2pNode};
 pub use storage::{
-    ConnectionState, Contact, FeedItem, InboxEntry, LocalPost, OutboxEntry, ProfilePhoto,
-    PurgeReport, Store,
+    AppSettings, ArchivedFeedItem, ConnectionState, Contact, FeedBackup, FeedItem, FeedRestoreReport,
+    InboxEntry, LocalPost, OutboxEntry, ProfilePhoto, PurgeReport, Store,
 };

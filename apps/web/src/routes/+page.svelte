@@ -27,7 +27,7 @@
   });
 </script>
 
-<h1>Inertia</h1>
+<h1 class="page-title">Feed</h1>
 <p class="subtitle">Ephemeral P2P social — zero tracking, zero ads, your circle only.</p>
 
 {#if identityState.loading}
@@ -73,13 +73,20 @@
   <h3>How it works</h3>
   <ul class="muted list">
     <li>Invite links expire in 15 minutes and work only once</li>
-    <li>Messages expire after 7 days; posts after 48 hours</li>
+    <li>Posts no feed expiram após 48 horas — ou acumula em <a href="/settings">Configurações</a></li>
     <li>Delivery is direct P2P when both of you are online</li>
     <li>No ads, no algorithms, no doomscrolling</li>
   </ul>
 </div>
 
 <style>
+  .page-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
   .muted {
     color: var(--muted);
   }

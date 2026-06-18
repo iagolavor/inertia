@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -80,6 +82,76 @@ pub struct FeedItem {
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub is_own: bool,
+    pub is_archived: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppSettings {
+    pub feed_history_enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchivedFeedItem {
+    pub content_id: String,
+    pub author_id: String,
+    pub author_name: String,
+    pub body: String,
+    pub media_ref: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub is_own: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeedBackup {
+    pub version: u32,
+    pub exported_at: DateTime<Utc>,
+    pub items: Vec<ArchivedFeedItem>,
+    pub blobs: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeedRestoreReport {
+    pub items_imported: usize,
+    pub blobs_imported: usize,
+}
+
+const FEED_HISTORY_KEY: &str = "feed_history_enabled";
+const ARCHIVED_EXPIRES_AT: &str = "2099-01-01T00:00:00+00:00";
+
+fn archived_expires_at() -> DateTime<Utc> {
+    DateTime::parse_from_rfc3339(ARCHIVED_EXPIRES_AT)
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(|_| Utc::now() + chrono::Duration::days(365 * 10))
+}
+
+impl ArchivedFeedItem {
+    pub fn to_feed_item(&self) -> FeedItem {
+        FeedItem {
+            content_id: self.content_id.clone(),
+            author_id: self.author_id.clone(),
+            author_name: self.author_name.clone(),
+            body: self.body.clone(),
+            media_ref: self.media_ref.clone(),
+            created_at: self.created_at,
+            expires_at: archived_expires_at(),
+            is_own: self.is_own,
+            is_archived: true,
+        }
+    }
+}
+
+impl From<&FeedItem> for ArchivedFeedItem {
+    fn from(item: &FeedItem) -> Self {
+        Self {
+            content_id: item.content_id.clone(),
+            author_id: item.author_id.clone(),
+            author_name: item.author_name.clone(),
+            body: item.body.clone(),
+            media_ref: item.media_ref.clone(),
+            created_at: item.created_at,
+            is_own: item.is_own,
+        }
+    }
 }
 
 fn status_str(status: DeliveryStatus) -> &'static str {
@@ -230,6 +302,29 @@ impl Store {
         )?;
         self.ensure_identity_key_columns()?;
         self.ensure_inbox_media_ref_column()?;
+        self.ensure_feed_archive_tables()?;
+        Ok(())
+    }
+
+    fn ensure_feed_archive_tables(&self) -> CoreResult<()> {
+        self.conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS feed_archive (
+                content_id TEXT PRIMARY KEY,
+                author_id TEXT NOT NULL,
+                author_name TEXT NOT NULL,
+                body TEXT NOT NULL,
+                media_ref TEXT,
+                created_at TEXT NOT NULL,
+                is_own INTEGER NOT NULL DEFAULT 0
+            );
+            ",
+        )?;
         Ok(())
     }
 
@@ -643,6 +738,141 @@ impl Store {
             return Err(CoreError::ContentNotFound(hash.to_string()));
         }
         Ok(std::fs::read(&path)?)
+    }
+
+    pub fn get_settings(&self) -> CoreResult<AppSettings> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM app_settings WHERE key = ?1")?;
+        let mut rows = stmt.query(params![FEED_HISTORY_KEY])?;
+        let enabled = if let Some(row) = rows.next()? {
+            row.get::<_, String>("value")? == "true"
+        } else {
+            false
+        };
+        Ok(AppSettings {
+            feed_history_enabled: enabled,
+        })
+    }
+
+    pub fn set_feed_history_enabled(&self, enabled: bool) -> CoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![FEED_HISTORY_KEY, if enabled { "true" } else { "false" }],
+        )?;
+        Ok(())
+    }
+
+    pub fn upsert_feed_archive(&self, item: &ArchivedFeedItem) -> CoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO feed_archive
+             (content_id, author_id, author_name, body, media_ref, created_at, is_own)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(content_id) DO UPDATE SET
+               author_id = excluded.author_id,
+               author_name = excluded.author_name,
+               body = excluded.body,
+               media_ref = excluded.media_ref,
+               created_at = excluded.created_at,
+               is_own = excluded.is_own",
+            params![
+                item.content_id,
+                item.author_id,
+                item.author_name,
+                item.body,
+                item.media_ref,
+                item.created_at.to_rfc3339(),
+                item.is_own as i32,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn try_archive_feed_item(&self, item: &ArchivedFeedItem) -> CoreResult<()> {
+        if self.get_settings()?.feed_history_enabled {
+            self.upsert_feed_archive(item)?;
+        }
+        Ok(())
+    }
+
+    pub fn list_feed_archive(&self) -> CoreResult<Vec<ArchivedFeedItem>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT content_id, author_id, author_name, body, media_ref, created_at, is_own
+             FROM feed_archive ORDER BY created_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(ArchivedFeedItem {
+                content_id: row.get("content_id")?,
+                author_id: row.get("author_id")?,
+                author_name: row.get("author_name")?,
+                body: row.get("body")?,
+                media_ref: row.get("media_ref")?,
+                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                is_own: row.get::<_, i32>("is_own")? != 0,
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(CoreError::from)
+    }
+
+    pub fn export_feed_backup(&self) -> CoreResult<FeedBackup> {
+        let items = self.list_feed_archive()?;
+        let mut blobs = HashMap::new();
+        for item in &items {
+            if let Some(ref hash) = item.media_ref {
+                if blobs.contains_key(hash) {
+                    continue;
+                }
+                if let Ok(data) = self.read_blob(hash) {
+                    blobs.insert(hash.clone(), BASE64.encode(data));
+                }
+            }
+        }
+        Ok(FeedBackup {
+            version: 1,
+            exported_at: Utc::now(),
+            items,
+            blobs,
+        })
+    }
+
+    pub fn import_feed_backup(&self, backup: &FeedBackup) -> CoreResult<FeedRestoreReport> {
+        if backup.version != 1 {
+            return Err(CoreError::Invite("unsupported backup version".into()));
+        }
+
+        let mut blobs_imported = 0usize;
+        for (hash, b64) in &backup.blobs {
+            let path = self.blob_path(hash);
+            if path.exists() {
+                continue;
+            }
+            let data = BASE64.decode(b64).map_err(|e| CoreError::Crypto(e.to_string()))?;
+            std::fs::write(&path, data)?;
+            blobs_imported += 1;
+        }
+
+        let mut items_imported = 0usize;
+        for item in &backup.items {
+            let existed = self.conn.query_row(
+                "SELECT 1 FROM feed_archive WHERE content_id = ?1",
+                params![item.content_id],
+                |_| Ok(()),
+            );
+            if existed.is_ok() {
+                continue;
+            }
+            self.upsert_feed_archive(item)?;
+            items_imported += 1;
+        }
+
+        Ok(FeedRestoreReport {
+            items_imported,
+            blobs_imported,
+        })
     }
 
     pub fn purge_expired(&self) -> CoreResult<PurgeReport> {

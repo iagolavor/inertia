@@ -57,6 +57,31 @@ export interface FeedItem {
   created_at: string;
   expires_at: string;
   is_own: boolean;
+  is_archived: boolean;
+}
+
+export interface AppSettings {
+  feed_history_enabled: boolean;
+}
+
+export interface FeedBackup {
+  version: number;
+  exported_at: string;
+  items: Array<{
+    content_id: string;
+    author_id: string;
+    author_name: string;
+    body: string;
+    media_ref: string | null;
+    created_at: string;
+    is_own: boolean;
+  }>;
+  blobs: Record<string, string>;
+}
+
+export interface FeedRestoreReport {
+  items_imported: number;
+  blobs_imported: number;
 }
 
 export interface ProfilePhoto {
@@ -179,6 +204,22 @@ export const api = {
       body: JSON.stringify({ content_id, recipient_id })
     }),
   listFeed: () => request<FeedItem[]>('/feed'),
+  getSettings: () => request<AppSettings>('/settings'),
+  setFeedHistoryEnabled: (feed_history_enabled: boolean) =>
+    request<AppSettings>('/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ feed_history_enabled })
+    }),
+  exportFeedBackup: () => request<FeedBackup>('/feed/backup'),
+  restoreFeedBackup: (backup: FeedBackup) =>
+    request<FeedRestoreReport>(
+      '/feed/restore',
+      {
+        method: 'POST',
+        body: JSON.stringify(backup)
+      },
+      UPLOAD_TIMEOUT_MS
+    ),
   createPost: (body: string, media_base64?: string) =>
     request<{ content_id: string }>(
       '/posts',

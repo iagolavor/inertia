@@ -82,6 +82,11 @@ struct UploadPhotoRequest {
     caption: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct UpdateSettingsRequest {
+    feed_history_enabled: bool,
+}
+
 #[derive(Serialize)]
 struct ApiError {
     error: String,
@@ -117,6 +122,12 @@ async fn main() -> anyhow::Result<()> {
         .route("/messages", post(send_message))
         .route("/posts", post(create_post))
         .route("/feed", get(list_feed))
+        .route("/feed/backup", get(export_feed_backup))
+        .route(
+            "/feed/restore",
+            post(restore_feed_backup).layer(DefaultBodyLimit::max(128 * 1024 * 1024)),
+        )
+        .route("/settings", get(get_settings).patch(update_settings))
         .route("/profile/photos", get(list_profile_photos).post(upload_profile_photo))
         .route("/blobs/:hash", get(get_blob))
         .route("/p2p/start", post(start_p2p))
@@ -296,6 +307,44 @@ async fn list_feed(
 ) -> Result<Json<Vec<inertia_core::FeedItem>>, (StatusCode, Json<ApiError>)> {
     let engine = state.engine.lock().await;
     engine.list_feed().await.map(Json).map_err(api_err)
+}
+
+async fn get_settings(
+    State(state): State<AppState>,
+) -> Result<Json<inertia_core::AppSettings>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine.get_settings().await.map(Json).map_err(api_err)
+}
+
+async fn update_settings(
+    State(state): State<AppState>,
+    Json(body): Json<UpdateSettingsRequest>,
+) -> Result<Json<inertia_core::AppSettings>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .set_feed_history_enabled(body.feed_history_enabled)
+        .await
+        .map(Json)
+        .map_err(api_err)
+}
+
+async fn export_feed_backup(
+    State(state): State<AppState>,
+) -> Result<Json<inertia_core::FeedBackup>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine.export_feed_backup().await.map(Json).map_err(api_err)
+}
+
+async fn restore_feed_backup(
+    State(state): State<AppState>,
+    Json(body): Json<inertia_core::FeedBackup>,
+) -> Result<Json<inertia_core::FeedRestoreReport>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .import_feed_backup(body)
+        .await
+        .map(Json)
+        .map_err(api_err)
 }
 
 async fn list_profile_photos(

@@ -4,13 +4,12 @@
   import { onMount } from 'svelte';
   import { afterNavigate } from '$app/navigation';
 
-  import NavDrawer from '$lib/components/NavDrawer.svelte';
+  import AppHeader from '$lib/components/AppHeader.svelte';
   import { refreshIdentity } from '$lib/identity.svelte';
   import { initTheme } from '$lib/theme.svelte';
 
   let { children } = $props();
 
-  let drawerOpen = $state(false);
   let navigated = false;
 
   onMount(() => {
@@ -19,8 +18,6 @@
   });
 
   afterNavigate(() => {
-    drawerOpen = false;
-
     if (!navigated) {
       navigated = true;
       return;
@@ -30,7 +27,7 @@
   });
 </script>
 
-<NavDrawer bind:open={drawerOpen} />
+<AppHeader />
 
 <main class="container">
   {@render children()}
