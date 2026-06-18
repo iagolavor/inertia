@@ -278,7 +278,7 @@ impl Engine {
 
     pub async fn start_p2p(&self, listen_port: u16) -> CoreResult<String> {
         let listen_port = if listen_port == 0 {
-            p2p_listen_port_from_env()
+            self.resolve_listen_port().await
         } else {
             listen_port
         };
@@ -314,11 +314,7 @@ impl Engine {
 
     /// Dial configured relay (if any) and stored contact addresses after P2P starts.
     pub async fn redial_known_peers(&self) -> CoreResult<()> {
-        if let Some(relay) = std::env::var("INERTIA_RELAY")
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-        {
+        if let Some(relay) = self.effective_relay().await {
             match self.dial_peer(&relay).await {
                 Ok(()) => info!("dialed configured relay"),
                 Err(e) => warn!(error = %e, "failed to dial relay"),
@@ -385,15 +381,30 @@ impl Engine {
         }
     }
 
-    /// Addresses embedded in invites — uses `INERTIA_P2P_ANNOUNCE` when set.
+    /// Addresses embedded in invites — uses settings or `INERTIA_P2P_ANNOUNCE` when set.
     pub async fn p2p_invite_addresses(&self, peer_id: Option<&str>) -> Vec<String> {
         if let Some(pid) = peer_id {
-            let announced = announced_p2p_multiaddrs(pid);
+            let announce = self
+                .store
+                .with(|s| s.get_settings())
+                .await
+                .ok()
+                .and_then(|s| s.p2p_announce);
+            let announced = announced_p2p_multiaddrs(pid, announce.as_deref());
             if !announced.is_empty() {
                 return announced;
             }
         }
         self.p2p_listen_addresses().await.unwrap_or_default()
+    }
+
+    pub async fn connection_share_multiaddr(&self) -> CoreResult<Option<String>> {
+        let peer_id = self.peer_id().await;
+        let Some(peer_id) = peer_id else {
+            return Ok(None);
+        };
+        let addresses = self.p2p_invite_addresses(Some(&peer_id)).await;
+        Ok(addresses.into_iter().next())
     }
 
     pub async fn dial_peer(&self, multiaddr: &str) -> CoreResult<()> {
@@ -702,6 +713,54 @@ impl Engine {
         self.get_settings().await
     }
 
+    pub async fn update_settings(
+        &self,
+        feed_history_enabled: Option<bool>,
+        p2p_listen_port: Option<u16>,
+        relay_multiaddr: Option<Option<String>>,
+        p2p_announce: Option<Option<String>>,
+    ) -> CoreResult<AppSettings> {
+        if let Some(enabled) = feed_history_enabled {
+            self.set_feed_history_enabled(enabled).await?;
+        }
+
+        self.store
+            .with_mut(|store| {
+                store.update_connection_settings(
+                    p2p_listen_port,
+                    relay_multiaddr,
+                    p2p_announce,
+                )?;
+                store.get_settings()
+            })
+            .await
+    }
+
+    async fn resolve_listen_port(&self) -> u16 {
+        if let Some(port) = p2p_listen_port_from_env() {
+            return port;
+        }
+        self.store
+            .with(|s| s.get_settings())
+            .await
+            .map(|s| s.p2p_listen_port)
+            .unwrap_or(DEFAULT_P2P_LISTEN_PORT)
+    }
+
+    async fn effective_relay(&self) -> Option<String> {
+        if let Ok(raw) = std::env::var("INERTIA_RELAY") {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+        self.store
+            .with(|s| s.get_settings())
+            .await
+            .ok()
+            .and_then(|s| s.relay_multiaddr)
+    }
+
     pub async fn export_feed_backup(&self) -> CoreResult<FeedBackup> {
         self.store.with(|store| store.export_feed_backup()).await
     }
@@ -851,15 +910,14 @@ impl Engine {
 }
 
 pub fn default_p2p_listen_port() -> u16 {
-    p2p_listen_port_from_env()
+    p2p_listen_port_from_env().unwrap_or(DEFAULT_P2P_LISTEN_PORT)
 }
 
-fn p2p_listen_port_from_env() -> u16 {
+fn p2p_listen_port_from_env() -> Option<u16> {
     std::env::var("INERTIA_P2P_LISTEN_PORT")
         .ok()
         .and_then(|s| s.parse().ok())
         .filter(|&port| port > 0)
-        .unwrap_or(DEFAULT_P2P_LISTEN_PORT)
 }
 
 async fn run_p2p_event_loop(
@@ -968,9 +1026,13 @@ async fn deliver_outbox_entry(
     }
 }
 
-/// Comma-separated multiaddrs from `INERTIA_P2P_ANNOUNCE`, with `/p2p/<peer_id>` appended when missing.
-fn announced_p2p_multiaddrs(peer_id: &str) -> Vec<String> {
-    let Some(raw) = std::env::var("INERTIA_P2P_ANNOUNCE").ok() else {
+/// Comma-separated multiaddrs from settings or `INERTIA_P2P_ANNOUNCE`, with `/p2p/<peer_id>` appended when missing.
+fn announced_p2p_multiaddrs(peer_id: &str, announce: Option<&str>) -> Vec<String> {
+    let Some(raw) = announce
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| std::env::var("INERTIA_P2P_ANNOUNCE").ok())
+    else {
         return Vec::new();
     };
     raw.split(',')

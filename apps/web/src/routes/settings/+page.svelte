@@ -1,5 +1,6 @@
 <script lang="ts">
   import FeedHistoryPanel from '$lib/components/FeedHistoryPanel.svelte';
+  import ConnectionSettingsPanel from '$lib/components/ConnectionSettingsPanel.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   import { identityState } from '$lib/identity.svelte';
 </script>
@@ -25,6 +26,8 @@
     <h2 class="section-title">Feed & backup</h2>
     <FeedHistoryPanel />
   </section>
+
+  <ConnectionSettingsPanel />
 
   <section class="card settings-section">
     <h2 class="section-title">Identity</h2>
@@ -55,7 +58,7 @@
           {#if identityState.p2pInfo?.peer_id}
             {identityState.p2pInfo.peer_id}
           {:else}
-            <span class="muted">Starting P2P…</span>
+            <span class="muted">P2P not running</span>
           {/if}
         </dd>
       </div>

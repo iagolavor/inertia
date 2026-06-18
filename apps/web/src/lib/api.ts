@@ -81,6 +81,9 @@ export interface PostComment {
 
 export interface AppSettings {
   feed_history_enabled: boolean;
+  p2p_listen_port: number;
+  relay_multiaddr: string | null;
+  p2p_announce: string | null;
 }
 
 export interface FeedBackup {
@@ -239,11 +242,22 @@ export const api = {
       body: JSON.stringify({ body })
     }),
   getSettings: () => request<AppSettings>('/settings'),
+  updateSettings: (settings: {
+    feed_history_enabled?: boolean;
+    p2p_listen_port?: number;
+    relay_multiaddr?: string;
+    p2p_announce?: string;
+  }) =>
+    request<AppSettings>('/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(settings)
+    }),
   setFeedHistoryEnabled: (feed_history_enabled: boolean) =>
     request<AppSettings>('/settings', {
       method: 'PATCH',
       body: JSON.stringify({ feed_history_enabled })
     }),
+  p2pShareAddress: () => request<{ multiaddr: string | null }>('/p2p/share-address'),
   exportFeedBackup: () => request<FeedBackup>('/feed/backup'),
   restoreFeedBackup: (backup: FeedBackup) =>
     request<FeedRestoreReport>(

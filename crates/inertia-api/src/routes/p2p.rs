@@ -12,6 +12,7 @@ pub fn routes() -> Router<AppState> {
         .route("/p2p/start", post(start_p2p))
         .route("/p2p/addresses", get(p2p_addresses))
         .route("/p2p/status", get(p2p_status))
+        .route("/p2p/share-address", get(p2p_share_address))
         .route("/p2p/dial", post(dial_peer))
         .route("/p2p/friend-request", post(send_friend_request))
 }
@@ -51,6 +52,14 @@ async fn p2p_status(
 ) -> Result<Json<inertia_core::P2pStatus>, (StatusCode, Json<ApiError>)> {
     let engine = state.engine.lock().await;
     Ok(Json(engine.p2p_status().await))
+}
+
+async fn p2p_share_address(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    let multiaddr = engine.connection_share_multiaddr().await.map_err(api_err)?;
+    Ok(Json(serde_json::json!({ "multiaddr": multiaddr })))
 }
 
 async fn dial_peer(

@@ -102,6 +102,9 @@ pub struct FeedItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub feed_history_enabled: bool,
+    pub p2p_listen_port: u16,
+    pub relay_multiaddr: Option<String>,
+    pub p2p_announce: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -130,6 +133,9 @@ pub struct FeedRestoreReport {
 }
 
 const FEED_HISTORY_KEY: &str = "feed_history_enabled";
+const P2P_LISTEN_PORT_KEY: &str = "p2p_listen_port";
+const RELAY_MULTIADDR_KEY: &str = "relay_multiaddr";
+const P2P_ANNOUNCE_KEY: &str = "p2p_announce";
 const ARCHIVED_EXPIRES_AT: &str = "2099-01-01T00:00:00+00:00";
 
 fn archived_expires_at() -> DateTime<Utc> {
@@ -966,26 +972,82 @@ impl Store {
     }
 
     pub fn get_settings(&self) -> CoreResult<AppSettings> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT value FROM app_settings WHERE key = ?1")?;
-        let mut rows = stmt.query(params![FEED_HISTORY_KEY])?;
-        let enabled = if let Some(row) = rows.next()? {
-            row.get::<_, String>("value")? == "true"
-        } else {
-            false
-        };
         Ok(AppSettings {
-            feed_history_enabled: enabled,
+            feed_history_enabled: self.get_bool_setting(FEED_HISTORY_KEY)?.unwrap_or(false),
+            p2p_listen_port: self
+                .get_string_setting(P2P_LISTEN_PORT_KEY)?
+                .and_then(|s| s.parse().ok())
+                .filter(|&port| port > 0)
+                .unwrap_or(4784),
+            relay_multiaddr: self
+                .get_string_setting(RELAY_MULTIADDR_KEY)?
+                .filter(|s| !s.trim().is_empty()),
+            p2p_announce: self
+                .get_string_setting(P2P_ANNOUNCE_KEY)?
+                .filter(|s| !s.trim().is_empty()),
         })
     }
 
     pub fn set_feed_history_enabled(&self, enabled: bool) -> CoreResult<()> {
+        self.set_string_setting(
+            FEED_HISTORY_KEY,
+            if enabled { "true" } else { "false" },
+        )
+    }
+
+    pub fn update_connection_settings(
+        &self,
+        p2p_listen_port: Option<u16>,
+        relay_multiaddr: Option<Option<String>>,
+        p2p_announce: Option<Option<String>>,
+    ) -> CoreResult<()> {
+        if let Some(port) = p2p_listen_port.filter(|&p| p > 0) {
+            self.set_string_setting(P2P_LISTEN_PORT_KEY, &port.to_string())?;
+        }
+        if let Some(relay) = relay_multiaddr {
+            match relay.filter(|s| !s.trim().is_empty()) {
+                Some(value) => self.set_string_setting(RELAY_MULTIADDR_KEY, value.trim())?,
+                None => self.delete_setting(RELAY_MULTIADDR_KEY)?,
+            }
+        }
+        if let Some(announce) = p2p_announce {
+            match announce.filter(|s| !s.trim().is_empty()) {
+                Some(value) => self.set_string_setting(P2P_ANNOUNCE_KEY, value.trim())?,
+                None => self.delete_setting(P2P_ANNOUNCE_KEY)?,
+            }
+        }
+        Ok(())
+    }
+
+    fn get_bool_setting(&self, key: &str) -> CoreResult<Option<bool>> {
+        Ok(self
+            .get_string_setting(key)?
+            .map(|value| value == "true"))
+    }
+
+    fn get_string_setting(&self, key: &str) -> CoreResult<Option<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM app_settings WHERE key = ?1")?;
+        let mut rows = stmt.query(params![key])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(row.get::<_, String>("value")?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn set_string_setting(&self, key: &str, value: &str) -> CoreResult<()> {
         self.conn.execute(
             "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![FEED_HISTORY_KEY, if enabled { "true" } else { "false" }],
+            params![key, value],
         )?;
+        Ok(())
+    }
+
+    fn delete_setting(&self, key: &str) -> CoreResult<()> {
+        self.conn.execute("DELETE FROM app_settings WHERE key = ?1", params![key])?;
         Ok(())
     }
 
