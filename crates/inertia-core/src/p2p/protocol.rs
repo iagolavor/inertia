@@ -1,0 +1,59 @@
+use serde::{Deserialize, Serialize};
+
+use crate::content::ContentEnvelope;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriendRequest {
+    pub display_name: String,
+    pub phone_hash: Option<String>,
+    pub signing_pubkey: String,
+    pub encryption_pubkey: String,
+    pub peer_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriendAccept {
+    pub contact_id: String,
+    pub display_name: String,
+    pub phone_hash: Option<String>,
+    pub signing_pubkey: String,
+    pub encryption_pubkey: String,
+    pub peer_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InviteRedemption {
+    pub invite_nonce: String,
+    pub display_name: String,
+    pub signing_pubkey: String,
+    pub encryption_pubkey: String,
+    pub peer_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendEnvelope {
+    pub envelope: ContentEnvelope,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeliveryAck {
+    pub content_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum InertiaRequest {
+    FriendRequest(FriendRequest),
+    FriendAccept(FriendAccept),
+    InviteRedemption(InviteRedemption),
+    SendEnvelope(SendEnvelope),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum InertiaResponse {
+    Ok,
+    FriendAccept(FriendAccept),
+    DeliveryAck(DeliveryAck),
+    Error(String),
+}
+
+pub const PROTOCOL_NAME: &str = "/inertia/1.0.0";

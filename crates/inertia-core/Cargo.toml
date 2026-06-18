@@ -1,0 +1,29 @@
+[package]
+name = "inertia-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Local-first P2P core for the Inertia social network"
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+ed25519-dalek.workspace = true
+rand.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+base64.workspace = true
+x25519-dalek.workspace = true
+chacha20poly1305.workspace = true
+libp2p.workspace = true
+futures.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
