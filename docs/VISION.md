@@ -51,7 +51,7 @@ To create a peer-to-peer social media system that:
 - **Simplicity**: Delivery failures are handled on the sender's device.
 - **Transparency**: Users see what was delivered and what failed.
 - **Small-Scale Social Graphs**: Personal circles, not mass following.
-- **Open Source**: Community-driven, auditable, no corporate lock-in.
+- **Open Source**: Community-driven, auditable, no corporate lock-in. Licensed under [AGPL-3.0-or-later](../LICENSE).
 
 ---
 
