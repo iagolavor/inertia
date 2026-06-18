@@ -56,6 +56,8 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 
 ## Commands
 
+**Git:** integration branch is `development`; feature branches use `feature/<name>`; **PRs target `development` by default**. See [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md).
+
 **Recommended — visible API logs in Cursor**
 
 1. `Terminal` → `Run Task…` → **`inertia-api`** — dedicated terminal tab, always shown  

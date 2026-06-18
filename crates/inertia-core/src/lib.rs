@@ -10,7 +10,7 @@ pub mod storage;
 pub mod store_handle;
 
 pub use content::{CommentPayload, ContentEnvelope, ContentType, DeliveryStatus, MessagePayload, PostPayload};
-pub use engine::{Engine, InvitePreview, InviteResponse, PublishPhotoResult};
+pub use engine::{default_p2p_listen_port, Engine, InvitePreview, InviteResponse, PublishPhotoResult, DEFAULT_P2P_LISTEN_PORT};
 pub use error::{CoreError, CoreResult};
 pub use identity::{Identity, MESSAGE_TTL_SECS, POST_TTL_SECS};
 pub use invite::{FriendInvite, INVITE_TTL_SECS};
