@@ -24,9 +24,9 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 | Phase | Status | Scope |
 |-------|--------|-------|
 | 0–2 | Done | Rust core, P2P, storage |
-| 3–4 | **Current** | SvelteKit web UI, invite flow, feed, profile |
+| 3–4 | **Current** | SvelteKit web UI, invite flow, feed, profile, settings, backup |
 | 5 | Next | **Capacitor** mobile shell |
-| 6 | Partial | Posts/feed (in progress), on-demand friend profiles |
+| 6 | Planned | P2P blob sync, thumbnails, orphan file GC |
 
 **Yes — we are building the web app first.** That is intentional. The Svelte app is the shared UI for web and mobile.
 

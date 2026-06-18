@@ -195,13 +195,16 @@ Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<pay
 SQLite on device only:
 
 ```
-contacts      (display_name, peer_id, pubkeys, last_seen)
-outbox        (content_id, recipient_id, status, expires_at)
-inbox         (content_id, sender_id, body, expires_at)
-identity      (signing_pubkey, encryption_pubkey, display_name)
+contacts       (display_name, peer_id, pubkeys, last_seen)
+outbox         (content_id, recipient_id, status, expires_at)
+inbox          (content_id, sender_id, body, media_ref, expires_at)
+local_posts    (own posts, 48h TTL)
+profile_photos (local photo grid)
+feed_archive   (optional persistent feed history)
+app_settings   (e.g. feed_history_enabled)
+identity       (signing_pubkey, encryption_pubkey, display_name)
+blobs/         (content-addressed media files)
 ```
-
-No `phone_hash` in the identity model going forward. Contacts may optionally store a local note.
 
 ---
 
@@ -209,7 +212,7 @@ No `phone_hash` in the identity model going forward. Contacts may optionally sto
 
 - **inertia-core** (Rust): identity, invites, P2P, storage, expiry.
 - **inertia-api** (Rust): local HTTP bridge — runs on the user's machine, not in the cloud.
-- **SvelteKit** (web/PWA): invite UI, friends, messages, outbox.
+- **SvelteKit** (web/PWA): feed, profile, settings, invites, friends, messages, outbox.
 - **Capacitor / Tauri** (future): mobile and desktop shells.
 
 ---
@@ -227,8 +230,8 @@ No `phone_hash` in the identity model going forward. Contacts may optionally sto
 
 1. Profile caching when friend is offline?
 2. Web/PWA vs mobile-first for v1?
-3. Media size limits for strict P2P?
-4. User-configurable post TTL?
+3. Media size limits for strict P2P? *(~2 MB per image, client-side compression)*
+4. User-configurable post TTL? *(optional local feed archive exists)*
 
 ---
 
@@ -240,6 +243,6 @@ No `phone_hash` in the identity model going forward. Contacts may optionally sto
 | 1 | Rust core: identity, storage, expiry |
 | 2 | libp2p messaging, outbox |
 | 3 | SvelteKit UI + local API |
-| 4 | **Invite link + QR friend flow** (current) |
+| 4 | **Invite flow, feed, profile, settings, backup** (current) |
 | 5 | Capacitor mobile shell |
-| 6 | Ephemeral posts and on-demand profiles |
+| 6 | P2P blob sync, thumbnails, orphan blob GC |

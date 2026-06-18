@@ -1,124 +1,241 @@
 # Inertia
 
-Ephemeral, local-first P2P social network. No accounts database, no ads, no tracking. See [docs/VISION.md](docs/VISION.md).
+**A local-first, P2P, ephemeral social network — for your inner circle.**
 
-## Structure
+No central accounts. No ads. No algorithms. Your data stays on your device.
+
+> Active prototype. The API and P2P stack run locally; there are no cloud services.
+
+---
+
+## About
+
+**Inertia** is a minimalist alternative to traditional social networks: share photos and posts with people you trust, delivered directly between devices when both are online.
+
+Instead of signing up on a server, your phone or computer generates a **cryptographic identity** (Ed25519/X25519 keypair). Your display name is just a local label. You add friends through **signed invites** (link or QR), with a safety code and short expiry.
+
+The feed is **chronological** and limited to your circle. Posts expire by default after **48 hours**; messages after **7 days**. If you want, you can **keep a local history** and **back up** your feed to continue on another device — always under your control.
+
+Further reading:
+
+- [Vision & architecture](docs/VISION.md)
+- [Design philosophy](docs/DESIGN.md)
+
+---
+
+## Philosophy
+
+| Principle | What it means in practice |
+|-----------|---------------------------|
+| **Local-first** | Posts, messages, profile, and photos live in SQLite + files on disk (`./data`). |
+| **Ephemerality** | Content fades over time; the system does not build a permanent archive by default. |
+| **Closed circle** | You only connect with people you invite. No global search, hashtags, or trending. |
+| **Direct P2P** | Delivery peer-to-peer when both sides are online; failures stay visible in the outbox. |
+| **Transparency** | Online/offline state is shown; retries and expirations are not hidden. |
+| **Zero tracking** | No analytics, no central user database, no corporate intermediaries. |
+
+### What Inertia is **not**
+
+- Not an Instagram clone (no stories, reels, public likes, or follower counts).
+- Not an infinite feed optimized for retention.
+- Not real-time delivery — it is **asynchronous**, like messages between close friends.
+- Not a cloud backup service; **feed backup** is a JSON file you export yourself.
+
+---
+
+## Features (current state)
+
+- **Local identity** — one identity per install, generated on-device.
+- **Invites** — link + QR, 15-minute expiry, single-use, safety code.
+- **Feed** — text and/or photo posts, chronological, 48h TTL.
+- **Profile** — personal photo grid (stored locally).
+- **Messages** — P2P DMs with 7-day expiry.
+- **Outbox** — delivery queue with retry and visible status.
+- **Optional history** — accumulate feed locally + export/restore backup.
+- **UI** — SvelteKit PWA with light/dark theme; Feed · Profile · Settings navigation.
+
+---
+
+## Tech stack
+
+### Backend (Rust)
+
+| Component | Role |
+|-----------|------|
+| **[inertia-core](crates/inertia-core/)** | Identity, invites, SQLite, blobs, expiry, libp2p |
+| **[inertia-api](crates/inertia-api/)** | Local HTTP bridge (`127.0.0.1:4783`) between browser and core |
+| **libp2p** | TCP, Noise, Yamux, request-response, identify |
+| **rusqlite** | Embedded local database |
+| **ed25519-dalek / x25519-dalek** | Signatures and key agreement |
+| **ChaCha20-Poly1305** | End-to-end envelope encryption |
+| **Axum + Tokio** | Async HTTP API |
+
+### Frontend (TypeScript)
+
+| Component | Role |
+|-----------|------|
+| **[apps/web](apps/web/)** | SvelteKit UI (PWA, SSR disabled) |
+| **Svelte 5** | Reactive components |
+| **Vite 6** | Dev server and build |
+| **adapter-static** | Static export for simple hosting |
+
+### Local data layout
+
+```
+data/
+  inertia.db      # contacts, inbox, outbox, posts, feed archive
+  blobs/          # images keyed by SHA-256 hash (deduplicated)
+```
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Browser (SvelteKit PWA)                                │
+│  Feed · Profile · Settings · Friends · Messages         │
+└───────────────────────────┬─────────────────────────────┘
+                            │ HTTP /api → Vite proxy
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│  inertia-api  (127.0.0.1:4783)                          │
+│  Local REST — runs only on the user's machine           │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│  inertia-core                                           │
+│  SQLite · blobs · identity · expiry · outbox            │
+│  libp2p — direct friend connections when online         │
+└─────────────────────────────────────────────────────────┘
+```
+
+Typical flow: you publish a post → stored locally → encrypted and queued in the outbox → delivered over P2P when your friend is online → expires at TTL (unless local history is enabled).
+
+---
+
+## Repository structure
 
 ```
 inertia/
-  crates/
-    inertia-core/   # Rust: identity, invites, P2P, storage, expiry
-    inertia-api/    # Local HTTP bridge (runs on your device)
-  apps/
-    web/             # SvelteKit frontend (PWA)
-  docs/
-    VISION.md
+├── crates/
+│   ├── inertia-core/     # Rust library: storage, P2P, crypto
+│   └── inertia-api/      # Local API binary
+├── apps/
+│   └── web/              # SvelteKit frontend
+├── docs/
+│   ├── VISION.md         # Technical vision and decisions
+│   └── DESIGN.md         # Visual and UX philosophy
+├── scripts/              # Utilities (stop API, etc.)
+└── package.json          # Root npm scripts (api, web)
 ```
+
+---
 
 ## Prerequisites
 
-- [Rust](https://rustup.rs/) (1.75+) — install with `winget install Rustlang.Rustup`, then open a **new** terminal
-- [Node.js](https://nodejs.org/) (20+ LTS)
+- **[Rust](https://rustup.rs/)** 1.75+ (`cargo`, `rustc`)
+- **[Node.js](https://nodejs.org/)** 20 LTS+ (`npm`)
 
-### Windows: Rust / Cargo on PATH
+Works on **Windows**, **macOS**, and **Linux**. On Windows, open a new terminal after installing Rust/Node so `PATH` is updated.
 
-After installing Rust, `cargo` and `rustc` live here:
-
-```
-C:\Users\iago-\.cargo\bin\cargo.exe
-C:\Users\iago-\.cargo\bin\rustc.exe
-```
-
-Rustup usually adds that folder to your user PATH automatically. In a **new** PowerShell window:
-
-```powershell
-cargo --version
-rustc --version
-```
-
-Run the API from the repo root:
-
-```powershell
-cd C:\Users\iago-\Workspace\inertia
-cargo run -p inertia-api
-```
-
-First build downloads dependencies and can take several minutes.
-
-### Windows: Node on PATH
-
-Node is installed at `C:\Program Files\nodejs\` and is on your Windows **user** and **system** PATH.
-
-In a **new** PowerShell window (outside Cursor), these should work immediately:
-
-```powershell
-node --version
-npm --version
-```
-
-**Cursor / VS Code terminals** load environment variables when the editor starts. If `node` is still not found:
-
-1. **Best fix:** fully quit Cursor and reopen the project (not just a new terminal tab).
-2. **This repo** prepends Node in [`.vscode/settings.json`](.vscode/settings.json) — open a **new** integrated terminal after that file exists.
-3. **Current tab only** — paste this one-liner (no script file needed):
-
-```powershell
-$env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-```
-
-Or from repo root, run [`scripts/refresh-path.ps1`](scripts/refresh-path.ps1). If PowerShell says *"running scripts is disabled"*, allow local scripts once for your user account (normal for dev machines):
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
+---
 
 ## Quick start
 
-### 1. Start the local API
+### 1. Clone the repository
 
 ```bash
-cargo run -p inertia-api
+git clone https://github.com/your-username/inertia.git
+cd inertia
 ```
 
-Listens on `http://127.0.0.1:4783`. Data stays in `./data` on your machine.
+### 2. Start the local API
 
-### 2. Install frontend dependencies (once)
+```bash
+# From the repo root
+npm run api
+# or: cargo run -p inertia-api
+```
 
-From the repo root on Windows (if `npm` is not on PATH, use the full path shown above):
+The API listens on `http://127.0.0.1:4783`. Data is stored in `./data` (gitignored).
 
-```powershell
-cd apps\web
+### 3. Install and run the frontend
+
+```bash
+cd apps/web
 npm install
-```
-
-This installs **Vite**, **SvelteKit**, **Svelte 5**, TypeScript, QR code support, and the rest of `package.json` into `apps\web\node_modules`.
-
-### 3. Start the web UI
-
-```powershell
-cd apps\web
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open [http://localhost:5173](http://localhost:5173).
 
-### 4. Connect with a friend
+### 4. First-time setup
 
-1. Both create a local identity (display name only).
-2. One person taps **Generate invite link** on the Friends page.
-3. Share the link or QR via SMS, iMessage, or in person — **you must stay online** while they accept.
-4. Friend confirms the safety code and taps **Accept** (link expires in **15 minutes**, **single-use**).
-5. Message each other when both devices are online (strict P2P).
+1. Create your profile (display name) on the **Profile** tab.
+2. Under **Friends** (⋯ menu), generate an invite and share the link or QR.
+3. Your friend accepts with the safety code — the inviter must be **online** with P2P running.
+4. Post on **Feed**; direct messages live under **Messages**.
 
-No central servers. No phone number registry. No global user IDs.
+**Root scripts:**
+
+| Command | Description |
+|---------|-------------|
+| `npm run api` | Start `inertia-api` |
+| `npm run api:stop` | Kill process on port 4783 (Windows) |
+| `npm run api:restart` | Restart the API |
+| `npm run web` | Run `npm run dev` in `apps/web` |
+
+### VS Code / Cursor
+
+The **inertia-api** task in [`.vscode/tasks.json`](.vscode/tasks.json) stops any running instance before starting. Use **dev** to run API + web in parallel.
+
+---
 
 ## Development
 
 ```bash
+# Core tests
 cargo test -p inertia-core
+
+# Build the full Rust workspace
 cargo build --workspace
+
+# Frontend typecheck
+cd apps/web && npm run check
 ```
+
+Optional environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INERTIA_DATA_DIR` | `./data` | Local data directory |
+| `INERTIA_API_ADDR` | `127.0.0.1:4783` | API listen address |
+
+---
+
+## Roadmap
+
+| Phase | Status | Focus |
+|-------|--------|-------|
+| 0–1 | Done | Vision, identity, storage, expiry |
+| 2 | Done | libp2p, outbox, messaging |
+| 3 | Done | SvelteKit UI + local API |
+| 4 | In progress | Invites, feed, profile, backup |
+| 5 | Planned | Mobile shell (Capacitor) |
+| 6 | Planned | P2P blob sync, thumbnails, orphan file GC |
+
+See [docs/VISION.md](docs/VISION.md) for technical decisions and open questions.
+
+---
+
+## Contributing
+
+This project is in its early stages. Issues and PRs are welcome — please read the [vision](docs/VISION.md) before proposing features that conflict with core principles (centralization, algorithmic feeds, permanent archives by default, etc.).
+
+---
 
 ## License
 
-MIT
+[MIT](LICENSE)

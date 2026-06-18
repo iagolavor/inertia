@@ -1,124 +1,129 @@
 # Inertia — Design Philosophy
 
-## Essência
+## Essence
 
-Inertia é uma rede social **local-first** e **efémera** para o seu círculo próximo. O visual deve ser **limpo, minimalista e familiar** — no sentido básico do Instagram: fotos em destaque, perfil pessoal, feed cronológico — mas **sem** algoritmos, anúncios ou doomscrolling.
-
----
-
-## Princípios visuais
-
-### 1. Menos é mais
-- Muito espaço em branco (ou superfície escura no dark mode).
-- Uma ação principal por ecrã.
-- Tipografia simples, sem ornamentos.
-- Bordas suaves (8–12px), sombras mínimas ou inexistentes.
-
-### 2. Conteúdo em primeiro lugar
-- Fotos e posts ocupam o centro da atenção.
-- Metadados (tempo restante, estado de entrega) são discretos.
-- Avatares identificam pessoas; o identicon é fallback, não protagonista.
-
-### 3. Familiar, não copiado
-- Grelha de fotos no perfil (como referência visual, não como clone).
-- Feed cronológico de posts dos amigos.
-- Sem stories, reels, likes públicos ou contadores de seguidores.
-
-### 4. Honestidade sobre o estado
-- Indicador **online / offline** sempre visível junto ao ponto de estado.
-- Entregas falhadas visíveis no outbox — transparência, não esconder erros.
-- Conteúdo efémero: mostrar quando um post expira.
+Inertia is a **local-first**, **ephemeral** social network for your inner circle. The visual language should feel **clean, minimal, and familiar** — in the basic sense of Instagram: photos front and center, a personal profile, a chronological feed — but **without** algorithms, ads, or doomscrolling.
 
 ---
 
-## Paleta e tema
+## Visual principles
 
-| Token | Uso |
+### 1. Less is more
+- Generous whitespace (or dark surfaces in dark mode).
+- One primary action per screen.
+- Simple typography, no ornament.
+- Soft corners (8–12px), minimal or no shadows.
+
+### 2. Content first
+- Photos and posts are the focus.
+- Metadata (time remaining, delivery state) stays subtle.
+- Avatars identify people; identicons are a fallback, not the hero.
+
+### 3. Familiar, not copied
+- Photo grid on the profile (visual reference, not a clone).
+- Chronological feed of friends' posts.
+- No stories, reels, public likes, or follower counts.
+
+### 4. Honesty about state
+- **Online / offline** indicator always visible next to the status dot.
+- Failed deliveries visible in the outbox — transparency, not hiding errors.
+- Ephemeral content: show when a post expires (or “saved” when archived locally).
+
+---
+
+## Palette and theme
+
+| Token | Use |
 |-------|-----|
-| `--bg` | Fundo principal |
-| `--surface` | Cartões, nav, painéis |
-| `--text` | Texto principal |
-| `--muted` | Legendas, metadados, labels de estado |
-| `--accent` | Links e ações primárias |
-| `--success` | Online, entregue |
-| `--danger` | Offline, falha |
+| `--bg` | Main background |
+| `--surface` | Cards, nav, panels |
+| `--text` | Primary text |
+| `--muted` | Captions, metadata, status labels |
+| `--accent` | Links and primary actions |
+| `--success` | Online, delivered |
+| `--danger` | Offline, failure |
 
-Suporte a **dark** e **light** mode. O utilizador escolhe; o sistema não impõe.
+**Dark** and **light** mode supported. The user chooses; the system does not impose.
 
 ---
 
-## Componentes-chave
+## Key components
 
 ### Status (online / offline)
-Ponto colorido + label textual `online` ou `offline` lado a lado. Sem ambiguidade.
+Colored dot + textual label `online` or `offline` side by side. No ambiguity.
 
-### Perfil
-- Cabeçalho: avatar, nome, estado.
-- **Fotos pessoais**: grelha local, guardadas no dispositivo.
-- **Posts**: histórico do utilizador no perfil; cada post também entra no feed dos amigos.
+### Profile
+- Header: avatar, name.
+- **Personal photos**: local grid, stored on device.
+- Posts live on the **Feed** tab, not on the profile screen.
 
 ### Post
-- Texto opcional + foto opcional.
-- Autor, tempo relativo, tempo até expirar (48h).
-- Visual de cartão simples, sem engagement chrome.
+- Optional text + optional photo.
+- Author, relative time, time until expiry (48h) or “saved” when archived.
+- Simple card layout, no engagement chrome.
 
-### Feed (homepage)
-- Cronológico, só amigos (contactos P2P).
-- O utilizador publica → post fica no perfil local → é enviado aos amigos subscritos (contactos).
-- Mensagem efémera: desaparece após 48 horas.
+### Feed (home)
+- Chronological, friends only (P2P contacts).
+- User publishes → post stored locally → sent to contacts when peers are online.
+- Ephemeral by default: disappears after 48 hours unless local history is enabled.
 
----
-
-## O que evitar
-
-- Feeds infinitos optimizados para retenção.
-- Notificações agressivas ou badges de "novidades".
-- UI densa com muitos botões e tabs.
-- Gradientes, glassmorphism ou trends visuais passageiros.
-- Qualquer elemento que sugira escala massiva (seguidores, viralidade).
+### Settings
+- Theme, optional feed history, backup export/restore, cryptographic identity details.
 
 ---
 
-## Tom de voz (UI copy)
+## What to avoid
 
-- Direto e calmo.
-- Português ou inglês conforme contexto do utilizador; sem jargão técnico na superfície.
-- Explicar P2P e efemeridade só quando necessário (onboarding, erros).
-
----
-
-## Relação com a visão técnica
-
-Este documento complementa [VISION.md](./VISION.md):
-
-| Conceito | Design | Técnica |
-|----------|--------|---------|
-| Perfil | Grelha de fotos + posts | SQLite + blobs locais |
-| Post | Cartão no feed | `ContentType::Post`, TTL 48h |
-| Feed | Homepage cronológica | `local_posts` + inbox de amigos |
-| Amigos | Círculo fechado | Contactos P2P = "subscritores" do perfil |
+- Infinite feeds optimized for retention.
+- Aggressive notifications or “new activity” badges.
+- Dense UI with too many buttons and tabs.
+- Gradients, glassmorphism, or passing visual trends.
+- Anything that suggests mass scale (followers, virality).
 
 ---
 
-## Referência rápida de layout
+## Voice and tone (UI copy)
+
+- Direct and calm.
+- English by default for an international audience; avoid technical jargon on the surface.
+- Explain P2P and ephemerality only when needed (onboarding, errors).
+
+---
+
+## Relationship to technical vision
+
+This document complements [VISION.md](./VISION.md):
+
+| Concept | Design | Technical |
+|---------|--------|-----------|
+| Profile | Photo grid | SQLite + local blobs |
+| Post | Card in feed | `ContentType::Post`, 48h TTL |
+| Feed | Chronological home | `local_posts` + friend inbox + optional `feed_archive` |
+| Friends | Closed circle | P2P contacts |
+
+---
+
+## Layout reference
 
 ```
-┌─────────────────────────────┐
-│  Nav · tema · avatar ● online│
-├─────────────────────────────┤
-│  Feed                       │
-│  ┌─────────────────────┐    │
-│  │ @nome · há 2h · 46h │    │
-│  │ [foto opcional]     │    │
-│  │ texto do post       │    │
-│  └─────────────────────┘    │
-│  ...                        │
-├─────────────────────────────┤
-│  Perfil                     │
-│  [avatar] Nome ● online     │
-│  ┌───┬───┬───┐              │
-│  │ 📷│ 📷│ 📷│  fotos       │
-│  └───┴───┴───┘              │
-│  Posts · Novo post          │
-└─────────────────────────────┘
+┌──────────────────────────────────────────┐
+│ Inertia  [Feed|Profile|Settings]  ● online│
+├──────────────────────────────────────────┤
+│ Feed                                     │
+│ ┌────────────────────────────────────┐   │
+│ │ @name · 2h ago · 46h left          │   │
+│ │ [optional photo]                   │   │
+│ │ post text                          │   │
+│ └────────────────────────────────────┘   │
+│ ...                                      │
+├──────────────────────────────────────────┤
+│ Profile                                  │
+│ [avatar] Name                            │
+│ ┌───┬───┬───┐                            │
+│ │ + │ 📷│ 📷│  photos                    │
+│ └───┴───┴───┘                            │
+├──────────────────────────────────────────┤
+│ Settings                                 │
+│ Theme · Feed history · Backup · Keys     │
+└──────────────────────────────────────────┘
 ```

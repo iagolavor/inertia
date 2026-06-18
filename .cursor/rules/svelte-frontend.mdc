@@ -21,7 +21,7 @@ Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chro
 
 - CSS variables from `app.css` (`--bg`, `--surface`, `--accent`, etc.).
 - Status: `OnlineStatus` button (outline) + `StatusDot` on avatar overlay
-- Reuse: `Avatar`, `ProfileHeader`, `AppHeader`, `OnlineStatus`, `PostComposer`, `PostCard`, `PhotoGrid`.
+- Reuse: `Avatar`, `ProfileHeader`, `AppHeader`, `OnlineStatus`, `PostComposer`, `PostCard`, `PhotoGrid`, `FeedHistoryPanel`.
 
 ## Data access
 
@@ -34,7 +34,8 @@ Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chro
 | Path | Purpose |
 |------|---------|
 | `/` | Feed + compose post |
-| `/profile` | Identity, photos, own posts |
+| `/profile` | Identity setup, photo grid |
+| `/settings` | Theme, feed history, backup, identity keys |
 | `/friends` | Invites, contacts |
 | `/messages` | DMs |
 | `/outbox` | Failed/pending delivery |
@@ -42,7 +43,7 @@ Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chro
 ## Style
 
 - Keep components small; colocate route-specific styles in `+page.svelte`.
-- Portuguese or English copy is fine; stay calm and direct.
+- English copy by default; stay calm and direct.
 - Run `npm run check` after non-trivial changes.
 
 ## Capacitor (future)

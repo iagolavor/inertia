@@ -18,7 +18,7 @@ You work on the **local-first backend**: `inertia-core` (domain + SQLite + libp2
 
 - SQLite at `data/inertia.db`, blobs at `data/blobs/`.
 - One profile per device (`ProfileAlreadyExists`).
-- Tables: `identity`, `contacts`, `inbox`, `outbox`, `local_posts`, `profile_photos`, invites.
+- Tables: `identity`, `contacts`, `inbox`, `outbox`, `local_posts`, `profile_photos`, `feed_archive`, `app_settings`, invites.
 - Use `StoreHandle` (`with` / `with_mut`) for async-safe DB access.
 
 ## Content model
