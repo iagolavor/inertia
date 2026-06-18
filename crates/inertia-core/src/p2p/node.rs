@@ -214,8 +214,14 @@ impl P2pNode {
                 };
 
                 match event {
-                    libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                    libp2p::swarm::SwarmEvent::ConnectionEstablished {
+                        peer_id,
+                        endpoint,
+                        ..
+                    } => {
                         info!(%peer_id, "peer connected");
+                        let remote = endpoint.get_remote_address().to_string();
+                        persist_peer_multiaddrs(&store, &peer_id, &[remote]).await;
                         let _ = event_tx.send(P2pEvent::PeerConnected(peer_id));
                         update_contact_state(&store, &peer_id, ConnectionState::Online).await;
                     }
@@ -282,11 +288,31 @@ impl P2pNode {
                                 .await;
                         }
                     }
+                    libp2p::swarm::SwarmEvent::Behaviour(
+                        InertiaBehaviourEvent::Identify(identify::Event::Received {
+                            peer_id,
+                            info,
+                            ..
+                        }),
+                    ) => {
+                        let addrs: Vec<String> =
+                            info.listen_addrs.iter().map(|a| a.to_string()).collect();
+                        if !addrs.is_empty() {
+                            persist_peer_multiaddrs(&store, &peer_id, &addrs).await;
+                        }
+                    }
                     _ => debug!("swarm event"),
                 }
             }
         });
     }
+}
+
+async fn persist_peer_multiaddrs(store: &StoreHandle, peer_id: &PeerId, addrs: &[String]) {
+    let peer_id = peer_id.to_string();
+    let _ = store
+        .with_mut(|s| s.merge_contact_multiaddrs_by_peer_id(&peer_id, addrs))
+        .await;
 }
 
 async fn update_contact_state(store: &StoreHandle, peer_id: &PeerId, state: ConnectionState) {
@@ -328,6 +354,7 @@ async fn handle_inbound_request(
                 encryption_pubkey: accept.encryption_pubkey,
                 last_seen: Some(chrono::Utc::now()),
                 connection_state: ConnectionState::Online,
+                multiaddrs: Vec::new(),
             };
             store.with_mut(|s| s.upsert_contact(&contact)).await?;
             Ok(InertiaResponse::Ok)
@@ -345,6 +372,7 @@ async fn handle_inbound_request(
                 encryption_pubkey: redemption.encryption_pubkey,
                 last_seen: Some(chrono::Utc::now()),
                 connection_state: ConnectionState::Online,
+                multiaddrs: Vec::new(),
             };
             store.with_mut(|s| s.upsert_contact(&contact)).await?;
             info!(friend = %contact.display_name, "invite redeemed");
@@ -401,6 +429,7 @@ async fn handle_outbound_response(
                 encryption_pubkey: accept.encryption_pubkey,
                 last_seen: Some(chrono::Utc::now()),
                 connection_state: ConnectionState::Online,
+                multiaddrs: Vec::new(),
             };
             store.with_mut(|s| s.upsert_contact(&contact)).await?;
         }

@@ -251,6 +251,7 @@ impl Engine {
             encryption_pubkey: encryption_pubkey.to_string(),
             last_seen: None,
             connection_state: ConnectionState::Offline,
+            multiaddrs: Vec::new(),
         };
         self.store
             .with_mut(|store| store.upsert_contact(&contact))

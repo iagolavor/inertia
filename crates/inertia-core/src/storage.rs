@@ -21,6 +21,8 @@ pub struct Contact {
     pub encryption_pubkey: String,
     pub last_seen: Option<DateTime<Utc>>,
     pub connection_state: ConnectionState,
+    #[serde(default)]
+    pub multiaddrs: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -217,6 +219,24 @@ fn parse_connection_state(s: &str) -> ConnectionState {
     }
 }
 
+fn encode_multiaddrs(addrs: &[String]) -> String {
+    serde_json::to_string(addrs).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn decode_multiaddrs(raw: &str) -> Vec<String> {
+    serde_json::from_str(raw).unwrap_or_default()
+}
+
+fn merge_multiaddr_lists(existing: &[String], new: &[String]) -> Vec<String> {
+    let mut out = existing.to_vec();
+    for addr in new {
+        if !out.contains(addr) {
+            out.push(addr.clone());
+        }
+    }
+    out
+}
+
 pub struct Store {
     conn: Connection,
     blob_dir: PathBuf,
@@ -321,6 +341,22 @@ impl Store {
         self.ensure_feed_archive_tables()?;
         self.ensure_post_comments_table()?;
         self.ensure_profile_photo_content_id_column()?;
+        self.ensure_contact_multiaddrs_column()?;
+        Ok(())
+    }
+
+    fn ensure_contact_multiaddrs_column(&self) -> CoreResult<()> {
+        let mut stmt = self.conn.prepare("PRAGMA table_info(contacts)")?;
+        let cols: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>("name"))?
+            .filter_map(Result::ok)
+            .collect();
+        if !cols.iter().any(|c| c == "multiaddrs") {
+            self.conn.execute(
+                "ALTER TABLE contacts ADD COLUMN multiaddrs TEXT NOT NULL DEFAULT '[]'",
+                [],
+            )?;
+        }
         Ok(())
     }
 
@@ -511,10 +547,15 @@ impl Store {
     }
 
     pub fn upsert_contact(&self, contact: &Contact) -> CoreResult<()> {
+        let mut contact = contact.clone();
+        if let Ok(existing) = self.get_contact(&contact.id) {
+            contact.multiaddrs =
+                merge_multiaddr_lists(&existing.multiaddrs, &contact.multiaddrs);
+        }
         self.conn.execute(
             "INSERT OR REPLACE INTO contacts
-             (id, phone_hash, display_name, peer_id, signing_pubkey, encryption_pubkey, last_seen, connection_state)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             (id, phone_hash, display_name, peer_id, signing_pubkey, encryption_pubkey, last_seen, connection_state, multiaddrs)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 contact.id,
                 contact.phone_hash,
@@ -524,19 +565,36 @@ impl Store {
                 contact.encryption_pubkey,
                 contact.last_seen.map(|t| t.to_rfc3339()),
                 connection_state_str(contact.connection_state),
+                encode_multiaddrs(&contact.multiaddrs),
             ],
         )?;
         Ok(())
     }
 
+    pub fn merge_contact_multiaddrs_by_peer_id(
+        &self,
+        peer_id: &str,
+        new_addrs: &[String],
+    ) -> CoreResult<()> {
+        for mut contact in self.list_contacts()? {
+            if contact.peer_id.as_deref() == Some(peer_id) {
+                contact.multiaddrs = merge_multiaddr_lists(&contact.multiaddrs, new_addrs);
+                self.upsert_contact(&contact)?;
+                return Ok(());
+            }
+        }
+        Ok(())
+    }
+
     pub fn list_contacts(&self) -> CoreResult<Vec<Contact>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, phone_hash, display_name, peer_id, signing_pubkey, encryption_pubkey, last_seen, connection_state
+            "SELECT id, phone_hash, display_name, peer_id, signing_pubkey, encryption_pubkey, last_seen, connection_state, multiaddrs
              FROM contacts ORDER BY display_name",
         )?;
         let rows = stmt.query_map([], |row| {
             let state_str: String = row.get("connection_state")?;
             let connection_state = parse_connection_state(&state_str);
+            let multiaddrs_raw: String = row.get("multiaddrs").unwrap_or_else(|_| "[]".into());
             Ok(Contact {
                 id: row.get("id")?,
                 phone_hash: row.get("phone_hash")?,
@@ -549,6 +607,7 @@ impl Store {
                     .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .map(|dt| dt.with_timezone(&Utc)),
                 connection_state,
+                multiaddrs: decode_multiaddrs(&multiaddrs_raw),
             })
         })?;
         rows.collect::<std::result::Result<Vec<_>, _>>()
@@ -1163,6 +1222,7 @@ mod tests {
             encryption_pubkey: "enc".into(),
             last_seen: None,
             connection_state: ConnectionState::Offline,
+            multiaddrs: Vec::new(),
         };
         store.upsert_contact(&contact).unwrap();
         assert_eq!(store.list_contacts().unwrap().len(), 1);
