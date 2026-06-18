@@ -11,8 +11,8 @@ use crate::error::{CoreError, CoreResult};
 use crate::expiry::ExpiryScheduler;
 use crate::identity::Identity;
 use crate::invite::FriendInvite;
-use crate::p2p::{build_message_envelope, P2pEvent, P2pNode};
-use crate::storage::{ConnectionState, Contact, OutboxEntry};
+use crate::p2p::{build_message_envelope, build_post_envelope, P2pEvent, P2pNode};
+use crate::storage::{ConnectionState, Contact, FeedItem, LocalPost, OutboxEntry, ProfilePhoto};
 use crate::store_handle::StoreHandle;
 
 /// High-level facade over storage, identity, expiry, and P2P networking.
@@ -278,6 +278,181 @@ impl Engine {
             .parse::<Multiaddr>()
             .map_err(|e| CoreError::P2p(e.to_string()))?;
         p2p.send_friend_request(contact_id, addr).await
+    }
+
+    pub async fn send_post(
+        &self,
+        body: &str,
+        media_ref: Option<&str>,
+    ) -> CoreResult<String> {
+        let identity = self.identity.read().await;
+        if identity.display_name.is_empty() {
+            return Err(CoreError::IdentityNotInitialized);
+        }
+
+        let contacts = self.store.with(|store| store.list_contacts()).await?;
+        let content_id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now();
+        let expires_at = now + chrono::Duration::seconds(crate::identity::POST_TTL_SECS);
+
+        let local_post = LocalPost {
+            content_id: content_id.clone(),
+            body: body.to_string(),
+            media_ref: media_ref.map(|s| s.to_string()),
+            created_at: now,
+            expires_at,
+        };
+
+        self.store
+            .with_mut(|store| store.insert_local_post(&local_post))
+            .await?;
+
+        for contact in &contacts {
+            let contact_envelope =
+                build_post_envelope(&identity, contact, body, media_ref)?;
+            let envelope_id = contact_envelope.id.clone();
+            let contact_envelope_json = serde_json::to_string(&contact_envelope)?;
+
+            self.store
+                .with_mut(|store| {
+                    store.insert_outbox(
+                        &OutboxEntry {
+                            content_id: envelope_id.clone(),
+                            recipient_id: contact.id.clone(),
+                            status: DeliveryStatus::Pending,
+                            expires_at: contact_envelope.expires_at,
+                            retry_count: 0,
+                            ciphertext: contact_envelope.ciphertext.clone(),
+                            content_type: ContentType::Post,
+                        },
+                        &contact_envelope_json,
+                    )
+                })
+                .await?;
+
+            let mut delivered = false;
+            if let (Some(p2p), Some(peer_id_str)) = (&self.p2p, contact.peer_id.as_ref()) {
+                if let Ok(peer_id) = peer_id_str.parse() {
+                    delivered = p2p
+                        .send_envelope_to_peer(peer_id, contact_envelope)
+                        .await
+                        .is_ok();
+                }
+            }
+
+            if !delivered {
+                self.store
+                    .with_mut(|store| {
+                        store.update_outbox_status(
+                            &envelope_id,
+                            &contact.id,
+                            DeliveryStatus::Failed,
+                        )
+                    })
+                    .await?;
+            }
+        }
+
+        drop(identity);
+        info!(%content_id, recipients = contacts.len(), "post created and queued");
+        Ok(content_id)
+    }
+
+    pub async fn list_feed(&self) -> CoreResult<Vec<FeedItem>> {
+        let identity = self.identity.read().await;
+        let display_name = identity.display_name.clone();
+        let signing_pubkey = identity.signing_pubkey.clone();
+        drop(identity);
+
+        let contacts = self.store.with(|store| store.list_contacts()).await?;
+        let contact_names: std::collections::HashMap<String, String> = contacts
+            .iter()
+            .map(|c| (c.id.clone(), c.display_name.clone()))
+            .collect();
+
+        let local_posts = self
+            .store
+            .with(|store| store.list_local_posts())
+            .await?;
+        let inbox_posts = self
+            .store
+            .with(|store| store.list_inbox_posts())
+            .await?;
+
+        let mut items: Vec<FeedItem> = local_posts
+            .into_iter()
+            .map(|p| FeedItem {
+                content_id: p.content_id,
+                author_id: signing_pubkey.clone(),
+                author_name: display_name.clone(),
+                body: p.body,
+                media_ref: p.media_ref,
+                created_at: p.created_at,
+                expires_at: p.expires_at,
+                is_own: true,
+            })
+            .collect();
+
+        for entry in inbox_posts {
+            items.push(FeedItem {
+                content_id: entry.content_id,
+                author_id: entry.sender_id.clone(),
+                author_name: contact_names
+                    .get(&entry.sender_id)
+                    .cloned()
+                    .unwrap_or_else(|| "Friend".to_string()),
+                body: entry.body,
+                media_ref: entry.media_ref,
+                created_at: entry.received_at,
+                expires_at: entry.expires_at,
+                is_own: false,
+            });
+        }
+
+        items.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(items)
+    }
+
+    pub async fn list_profile_photos(&self) -> CoreResult<Vec<ProfilePhoto>> {
+        self.store.with(|store| store.list_profile_photos()).await
+    }
+
+    pub async fn add_profile_photo(
+        &self,
+        data: &[u8],
+        caption: Option<&str>,
+    ) -> CoreResult<ProfilePhoto> {
+        let blob_hash = self
+            .store
+            .with_mut(|store| store.store_blob(data))
+            .await?;
+
+        let photos = self
+            .store
+            .with(|store| store.list_profile_photos())
+            .await?;
+
+        let photo = ProfilePhoto {
+            id: uuid::Uuid::new_v4().to_string(),
+            blob_hash,
+            caption: caption.map(|s| s.to_string()),
+            sort_order: photos.len() as i32,
+            created_at: chrono::Utc::now(),
+        };
+
+        self.store
+            .with_mut(|store| store.insert_profile_photo(&photo))
+            .await?;
+
+        Ok(photo)
+    }
+
+    pub async fn read_blob(&self, hash: &str) -> CoreResult<Vec<u8>> {
+        self.store.with(|store| store.read_blob(hash)).await
+    }
+
+    pub async fn store_blob(&self, data: &[u8]) -> CoreResult<String> {
+        self.store.with_mut(|store| store.store_blob(data)).await
     }
 
     pub async fn send_message(&self, recipient_id: &str, body: &str) -> CoreResult<String> {

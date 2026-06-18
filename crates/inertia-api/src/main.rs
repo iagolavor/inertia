@@ -2,8 +2,9 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::extract::State;
-use axum::http::StatusCode;
+use axum::extract::{Path, State};
+use axum::http::{header, StatusCode};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use inertia_core::Engine;
@@ -68,6 +69,18 @@ struct StartP2pRequest {
     listen_port: Option<u16>,
 }
 
+#[derive(Deserialize)]
+struct CreatePostRequest {
+    body: String,
+    media_base64: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct UploadPhotoRequest {
+    data_base64: String,
+    caption: Option<String>,
+}
+
 #[derive(Serialize)]
 struct ApiError {
     error: String,
@@ -91,10 +104,15 @@ async fn main() -> anyhow::Result<()> {
         .route("/identity", get(get_identity).post(init_identity))
         .route("/invite", post(create_invite))
         .route("/invite/preview", post(preview_invite))
+        .route("/invite/accept", post(accept_invite))
         .route("/contacts", get(list_contacts).post(add_contact))
         .route("/inbox", get(list_inbox))
         .route("/outbox", get(list_outbox))
         .route("/messages", post(send_message))
+        .route("/posts", post(create_post))
+        .route("/feed", get(list_feed))
+        .route("/profile/photos", get(list_profile_photos).post(upload_profile_photo))
+        .route("/blobs/:hash", get(get_blob))
         .route("/p2p/start", post(start_p2p))
         .route("/p2p/addresses", get(p2p_addresses))
         .route("/p2p/dial", post(dial_peer))
@@ -226,6 +244,84 @@ async fn send_message(
         .await
         .map_err(api_err)?;
     Ok(Json(serde_json::json!({ "content_id": content_id })))
+}
+
+async fn create_post(
+    State(state): State<AppState>,
+    Json(body): Json<CreatePostRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+
+    let media_ref = if let Some(ref b64) = body.media_base64 {
+        let data = base64_decode(b64)?;
+        Some(engine.store_blob(&data).await.map_err(api_err)?)
+    } else {
+        None
+    };
+
+    let content_id = engine
+        .send_post(&body.body, media_ref.as_deref())
+        .await
+        .map_err(api_err)?;
+    Ok(Json(serde_json::json!({ "content_id": content_id })))
+}
+
+async fn list_feed(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<inertia_core::FeedItem>>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine.list_feed().await.map(Json).map_err(api_err)
+}
+
+async fn list_profile_photos(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<inertia_core::ProfilePhoto>>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .list_profile_photos()
+        .await
+        .map(Json)
+        .map_err(api_err)
+}
+
+async fn upload_profile_photo(
+    State(state): State<AppState>,
+    Json(body): Json<UploadPhotoRequest>,
+) -> Result<Json<inertia_core::ProfilePhoto>, (StatusCode, Json<ApiError>)> {
+    let data = base64_decode(&body.data_base64)?;
+    let engine = state.engine.lock().await;
+    engine
+        .add_profile_photo(&data, body.caption.as_deref())
+        .await
+        .map(Json)
+        .map_err(api_err)
+}
+
+async fn get_blob(
+    State(state): State<AppState>,
+    Path(hash): Path<String>,
+) -> Result<Response, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    let data = engine.read_blob(&hash).await.map_err(api_err)?;
+    Ok((
+        [(header::CONTENT_TYPE, "application/octet-stream")],
+        data,
+    )
+        .into_response())
+}
+
+fn base64_decode(input: &str) -> Result<Vec<u8>, (StatusCode, Json<ApiError>)> {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD
+        .decode(input)
+        .map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ApiError {
+                    error: format!("invalid base64: {e}"),
+                }),
+            )
+        })
 }
 
 async fn start_p2p(

@@ -1,0 +1,50 @@
+---
+description: Svelte frontend agent — SvelteKit UI, components, api client
+globs: apps/web/**/*
+alwaysApply: false
+---
+
+# Svelte Frontend Agent
+
+You work on **apps/web**: SvelteKit 5 PWA that talks to the local Rust API via `src/lib/api.ts`.
+
+## Stack
+
+- Svelte 5 runes (`$state`, `$derived`, `$props`).
+- Client-only: `ssr = false`, `prerender = true` in `+layout.ts`.
+- Static adapter — **Capacitor-ready**; do not add SSR-only features.
+- Dev proxy: `/api` → `127.0.0.1:4783` (see `vite.config.ts`).
+
+## Design
+
+Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chronological feed) without algorithms or engagement UI.
+
+- CSS variables from `app.css` (`--bg`, `--surface`, `--accent`, etc.).
+- Status: `StatusDot` with `online` / `offline` label.
+- Reuse: `Avatar`, `ProfileHeader`, `PostCard`, `ComposePost`, `PhotoGrid`.
+
+## Data access
+
+- All backend calls through `api` object in `lib/api.ts` — never raw `fetch` to Rust paths elsewhere.
+- Media: `blobUrl(hash)` → `/api/blobs/:hash`.
+- Offline: `identity.svelte.ts` + IndexedDB cache (`device-db.ts`) when API is down.
+
+## Routes
+
+| Path | Purpose |
+|------|---------|
+| `/` | Feed + compose post |
+| `/profile` | Identity, photos, own posts |
+| `/friends` | Invites, contacts |
+| `/messages` | DMs |
+| `/outbox` | Failed/pending delivery |
+
+## Style
+
+- Keep components small; colocate route-specific styles in `+page.svelte`.
+- Portuguese or English copy is fine; stay calm and direct.
+- Run `npm run check` after non-trivial changes.
+
+## Capacitor (future)
+
+Do not block web delivery for mobile. Avoid Node-only APIs. Centralize API base URL so Phase 5 can swap `API_BASE` per platform.

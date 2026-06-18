@@ -9,7 +9,7 @@ use libp2p::{identify, multiaddr::Protocol, noise, tcp, yamux, Multiaddr, PeerId
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tracing::{debug, info, warn};
 
-use crate::content::{ContentEnvelope, ContentType, DeliveryStatus, MessagePayload};
+use crate::content::{ContentEnvelope, ContentType, DeliveryStatus, MessagePayload, PostPayload};
 use crate::crypto::{decrypt_from_sender, encrypt_for_recipient};
 use crate::error::{CoreError, CoreResult};
 use crate::identity::Identity;
@@ -434,14 +434,14 @@ async fn process_incoming_envelope(
     )?;
     drop(id);
 
-    let body = match envelope.content_type {
+    let (body, media_ref) = match envelope.content_type {
         ContentType::Message => {
             let payload: MessagePayload = serde_json::from_slice(&plaintext)?;
-            payload.body
+            (payload.body, None)
         }
         ContentType::Post => {
             let payload: crate::content::PostPayload = serde_json::from_slice(&plaintext)?;
-            payload.body
+            (payload.body, payload.media_ref)
         }
     };
 
@@ -455,6 +455,7 @@ async fn process_incoming_envelope(
                 expires_at: envelope.expires_at,
                 read_at: None,
                 body: body.clone(),
+                media_ref: media_ref.clone(),
                 content_type: envelope.content_type,
             })
         })
@@ -462,6 +463,33 @@ async fn process_incoming_envelope(
 
     let _ = event_tx.send(P2pEvent::MessageReceived { sender_id, body });
     Ok(())
+}
+
+pub fn build_post_envelope(
+    identity: &Identity,
+    recipient: &Contact,
+    body: &str,
+    media_ref: Option<&str>,
+) -> CoreResult<ContentEnvelope> {
+    let payload = PostPayload {
+        body: body.to_string(),
+        media_ref: media_ref.map(|s| s.to_string()),
+    };
+    let plaintext = serde_json::to_vec(&payload)?;
+    let ciphertext = encrypt_for_recipient(
+        identity.encryption_secret()?,
+        &recipient.encryption_pubkey,
+        &plaintext,
+    )?;
+
+    let mut envelope = ContentEnvelope::new_post(
+        identity.signing_pubkey.clone(),
+        identity.encryption_pubkey.clone(),
+        ciphertext,
+        vec![],
+    );
+    envelope.signature = identity.sign(&envelope.signing_bytes())?;
+    Ok(envelope)
 }
 
 pub fn build_message_envelope(

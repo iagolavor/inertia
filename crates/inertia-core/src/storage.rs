@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::content::{ContentType, DeliveryStatus};
 use crate::error::{CoreError, CoreResult};
@@ -47,7 +48,38 @@ pub struct InboxEntry {
     pub expires_at: DateTime<Utc>,
     pub read_at: Option<DateTime<Utc>>,
     pub body: String,
+    pub media_ref: Option<String>,
     pub content_type: ContentType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalPost {
+    pub content_id: String,
+    pub body: String,
+    pub media_ref: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfilePhoto {
+    pub id: String,
+    pub blob_hash: String,
+    pub caption: Option<String>,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeedItem {
+    pub content_id: String,
+    pub author_id: String,
+    pub author_name: String,
+    pub body: String,
+    pub media_ref: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub is_own: bool,
 }
 
 fn status_str(status: DeliveryStatus) -> &'static str {
@@ -178,9 +210,40 @@ impl Store {
                 issuer_signing_pubkey TEXT NOT NULL,
                 redeemed_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS local_posts (
+                content_id TEXT PRIMARY KEY,
+                body TEXT NOT NULL,
+                media_ref TEXT,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS profile_photos (
+                id TEXT PRIMARY KEY,
+                blob_hash TEXT NOT NULL,
+                caption TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            );
             ",
         )?;
         self.ensure_identity_key_columns()?;
+        self.ensure_inbox_media_ref_column()?;
+        Ok(())
+    }
+
+    fn ensure_inbox_media_ref_column(&self) -> CoreResult<()> {
+        let mut stmt = self.conn.prepare("PRAGMA table_info(inbox)")?;
+        let cols: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>("name"))?
+            .filter_map(Result::ok)
+            .collect();
+
+        if !cols.iter().any(|c| c == "media_ref") {
+            self.conn
+                .execute("ALTER TABLE inbox ADD COLUMN media_ref TEXT", [])?;
+        }
         Ok(())
     }
 
@@ -411,8 +474,8 @@ impl Store {
     pub fn insert_inbox(&self, entry: &InboxEntry) -> CoreResult<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO inbox
-             (content_id, sender_id, received_at, expires_at, read_at, body, content_type)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+             (content_id, sender_id, received_at, expires_at, read_at, body, media_ref, content_type)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 entry.content_id,
                 entry.sender_id,
@@ -420,6 +483,7 @@ impl Store {
                 entry.expires_at.to_rfc3339(),
                 entry.read_at.map(|t| t.to_rfc3339()),
                 entry.body,
+                entry.media_ref,
                 content_type_str(entry.content_type),
             ],
         )?;
@@ -428,7 +492,7 @@ impl Store {
 
     pub fn list_inbox(&self) -> CoreResult<Vec<InboxEntry>> {
         let mut stmt = self.conn.prepare(
-            "SELECT content_id, sender_id, received_at, expires_at, read_at, body, content_type
+            "SELECT content_id, sender_id, received_at, expires_at, read_at, body, media_ref, content_type
              FROM inbox ORDER BY received_at DESC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -447,6 +511,7 @@ impl Store {
                     .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .map(|dt| dt.with_timezone(&Utc)),
                 body: row.get("body")?,
+                media_ref: row.get("media_ref")?,
                 content_type: parse_content_type(&content_type),
             })
         })?;
@@ -463,6 +528,123 @@ impl Store {
         Ok(())
     }
 
+    pub fn insert_local_post(&self, post: &LocalPost) -> CoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO local_posts (content_id, body, media_ref, created_at, expires_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                post.content_id,
+                post.body,
+                post.media_ref,
+                post.created_at.to_rfc3339(),
+                post.expires_at.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_local_posts(&self) -> CoreResult<Vec<LocalPost>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT content_id, body, media_ref, created_at, expires_at
+             FROM local_posts ORDER BY created_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(LocalPost {
+                content_id: row.get("content_id")?,
+                body: row.get("body")?,
+                media_ref: row.get("media_ref")?,
+                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                expires_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("expires_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(CoreError::from)
+    }
+
+    pub fn list_inbox_posts(&self) -> CoreResult<Vec<InboxEntry>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT content_id, sender_id, received_at, expires_at, read_at, body, media_ref, content_type
+             FROM inbox WHERE content_type = 'post' ORDER BY received_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(InboxEntry {
+                content_id: row.get("content_id")?,
+                sender_id: row.get("sender_id")?,
+                received_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("received_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                expires_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("expires_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                read_at: row
+                    .get::<_, Option<String>>("read_at")?
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                    .map(|dt| dt.with_timezone(&Utc)),
+                body: row.get("body")?,
+                media_ref: row.get("media_ref")?,
+                content_type: ContentType::Post,
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(CoreError::from)
+    }
+
+    pub fn insert_profile_photo(&self, photo: &ProfilePhoto) -> CoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO profile_photos (id, blob_hash, caption, sort_order, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                photo.id,
+                photo.blob_hash,
+                photo.caption,
+                photo.sort_order,
+                photo.created_at.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_profile_photos(&self) -> CoreResult<Vec<ProfilePhoto>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, blob_hash, caption, sort_order, created_at
+             FROM profile_photos ORDER BY sort_order, created_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(ProfilePhoto {
+                id: row.get("id")?,
+                blob_hash: row.get("blob_hash")?,
+                caption: row.get("caption")?,
+                sort_order: row.get("sort_order")?,
+                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(CoreError::from)
+    }
+
+    pub fn store_blob(&self, data: &[u8]) -> CoreResult<String> {
+        let hash = encode_hex(Sha256::digest(data));
+        let path = self.blob_path(&hash);
+        if !path.exists() {
+            std::fs::write(&path, data)?;
+        }
+        Ok(hash)
+    }
+
+    pub fn read_blob(&self, hash: &str) -> CoreResult<Vec<u8>> {
+        let path = self.blob_path(hash);
+        if !path.exists() {
+            return Err(CoreError::ContentNotFound(hash.to_string()));
+        }
+        Ok(std::fs::read(&path)?)
+    }
+
     pub fn purge_expired(&self) -> CoreResult<PurgeReport> {
         let now = Utc::now().to_rfc3339();
         let outbox = self.conn.execute(
@@ -473,6 +655,10 @@ impl Store {
             "DELETE FROM inbox WHERE expires_at < ?1",
             params![now],
         )?;
+        let local_posts = self.conn.execute(
+            "DELETE FROM local_posts WHERE expires_at < ?1",
+            params![now],
+        )?;
         let invites = self.conn.execute(
             "DELETE FROM issued_invites WHERE expires_at < ?1 AND consumed_at IS NULL",
             params![now],
@@ -480,6 +666,7 @@ impl Store {
         Ok(PurgeReport {
             outbox,
             inbox,
+            local_posts,
             invites,
         })
     }
@@ -548,6 +735,7 @@ impl Store {
 pub struct PurgeReport {
     pub outbox: usize,
     pub inbox: usize,
+    pub local_posts: usize,
     pub invites: usize,
 }
 

@@ -1,5 +1,30 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { api, type FeedItem } from '$lib/api';
+  import ComposePost from '$lib/components/ComposePost.svelte';
+  import PostCard from '$lib/components/PostCard.svelte';
   import { identityState } from '$lib/identity.svelte';
+
+  let feed = $state<FeedItem[]>([]);
+  let feedLoading = $state(false);
+  let feedError = $state('');
+
+  async function loadFeed() {
+    if (!identityState.apiOnline || !identityState.identity) return;
+    feedLoading = true;
+    feedError = '';
+    try {
+      feed = await api.listFeed();
+    } catch (e) {
+      feedError = e instanceof Error ? e.message : 'Falha ao carregar feed';
+    } finally {
+      feedLoading = false;
+    }
+  }
+
+  onMount(() => {
+    void loadFeed();
+  });
 </script>
 
 <h1>Inertia</h1>
@@ -15,12 +40,25 @@
   </div>
 {:else if identityState.identity}
   <div class="card">
-    <h2>Welcome back, {identityState.identity.display_name}</h2>
-    <p class="muted">
-      <a href="/profile">View your profile</a> ·
-      <a href="/friends">Invite a friend</a> ·
-      <a href="/messages">Messages</a>
+    <h2>Feed</h2>
+    <p class="muted feed-hint">
+      Publica para os teus amigos P2P. Posts expiram em 48 horas.
     </p>
+    <ComposePost onposted={loadFeed} />
+  </div>
+
+  <div class="card feed-list">
+    {#if feedLoading && feed.length === 0}
+      <p class="empty">A carregar feed…</p>
+    {:else if feedError}
+      <p class="error">{feedError}</p>
+    {:else if feed.length === 0}
+      <p class="empty">Ainda sem posts. Publica algo ou convida um amigo.</p>
+    {:else}
+      {#each feed as post (post.content_id)}
+        <PostCard {post} />
+      {/each}
+    {/if}
   </div>
 {:else}
   <div class="card">
@@ -45,6 +83,15 @@
 <style>
   .muted {
     color: var(--muted);
+  }
+
+  .feed-hint {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+  }
+
+  .feed-list {
+    padding-top: 0.5rem;
   }
 
   .list {

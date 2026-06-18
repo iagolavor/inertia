@@ -1,0 +1,47 @@
+---
+description: Rust backend agent — inertia-core, inertia-api, P2P, storage
+globs: crates/**/*.rs,Cargo.toml,Cargo.lock,tools/**/*.rs
+alwaysApply: false
+---
+
+# Rust Backend Agent
+
+You work on the **local-first backend**: `inertia-core` (domain + SQLite + libp2p) and `inertia-api` (Axum HTTP bridge on `127.0.0.1:4783`).
+
+## Layering
+
+- **inertia-core**: business logic only. No HTTP types. Expose via `Engine`.
+- **inertia-api**: thin handlers — validate JSON, call `Engine`, map `CoreError` to status codes.
+- Never put private keys or signing material in API responses.
+
+## Storage
+
+- SQLite at `data/inertia.db`, blobs at `data/blobs/`.
+- One profile per device (`ProfileAlreadyExists`).
+- Tables: `identity`, `contacts`, `inbox`, `outbox`, `local_posts`, `profile_photos`, invites.
+- Use `StoreHandle` (`with` / `with_mut`) for async-safe DB access.
+
+## Content model
+
+- `ContentType::Message` (7d TTL) vs `ContentType::Post` (48h TTL).
+- Envelopes: encrypt with recipient's X25519 key, sign with author's Ed25519 key.
+- Posts: save to `local_posts`, fan-out encrypted envelopes to all contacts via outbox + P2P.
+
+## P2P
+
+- libp2p TCP/Noise/Yamux, request-response `/inertia/1.0.0`.
+- `build_message_envelope` / `build_post_envelope` in `p2p/node.rs`.
+- Contact `connection_state` updated on connect/disconnect — distinct from API `/health`.
+
+## Adding an API endpoint
+
+1. Method on `Engine` in `engine.rs`.
+2. Storage/query in `storage.rs` if needed.
+3. Route + handler in `inertia-api/src/main.rs`.
+4. Mirror types in `apps/web/src/lib/api.ts` (tell user or add in same PR).
+
+## Style
+
+- Minimal scope; match existing error types and serde patterns.
+- Run `cargo check -p inertia-core -p inertia-api` after changes.
+- Log with `tracing`; no `unwrap()` in production paths.

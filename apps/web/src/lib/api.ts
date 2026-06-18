@@ -43,7 +43,31 @@ export interface InboxEntry {
   expires_at: string;
   read_at: string | null;
   body: string;
+  media_ref: string | null;
   content_type: 'message' | 'post';
+}
+
+export interface FeedItem {
+  content_id: string;
+  author_id: string;
+  author_name: string;
+  body: string;
+  media_ref: string | null;
+  created_at: string;
+  expires_at: string;
+  is_own: boolean;
+}
+
+export interface ProfilePhoto {
+  id: string;
+  blob_hash: string;
+  caption: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export function blobUrl(hash: string): string {
+  return `${API_BASE}/blobs/${hash}`;
 }
 
 export interface OutboxEntry {
@@ -136,5 +160,17 @@ export const api = {
     request<void>('/outbox/retry', {
       method: 'POST',
       body: JSON.stringify({ content_id, recipient_id })
+    }),
+  listFeed: () => request<FeedItem[]>('/feed'),
+  createPost: (body: string, media_base64?: string) =>
+    request<{ content_id: string }>('/posts', {
+      method: 'POST',
+      body: JSON.stringify({ body, media_base64: media_base64 ?? null })
+    }),
+  listProfilePhotos: () => request<ProfilePhoto[]>('/profile/photos'),
+  uploadProfilePhoto: (data_base64: string, caption?: string) =>
+    request<ProfilePhoto>('/profile/photos', {
+      method: 'POST',
+      body: JSON.stringify({ data_base64, caption: caption ?? null })
     })
 };
