@@ -302,8 +302,46 @@ impl Engine {
 
         let peer_id = node.peer_id_string();
         *guard = Some(node);
+        drop(guard);
+
+        if let Err(e) = self.redial_known_peers().await {
+            warn!(error = %e, "redial known peers failed");
+        }
+
         info!(%peer_id, port = listen_port, "p2p node started");
         Ok(peer_id)
+    }
+
+    /// Dial configured relay (if any) and stored contact addresses after P2P starts.
+    pub async fn redial_known_peers(&self) -> CoreResult<()> {
+        if let Some(relay) = std::env::var("INERTIA_RELAY")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
+            match self.dial_peer(&relay).await {
+                Ok(()) => info!("dialed configured relay"),
+                Err(e) => warn!(error = %e, "failed to dial relay"),
+            }
+        }
+
+        let contacts = self.list_contacts().await?;
+        for contact in contacts {
+            if contact.multiaddrs.is_empty() {
+                continue;
+            }
+            for addr in &contact.multiaddrs {
+                if let Err(e) = self.dial_peer(addr).await {
+                    warn!(
+                        friend = %contact.display_name,
+                        address = %addr,
+                        error = %e,
+                        "failed to redial contact"
+                    );
+                }
+            }
+        }
+        Ok(())
     }
 
     pub async fn peer_id(&self) -> Option<String> {
