@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/inertia-core",
     "crates/inertia-api",
+    "crates/inertia-relay",
     "tools/inertia-lint",
 ]
 
