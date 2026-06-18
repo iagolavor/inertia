@@ -6,8 +6,8 @@ use x25519_dalek::{PublicKey as X25519Public, StaticSecret};
 
 use crate::error::{CoreError, CoreResult};
 
-/// Default post lifetime: 48 hours.
-pub const POST_TTL_SECS: i64 = 48 * 60 * 60;
+/// Default post lifetime: 7 days.
+pub const POST_TTL_SECS: i64 = 7 * 24 * 60 * 60;
 /// Message lifetime: 7 days.
 pub const MESSAGE_TTL_SECS: i64 = 7 * 24 * 60 * 60;
 

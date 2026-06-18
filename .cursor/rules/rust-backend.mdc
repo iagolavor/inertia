@@ -23,7 +23,7 @@ You work on the **local-first backend**: `inertia-core` (domain + SQLite + libp2
 
 ## Content model
 
-- `ContentType::Message` (7d TTL) vs `ContentType::Post` (48h TTL).
+- `ContentType::Message` (7d TTL) vs `ContentType::Post` (7d TTL).
 - Envelopes: encrypt with recipient's X25519 key, sign with author's Ed25519 key.
 - Posts: save to `local_posts`, fan-out encrypted envelopes to all contacts via outbox + P2P.
 

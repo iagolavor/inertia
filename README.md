@@ -19,7 +19,7 @@ No central accounts. No ads. No algorithms. Your data stays on your device.
 
 Instead of signing up on a server, your phone or computer generates a **cryptographic identity** (Ed25519/X25519 keypair). Your display name is just a local label. You add friends through signed invites (link or QR), with a safety code and short expiry.
 
-The feed is **chronological** and limited to your connections. Posts expire by default after **48 hours**; messages after **7 days**. If you want, you can keep a local history and **back up** your feed to continue on another device — always under your control.
+The feed is **chronological** and limited to your connections. Posts and messages expire after **7 days** by default. If you want, you can keep a local history and **back up** your feed to continue on another device — always under your control.
 
 Further reading:
 
@@ -53,7 +53,7 @@ Further reading:
 
 - **Local identity** — one identity per install, generated on-device.
 - **Invites** — link + QR, 15-minute expiry, single-use, safety code.
-- **Feed** — text and/or photo posts, chronological, 48h TTL.
+- **Feed** — text and/or photo posts, chronological, 7-day TTL.
 - **Profile** — personal photo grid (stored locally).
 - **Messages** — P2P DMs with 7-day expiry.
 - **Outbox** — delivery queue with retry and visible status.

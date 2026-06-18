@@ -59,13 +59,13 @@ Colored dot + textual label `online` or `offline` side by side. No ambiguity.
 
 ### Post
 - Optional text + optional photo.
-- Author, relative time, time until expiry (48h) or “saved” when archived.
+- Author, relative time, time until expiry (7d) or “saved” when archived.
 - Simple card layout, no engagement chrome.
 
 ### Feed (home)
 - Chronological, friends only (P2P contacts).
 - User publishes → post stored locally → sent to contacts when peers are online.
-- Ephemeral by default: disappears after 48 hours unless local history is enabled.
+- Ephemeral by default: disappears after 7 days unless local history is enabled.
 
 ### Settings
 - Theme, optional feed history, backup export/restore, cryptographic identity details.
@@ -97,7 +97,7 @@ This document complements [VISION.md](./VISION.md):
 | Concept | Design | Technical |
 |---------|--------|-----------|
 | Profile | Photo grid | SQLite + local blobs |
-| Post | Card in feed | `ContentType::Post`, 48h TTL |
+| Post | Card in feed | `ContentType::Post`, 7d TTL |
 | Feed | Chronological home | `local_posts` + friend inbox + optional `feed_archive` |
 | Friends | Closed circle | P2P contacts |
 

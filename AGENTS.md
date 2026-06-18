@@ -16,7 +16,7 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 ```
 
 - **Local-first**: no cloud backend. API binds `127.0.0.1:4783` on the user's machine.
-- **Ephemeral content**: posts 48h, messages 7d, invites 15min single-use.
+- **Ephemeral content**: posts and messages 7d, invites 15min single-use.
 - **P2P**: libp2p strict mode; friends = contacts; posts fan-out to all contacts.
 
 ## Phased delivery

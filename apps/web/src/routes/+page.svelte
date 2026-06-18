@@ -108,7 +108,7 @@
   <h3>How it works</h3>
   <ul class="muted list">
     <li>Invite links expire in 15 minutes and work only once</li>
-    <li>Posts no feed expiram após 48 horas — ou acumula em <a href="/settings">Settings</a></li>
+    <li>Posts expire after 7 days — or keep history in <a href="/settings">Settings</a></li>
     <li>Delivery is direct P2P when both of you are online</li>
     <li>No ads, no algorithms, no doomscrolling</li>
   </ul>

@@ -39,8 +39,7 @@ To create a peer-to-peer social media system that:
 - **Posts**: Shared asynchronously, synced when devices connect. Delivery is not real-time.
 - **Messages**: Delivered like Instagram DMs — not guaranteed instant, but reliable once both peers are online.
 - **Ephemeral lifecycle**:
-  - Posts vanish after **48 hours**.
-  - Messages expire after **7 days**.
+  - Posts and messages expire after **7 days**.
   - Failed-to-send messages remain on the sender's device for manual retry.
 
 ---
@@ -100,7 +99,7 @@ To create a peer-to-peer social media system that:
 
 ### 6. Ephemerality
 
-- Posts vanish after 48 hours. Messages after 7 days. No archives.
+- Posts and messages vanish after 7 days. No archives by default.
 
 ---
 
@@ -140,8 +139,8 @@ To create a peer-to-peer social media system that:
 | Friend discovery | **Invite link + QR** | No global directory. Users share invites over channels they already trust. |
 | Identity | **Cryptographic keypair** | No phone numbers, no SMS relay, no account database. |
 | Connectivity | **Strict P2P** | Delivery only when both peers are online. Outbox handles failures. |
-| Post expiration | **48 hours** | Default TTL for posts. |
-| Message expiration | **7 days** | As in original vision. |
+| Post expiration | **7 days** | Default TTL for posts. |
+| Message expiration | **7 days** | Same as posts. |
 | Invite expiration | **15 minutes** | Links expire quickly; generate a fresh one anytime. |
 | Invite usage | **Single-use** | Each nonce can be redeemed once; issuer must be online to accept. |
 
@@ -183,7 +182,7 @@ Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<pay
 
 | Type | Expiration |
 |------|------------|
-| Posts | 48 hours |
+| Posts | 7 days |
 | Messages | 7 days |
 | Invites | 15 minutes, single-use |
 | Profile | No auto-expire |
@@ -198,7 +197,7 @@ SQLite on device only:
 contacts       (display_name, peer_id, pubkeys, last_seen)
 outbox         (content_id, recipient_id, status, expires_at)
 inbox          (content_id, sender_id, body, media_ref, expires_at)
-local_posts    (own posts, 48h TTL)
+local_posts    (own posts, 7d TTL)
 profile_photos (local photo grid)
 feed_archive   (optional persistent feed history)
 app_settings   (e.g. feed_history_enabled)

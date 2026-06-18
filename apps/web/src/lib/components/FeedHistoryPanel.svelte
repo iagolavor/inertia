@@ -41,7 +41,7 @@
       enabled = settings.feed_history_enabled;
       message = enabled
         ? 'History enabled — new posts are saved locally.'
-        : 'Ephemeral mode — only posts from the last 48 hours.';
+        : 'Ephemeral mode — only posts from the last 7 days.';
       onchanged?.();
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to save';
@@ -98,7 +98,7 @@
 
 <div class="history-panel">
   <p class="muted">
-    By default the feed is ephemeral (48h). You can accumulate posts locally and back up to
+    By default the feed is ephemeral (7 days). You can accumulate posts locally and back up to
     continue on another device.
   </p>
 
