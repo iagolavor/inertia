@@ -1,4 +1,6 @@
-# Inertia
+<p align="center">
+  <img src="docs/logo.png" alt="Inertia" width="200" />
+</p>
 
 **A local-first, P2P, ephemeral social network — for your inner circle.**
 
@@ -148,7 +150,7 @@ Works on **Windows**, **macOS**, and **Linux**. On Windows, open a new terminal 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/inertia.git
+git clone https://github.com/iagolavor/inertia.git
 cd inertia
 ```
 
