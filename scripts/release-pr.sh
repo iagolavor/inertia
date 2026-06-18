@@ -73,7 +73,7 @@ ${changes}
 
 ## After merge
 
-On master after pulling: \`./scripts/release-tag.sh ${tag}\`
+On master after pulling: \`./scripts/release-tag.sh ${tag}\` or \`powershell -ExecutionPolicy Bypass -File scripts/release-tag.ps1 -Version ${tag}\`
 EOF
 )"
 

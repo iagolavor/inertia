@@ -70,6 +70,10 @@ Release example (prefer the script — see [RELEASE.md](./RELEASE.md)):
 ./scripts/release-pr.sh 0.2.0
 ```
 
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/release-pr.ps1 -Version 0.2.0
+```
+
 Manual:
 
 ```bash
@@ -113,6 +117,14 @@ git pull origin development
 ./scripts/release-pr.sh 0.2.0
 # merge the release PR on GitHub, then on master:
 ./scripts/release-tag.sh 0.2.0
+```
+
+```powershell
+git checkout development
+git pull origin development
+powershell -ExecutionPolicy Bypass -File scripts/release-pr.ps1 -Version 0.2.0
+# merge the release PR on GitHub, then on master:
+powershell -ExecutionPolicy Bypass -File scripts/release-tag.ps1 -Version 0.2.0
 ```
 
 Full details: [RELEASE.md](./RELEASE.md).

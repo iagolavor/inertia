@@ -19,8 +19,16 @@ git rev-list --count origin/master..origin/development
 
 Use the helper script (requires [GitHub CLI](https://cli.github.com/)):
 
+**Bash (Linux / macOS / Git Bash)**
+
 ```bash
 ./scripts/release-pr.sh 0.2.0
+```
+
+**PowerShell (Windows)**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/release-pr.ps1 -Version 0.2.0
 ```
 
 This opens a PR:
@@ -34,10 +42,21 @@ Review the generated PR body and edit if anything is missing.
 
 ### Manual alternative
 
+**Bash**
+
 ```bash
 gh pr create --base master --head development \
   --title "Release v0.2.0" \
   --label release \
+  --body-file path/to/body.md
+```
+
+**PowerShell**
+
+```powershell
+gh pr create --base master --head development `
+  --title "Release v0.2.0" `
+  --label release `
   --body-file path/to/body.md
 ```
 
@@ -50,10 +69,20 @@ gh pr create --base master --head development \
 
 After the release PR is merged:
 
+**Bash**
+
 ```bash
 git checkout master
 git pull origin master
 ./scripts/release-tag.sh 0.2.0
+```
+
+**PowerShell**
+
+```powershell
+git checkout master
+git pull origin master
+powershell -ExecutionPolicy Bypass -File scripts/release-tag.ps1 -Version 0.2.0
 ```
 
 This will:
