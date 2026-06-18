@@ -48,6 +48,32 @@ gh pr create --base development --head feature/my-feature \
 
 Release PRs are the exception: `development` → `master` when cutting a stable release.
 
+## Labels
+
+Use **one primary label** per PR (and issue, when relevant). Names match branch intent:
+
+| Label | Color | Use when | Typical branch |
+|-------|-------|----------|----------------|
+| `feature` | green | New capability or user-facing behavior | `feature/*` |
+| `bugfix` | red | Fixes incorrect behavior | `fix/*` |
+| `docs` | blue | Documentation only | `docs/*` |
+| `refactor` | purple | Restructure without intended behavior change | `refactor/*` or structural `chore/*` |
+
+```bash
+gh pr edit <number> --add-label feature
+```
+
+**Prefer these four** over default GitHub labels (`enhancement`, `bug`, `documentation`). Legacy labels may remain on the repo but should not be used for new work.
+
+Optional later: `chore` (tooling/CI/deps), `release` (`development` → `master`).
+
+## Branch protection
+
+| Branch | Policy |
+|--------|--------|
+| `master` | **Protected** — no direct pushes; changes land only via merged PR (release flow: `development` → `master`). |
+| `development` | Open for direct push while the project is solo; switch to PR-only when collaborators join. |
+
 ## Day-to-day
 
 ```bash
@@ -71,10 +97,12 @@ git push origin development
 When `development` is ready for a release:
 
 ```bash
-git checkout master
-git merge --no-ff development
-git tag v0.x.x   # optional
-git push origin master --tags
+git checkout development
+git pull origin development
+gh pr create --base master --head development --title "Release v0.x.x"
+# merge via GitHub — direct push to master is blocked
+git tag v0.x.x   # optional, after merge
+git push origin v0.x.x
 ```
 
 ## Hotfix (rare)
@@ -83,9 +111,11 @@ Urgent fix on `master` without waiting for other `development` work:
 
 ```bash
 git checkout master
+git pull origin master
 git checkout -b fix/critical-bug
 # … fix …
-git checkout master && git merge --no-ff fix/critical-bug
+gh pr create --base master --head fix/critical-bug --label bugfix
+# after merge to master:
 git checkout development && git merge --no-ff fix/critical-bug
 ```
 
