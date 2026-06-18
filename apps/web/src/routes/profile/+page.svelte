@@ -226,7 +226,7 @@
 
 {:else}
 
-  <div class="card">
+  <div class="card profile-card">
 
     <ProfileHeader
 
@@ -312,7 +312,7 @@
 
   <PhotoGrid {photos} onupload={uploadPhoto} uploading={photoUploading} />
 
-  <div class="card">
+  <div class="card posts-card">
 
     <h3>Os teus posts</h3>
 
@@ -464,6 +464,11 @@
 
     font-size: 1rem;
 
+  }
+
+  .profile-card,
+  .posts-card {
+    margin-bottom: 1rem;
   }
 
 </style>
