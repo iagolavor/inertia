@@ -37,7 +37,7 @@ You work on the **local-first backend**: `inertia-core` (domain + SQLite + libp2
 
 1. Method on `Engine` in `engine.rs`.
 2. Storage/query in `storage.rs` if needed.
-3. Route + handler in `inertia-api/src/main.rs`.
+3. Route + handler in `inertia-api/src/routes/` (domain module) and register in `routes/mod.rs`.
 4. Mirror types in `apps/web/src/lib/api.ts` (tell user or add in same PR).
 
 ## Style
