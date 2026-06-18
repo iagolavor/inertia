@@ -1,0 +1,57 @@
+import type { Contact, InboxEntry } from '$lib/api';
+
+export interface DmThread {
+  contact: Contact;
+  lastMessage: InboxEntry | null;
+  /** ISO timestamp used for sorting (most recent activity first). */
+  lastActivity: string;
+}
+
+export function buildDmThreads(contacts: Contact[], inbox: InboxEntry[]): DmThread[] {
+  const messages = inbox.filter((entry) => entry.content_type === 'message');
+
+  const latestBySender = new Map<string, InboxEntry>();
+  for (const msg of messages) {
+    const existing = latestBySender.get(msg.sender_id);
+    if (!existing || new Date(msg.received_at) > new Date(existing.received_at)) {
+      latestBySender.set(msg.sender_id, msg);
+    }
+  }
+
+  const threads: DmThread[] = contacts.map((contact) => {
+    const lastMessage =
+      latestBySender.get(contact.id) ?? latestBySender.get(contact.signing_pubkey) ?? null;
+    return {
+      contact,
+      lastMessage,
+      lastActivity: lastMessage?.received_at ?? contact.last_seen ?? '1970-01-01T00:00:00.000Z'
+    };
+  });
+
+  threads.sort((a, b) => {
+    const aTime = new Date(a.lastActivity).getTime();
+    const bTime = new Date(b.lastActivity).getTime();
+    if (bTime !== aTime) return bTime - aTime;
+    return a.contact.display_name.localeCompare(b.contact.display_name);
+  });
+
+  return threads;
+}
+
+export function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(iso).toLocaleDateString();
+}
+
+export function previewText(body: string, max = 72): string {
+  const flat = body.replace(/\s+/g, ' ').trim();
+  if (flat.length <= max) return flat;
+  return `${flat.slice(0, max - 1)}…`;
+}
