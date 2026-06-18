@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 description = "Local HTTP API bridge between SvelteKit and inertia-core"
 
+[lib]
+name = "inertia_api"
+path = "src/lib.rs"
+
 [[bin]]
 name = "inertia-api"
 path = "src/main.rs"
