@@ -18,10 +18,15 @@ async function syncFromApi() {
 		identityState.profileLocked = true;
 		await writeDeviceProfile(identity).catch(() => {});
 		try {
-			identityState.p2pInfo = await Promise.race([
+			const info = await Promise.race([
 				api.p2pAddresses(),
 				new Promise<null>((resolve) => setTimeout(() => resolve(null), 3_000))
 			]);
+			if (info?.peer_id) {
+				identityState.p2pInfo = info;
+			} else {
+				identityState.p2pInfo = await api.startP2p();
+			}
 		} catch {
 			identityState.p2pInfo = null;
 		}
@@ -116,7 +121,7 @@ export async function toggleApiBridge() {
 
 export async function startP2pInBackground() {
 	try {
-		identityState.p2pInfo = await api.startP2p(0);
+		identityState.p2pInfo = await api.startP2p();
 	} catch {
 		identityState.p2pInfo = null;
 	}

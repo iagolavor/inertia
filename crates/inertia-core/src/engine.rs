@@ -3,11 +3,11 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use libp2p::Multiaddr;
-use tokio::sync::{mpsc, RwLock};
-use tracing::info;
+use libp2p::{Multiaddr, PeerId};
+use tokio::sync::{mpsc, Mutex, RwLock};
+use tracing::{info, warn};
 
-use crate::content::{ContentType, DeliveryStatus};
+use crate::content::{ContentEnvelope, ContentType, DeliveryStatus};
 use crate::error::{CoreError, CoreResult};
 use crate::expiry::ExpiryScheduler;
 use crate::identity::Identity;
@@ -19,13 +19,16 @@ use crate::storage::{
 };
 use crate::store_handle::StoreHandle;
 
+/// Default libp2p TCP listen port when `INERTIA_P2P_LISTEN_PORT` is unset.
+pub const DEFAULT_P2P_LISTEN_PORT: u16 = 4784;
+
 /// High-level facade over storage, identity, expiry, and P2P networking.
 pub struct Engine {
     pub store: StoreHandle,
     pub identity: Arc<RwLock<Identity>>,
-    p2p: Option<P2pNode>,
+    p2p: Arc<Mutex<Option<P2pNode>>>,
     _expiry_handle: Option<tokio::task::JoinHandle<()>>,
-    _p2p_events: mpsc::UnboundedReceiver<P2pEvent>,
+    _p2p_event_task: tokio::task::JoinHandle<()>,
     event_tx: mpsc::UnboundedSender<P2pEvent>,
 }
 
@@ -41,15 +44,27 @@ impl Engine {
         let expiry_handle = Some(expiry.spawn());
 
         let (event_tx, p2p_events) = mpsc::unbounded_channel();
+        let p2p = Arc::new(Mutex::new(None));
+        let p2p_for_events = Arc::clone(&p2p);
+        let store_for_events = store.clone();
+        let p2p_event_task = tokio::spawn(async move {
+            run_p2p_event_loop(p2p_events, store_for_events, p2p_for_events).await;
+        });
 
-        Ok(Self {
+        let engine = Self {
             store,
             identity,
-            p2p: None,
+            p2p,
             _expiry_handle: expiry_handle,
-            _p2p_events: p2p_events,
+            _p2p_event_task: p2p_event_task,
             event_tx,
-        })
+        };
+
+        if engine.identity.read().await.is_initialized() {
+            engine.ensure_p2p_started().await?;
+        }
+
+        Ok(engine)
     }
 
     pub async fn initialize_identity(
@@ -73,6 +88,7 @@ impl Engine {
             .await?;
         *self.identity.write().await = identity.clone();
         info!(display_name = %identity.display_name, "identity initialized");
+        self.ensure_p2p_started().await?;
         Ok(identity)
     }
 
@@ -165,8 +181,8 @@ impl Engine {
             ));
         }
 
-        let p2p = self
-            .p2p
+        let p2p_guard = self.p2p.lock().await;
+        let p2p = p2p_guard
             .as_ref()
             .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
 
@@ -254,7 +270,23 @@ impl Engine {
         self.store.with(|store| store.list_inbox()).await
     }
 
-    pub async fn start_p2p(&mut self, listen_port: u16) -> CoreResult<String> {
+    /// Idempotent — returns the current peer id if P2P is already running.
+    pub async fn ensure_p2p_started(&self) -> CoreResult<String> {
+        self.start_p2p(0).await
+    }
+
+    pub async fn start_p2p(&self, listen_port: u16) -> CoreResult<String> {
+        let listen_port = if listen_port == 0 {
+            p2p_listen_port_from_env()
+        } else {
+            listen_port
+        };
+
+        let mut guard = self.p2p.lock().await;
+        if let Some(node) = guard.as_ref() {
+            return Ok(node.peer_id_string());
+        }
+
         let listen_addr = format!("/ip4/0.0.0.0/tcp/{listen_port}")
             .parse::<Multiaddr>()
             .map_err(|e| CoreError::P2p(e.to_string()))?;
@@ -268,18 +300,18 @@ impl Engine {
         .await?;
 
         let peer_id = node.peer_id_string();
-        self.p2p = Some(node);
-        info!(%peer_id, "p2p node started");
+        *guard = Some(node);
+        info!(%peer_id, port = listen_port, "p2p node started");
         Ok(peer_id)
     }
 
     pub async fn peer_id(&self) -> Option<String> {
-        self.p2p.as_ref().map(|n| n.peer_id_string())
+        self.p2p.lock().await.as_ref().map(|n| n.peer_id_string())
     }
 
     pub async fn p2p_listen_addresses(&self) -> CoreResult<Vec<String>> {
-        let p2p = self
-            .p2p
+        let guard = self.p2p.lock().await;
+        let p2p = guard
             .as_ref()
             .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
         Ok(p2p
@@ -302,8 +334,8 @@ impl Engine {
     }
 
     pub async fn dial_peer(&self, multiaddr: &str) -> CoreResult<()> {
-        let p2p = self
-            .p2p
+        let guard = self.p2p.lock().await;
+        let p2p = guard
             .as_ref()
             .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
         let addr = multiaddr
@@ -313,8 +345,8 @@ impl Engine {
     }
 
     pub async fn send_friend_request(&self, contact_id: &str, multiaddr: &str) -> CoreResult<()> {
-        let p2p = self
-            .p2p
+        let guard = self.p2p.lock().await;
+        let p2p = guard
             .as_ref()
             .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
         let addr = multiaddr
@@ -388,11 +420,14 @@ impl Engine {
                 })
                 .await?;
 
-            if let (Some(p2p), Some(peer_id_str)) = (&self.p2p, contact.peer_id.as_ref()) {
+            if let Some(peer_id_str) = contact.peer_id.as_ref() {
                 if let Ok(peer_id) = peer_id_str.parse() {
-                    let _ = p2p
-                        .send_envelope_to_peer(peer_id, contact_envelope)
-                        .await;
+                    let p2p_guard = self.p2p.lock().await;
+                    if let Some(p2p) = p2p_guard.as_ref() {
+                        let _ = p2p
+                            .send_envelope_to_peer(peer_id, contact_envelope)
+                            .await;
+                    }
                 }
             }
         }
@@ -502,11 +537,14 @@ impl Engine {
                 })
                 .await?;
 
-            if let (Some(p2p), Some(peer_id_str)) = (&self.p2p, contact.peer_id.as_ref()) {
+            if let Some(peer_id_str) = contact.peer_id.as_ref() {
                 if let Ok(peer_id) = peer_id_str.parse() {
-                    let _ = p2p
-                        .send_envelope_to_peer(peer_id, contact_envelope)
-                        .await;
+                    let p2p_guard = self.p2p.lock().await;
+                    if let Some(p2p) = p2p_guard.as_ref() {
+                        let _ = p2p
+                            .send_envelope_to_peer(peer_id, contact_envelope)
+                            .await;
+                    }
                 }
             }
         }
@@ -713,10 +751,13 @@ impl Engine {
             })
             .await?;
 
-        if let (Some(p2p), Some(peer_id_str)) = (&self.p2p, recipient.peer_id.as_ref()) {
+        if let Some(peer_id_str) = recipient.peer_id.as_ref() {
             if let Ok(peer_id) = peer_id_str.parse() {
-                if p2p.send_envelope_to_peer(peer_id, envelope).await.is_ok() {
-                    return Ok(content_id);
+                let p2p_guard = self.p2p.lock().await;
+                if let Some(p2p) = p2p_guard.as_ref() {
+                    if p2p.send_envelope_to_peer(peer_id, envelope).await.is_ok() {
+                        return Ok(content_id);
+                    }
                 }
             }
         }
@@ -731,47 +772,136 @@ impl Engine {
     }
 
     pub async fn retry_outbox(&self, content_id: &str, recipient_id: &str) -> CoreResult<()> {
-        let envelope_json = self
-            .store
-            .with(|store| store.get_outbox_envelope(content_id, recipient_id))
-            .await?;
-        let recipient = self
-            .store
-            .with(|store| store.get_contact(recipient_id))
-            .await?;
-
-        let envelope: crate::content::ContentEnvelope = serde_json::from_str(&envelope_json)?;
-
-        let p2p = self
-            .p2p
-            .as_ref()
-            .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
-        let peer_id = recipient
-            .peer_id
-            .as_ref()
-            .ok_or_else(|| CoreError::P2p("recipient has no peer id".into()))?
-            .parse::<libp2p::PeerId>()
-            .map_err(|e| CoreError::P2p(e.to_string()))?;
-
-        self.store
-            .with_mut(|store| store.increment_outbox_retry(content_id, recipient_id))
-            .await?;
-
-        match p2p.send_envelope_to_peer(peer_id, envelope).await {
-            Ok(()) => Ok(()),
-            Err(e) => {
-                self.store
-                    .with_mut(|store| {
-                        store.update_outbox_status(content_id, recipient_id, DeliveryStatus::Failed)
-                    })
-                    .await?;
-                Err(e)
-            }
-        }
+        deliver_outbox_entry(
+            &self.store,
+            &self.p2p,
+            content_id,
+            recipient_id,
+            true,
+        )
+        .await
     }
 
     pub async fn run_expiry_sweep(&self) -> CoreResult<crate::storage::PurgeReport> {
         self.store.with(|store| store.purge_expired()).await
+    }
+}
+
+pub fn default_p2p_listen_port() -> u16 {
+    p2p_listen_port_from_env()
+}
+
+fn p2p_listen_port_from_env() -> u16 {
+    std::env::var("INERTIA_P2P_LISTEN_PORT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .filter(|&port| port > 0)
+        .unwrap_or(DEFAULT_P2P_LISTEN_PORT)
+}
+
+async fn run_p2p_event_loop(
+    mut events: mpsc::UnboundedReceiver<P2pEvent>,
+    store: StoreHandle,
+    p2p: Arc<Mutex<Option<P2pNode>>>,
+) {
+    while let Some(event) = events.recv().await {
+        if let P2pEvent::PeerConnected(peer_id) = event {
+            info!(%peer_id, "peer connected — flushing pending outbox");
+            if let Err(e) = flush_outbox_for_peer(&store, &p2p, peer_id).await {
+                warn!(error = %e, "outbox flush on peer connect failed");
+            }
+        }
+    }
+}
+
+async fn flush_outbox_for_peer(
+    store: &StoreHandle,
+    p2p: &Arc<Mutex<Option<P2pNode>>>,
+    peer_id: PeerId,
+) -> CoreResult<()> {
+    let peer_id_str = peer_id.to_string();
+    let contacts = store.with(|s| s.list_contacts()).await?;
+    let recipient_ids: Vec<String> = contacts
+        .iter()
+        .filter(|c| c.peer_id.as_deref() == Some(peer_id_str.as_str()))
+        .map(|c| c.id.clone())
+        .collect();
+
+    if recipient_ids.is_empty() {
+        return Ok(());
+    }
+
+    let entries = store.with(|s| s.list_outbox()).await?;
+    for entry in entries {
+        if !recipient_ids.contains(&entry.recipient_id) {
+            continue;
+        }
+        if !matches!(
+            entry.status,
+            DeliveryStatus::Pending | DeliveryStatus::Failed
+        ) {
+            continue;
+        }
+        if let Err(e) = deliver_outbox_entry(
+            store,
+            p2p,
+            &entry.content_id,
+            &entry.recipient_id,
+            false,
+        )
+        .await
+        {
+            warn!(
+                content_id = %entry.content_id,
+                recipient_id = %entry.recipient_id,
+                error = %e,
+                "auto outbox delivery failed"
+            );
+        }
+    }
+    Ok(())
+}
+
+async fn deliver_outbox_entry(
+    store: &StoreHandle,
+    p2p: &Arc<Mutex<Option<P2pNode>>>,
+    content_id: &str,
+    recipient_id: &str,
+    increment_retry: bool,
+) -> CoreResult<()> {
+    let envelope_json = store
+        .with(|s| s.get_outbox_envelope(content_id, recipient_id))
+        .await?;
+    let recipient = store.with(|s| s.get_contact(recipient_id)).await?;
+    let envelope: ContentEnvelope = serde_json::from_str(&envelope_json)?;
+    let peer_id = recipient
+        .peer_id
+        .as_ref()
+        .ok_or_else(|| CoreError::P2p("recipient has no peer id".into()))?
+        .parse::<PeerId>()
+        .map_err(|e| CoreError::P2p(e.to_string()))?;
+
+    if increment_retry {
+        store
+            .with_mut(|s| s.increment_outbox_retry(content_id, recipient_id))
+            .await?;
+    }
+
+    let guard = p2p.lock().await;
+    let node = guard
+        .as_ref()
+        .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
+
+    match node.send_envelope_to_peer(peer_id, envelope).await {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            store
+                .with_mut(|s| {
+                    s.update_outbox_status(content_id, recipient_id, DeliveryStatus::Failed)
+                })
+                .await?;
+            Err(e)
+        }
     }
 }
 

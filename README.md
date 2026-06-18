@@ -218,6 +218,7 @@ Optional environment variables:
 |----------|---------|-------------|
 | `INERTIA_DATA_DIR` | `./data` | Local data directory |
 | `INERTIA_API_ADDR` | `127.0.0.1:4783` | API listen address |
+| `INERTIA_P2P_LISTEN_PORT` | `4784` | libp2p TCP listen port |
 
 ---
 
