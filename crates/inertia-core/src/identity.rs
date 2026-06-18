@@ -17,6 +17,8 @@ pub struct Identity {
     pub encryption_pubkey: String,
     pub phone_hash: Option<String>,
     pub display_name: String,
+    #[serde(default)]
+    pub bio: String,
     #[serde(skip)]
     signing_key: Option<SigningKey>,
     #[serde(skip)]
@@ -35,6 +37,7 @@ impl Identity {
             encryption_pubkey: hex::encode(encryption_pubkey.as_bytes()),
             phone_hash: None,
             display_name: display_name.into(),
+            bio: String::new(),
             signing_key: Some(signing_key),
             encryption_secret: Some(encryption_secret),
         }
@@ -45,6 +48,7 @@ impl Identity {
         encryption_pubkey: String,
         phone_hash: Option<String>,
         display_name: String,
+        bio: String,
         signing_key_hex: Option<String>,
         encryption_secret_hex: Option<String>,
     ) -> CoreResult<Self> {
@@ -75,6 +79,7 @@ impl Identity {
             encryption_pubkey,
             phone_hash,
             display_name,
+            bio,
             signing_key,
             encryption_secret,
         })

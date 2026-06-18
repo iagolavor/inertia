@@ -25,6 +25,12 @@ struct InitIdentityRequest {
 }
 
 #[derive(Deserialize)]
+struct UpdateProfileRequest {
+    display_name: String,
+    bio: Option<String>,
+}
+
+#[derive(Deserialize)]
 struct CreateInviteRequest {
     web_origin: Option<String>,
 }
@@ -112,7 +118,8 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(health))
         .route("/shutdown", post(shutdown_bridge))
-        .route("/identity", get(get_identity).post(init_identity))
+        .route("/identity", get(get_identity).post(init_identity).patch(update_profile))
+        .route("/identity/update", post(update_profile))
         .route("/invite", post(create_invite))
         .route("/invite/preview", post(preview_invite))
         .route("/invite/accept", post(accept_invite))
@@ -183,6 +190,18 @@ async fn init_identity(
     let engine = state.engine.lock().await;
     engine
         .initialize_identity(&body.display_name)
+        .await
+        .map(Json)
+        .map_err(api_err)
+}
+
+async fn update_profile(
+    State(state): State<AppState>,
+    Json(body): Json<UpdateProfileRequest>,
+) -> Result<Json<inertia_core::Identity>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .update_profile(&body.display_name, body.bio.unwrap_or_default())
         .await
         .map(Json)
         .map_err(api_err)

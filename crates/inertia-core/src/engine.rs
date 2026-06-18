@@ -76,6 +76,34 @@ impl Engine {
         Ok(identity)
     }
 
+    pub async fn update_profile(
+        &self,
+        display_name: impl Into<String>,
+        bio: impl Into<String>,
+    ) -> CoreResult<Identity> {
+        let display_name = display_name.into();
+        let bio = bio.into();
+        if display_name.trim().is_empty() {
+            return Err(CoreError::IdentityNotInitialized);
+        }
+
+        {
+            let current = self.identity.read().await;
+            if !current.is_initialized() {
+                return Err(CoreError::IdentityNotInitialized);
+            }
+        }
+
+        self.store
+            .with_mut(|store| store.update_identity_profile(&display_name, &bio))
+            .await?;
+
+        let mut identity = self.identity.write().await;
+        identity.display_name = display_name.trim().to_string();
+        identity.bio = bio.trim().to_string();
+        Ok(identity.clone())
+    }
+
     pub async fn identity_snapshot(&self) -> Identity {
         self.identity.read().await.clone()
     }

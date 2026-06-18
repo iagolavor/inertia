@@ -301,6 +301,7 @@ impl Store {
             ",
         )?;
         self.ensure_identity_key_columns()?;
+        self.ensure_identity_bio_column()?;
         self.ensure_inbox_media_ref_column()?;
         self.ensure_feed_archive_tables()?;
         Ok(())
@@ -360,6 +361,38 @@ impl Store {
         Ok(())
     }
 
+    fn ensure_identity_bio_column(&self) -> CoreResult<()> {
+        let mut stmt = self.conn.prepare("PRAGMA table_info(identity)")?;
+        let cols: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>("name"))?
+            .filter_map(Result::ok)
+            .collect();
+
+        if !cols.iter().any(|c| c == "bio") {
+            self.conn
+                .execute("ALTER TABLE identity ADD COLUMN bio TEXT NOT NULL DEFAULT ''", [])?;
+        }
+        Ok(())
+    }
+
+    pub fn update_identity_profile(
+        &self,
+        display_name: &str,
+        bio: &str,
+    ) -> CoreResult<()> {
+        if display_name.trim().is_empty() {
+            return Err(CoreError::IdentityNotInitialized);
+        }
+        let updated = self.conn.execute(
+            "UPDATE identity SET display_name = ?1, bio = ?2 WHERE id = 1",
+            params![display_name.trim(), bio.trim()],
+        )?;
+        if updated == 0 {
+            return Err(CoreError::IdentityNotInitialized);
+        }
+        Ok(())
+    }
+
     pub fn has_profile(&self) -> CoreResult<bool> {
         Ok(self.load_identity()?.is_some())
     }
@@ -375,13 +408,14 @@ impl Store {
         self.conn
             .execute(
                 "INSERT INTO identity
-                 (id, signing_pubkey, encryption_pubkey, phone_hash, display_name, signing_key, encryption_secret)
-                 VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6)",
+                 (id, signing_pubkey, encryption_pubkey, phone_hash, display_name, bio, signing_key, encryption_secret)
+                 VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     identity.signing_pubkey,
                     identity.encryption_pubkey,
                     identity.phone_hash,
                     identity.display_name,
+                    identity.bio,
                     encode_hex(signing_key),
                     encode_hex(encryption_secret),
                 ],
@@ -407,7 +441,7 @@ impl Store {
 
     pub fn load_identity(&self) -> CoreResult<Option<Identity>> {
         let mut stmt = self.conn.prepare(
-            "SELECT signing_pubkey, encryption_pubkey, phone_hash, display_name, signing_key, encryption_secret
+            "SELECT signing_pubkey, encryption_pubkey, phone_hash, display_name, bio, signing_key, encryption_secret
              FROM identity WHERE id = 1",
         )?;
         let mut rows = stmt.query([])?;
@@ -417,6 +451,7 @@ impl Store {
                 row.get("encryption_pubkey")?,
                 row.get("phone_hash")?,
                 row.get("display_name")?,
+                row.get("bio").unwrap_or_default(),
                 row.get("signing_key")?,
                 row.get("encryption_secret")?,
             )?;

@@ -7,6 +7,7 @@ export interface Identity {
   encryption_pubkey: string;
   phone_hash: string | null;
   display_name: string;
+  bio?: string;
 }
 
 export interface Contact {
@@ -167,6 +168,11 @@ export const api = {
     request<Identity>('/identity', {
       method: 'POST',
       body: JSON.stringify({ display_name })
+    }),
+  updateProfile: (display_name: string, bio?: string) =>
+    request<Identity>('/identity/update', {
+      method: 'POST',
+      body: JSON.stringify({ display_name, bio: bio ?? '' })
     }),
   createInvite: (web_origin?: string) =>
     request<InviteResponse>('/invite', {
