@@ -1,0 +1,27 @@
+# Second Inertia peer for local P2P experiments.
+# Your main profile stays on the host (port 4783). This container is a "remote friend".
+#
+#   docker compose up --build -d
+#   powershell -File scripts/p2p-docker-peer.ps1
+#
+# See docs/P2P-EXPERIMENT.md
+
+services:
+  inertia-peer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "4784:4783"
+      - "9002:9002"
+    environment:
+      INERTIA_DATA_DIR: /data
+      INERTIA_API_ADDR: 0.0.0.0:4783
+      INERTIA_P2P_ANNOUNCE: /ip4/127.0.0.1/tcp/9002
+    volumes:
+      - inertia-peer-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  inertia-peer-data:

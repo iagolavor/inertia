@@ -47,6 +47,17 @@
   </div>
 
   <div class="card feed-list">
+    <div class="feed-list-header">
+      <span class="feed-list-label">Posts</span>
+      <button
+        type="button"
+        class="btn btn-secondary btn-sm"
+        onclick={() => loadFeed()}
+        disabled={feedLoading}
+      >
+        {feedLoading ? 'Loading…' : 'Reload'}
+      </button>
+    </div>
     {#if feedLoading && feed.length === 0}
       <p class="empty">A carregar feed…</p>
     {:else if feedError}
@@ -97,6 +108,29 @@
 
   .feed-list {
     padding-top: 0.5rem;
+  }
+
+  .feed-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0 0.25rem 0.65rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.25rem;
+  }
+
+  .feed-list-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
   }
 
   .list {

@@ -20,6 +20,7 @@ Further reading:
 
 - [Vision & architecture](docs/VISION.md)
 - [Design philosophy](docs/DESIGN.md)
+- [P2P experiment (Docker)](docs/P2P-EXPERIMENT.md)
 
 ---
 

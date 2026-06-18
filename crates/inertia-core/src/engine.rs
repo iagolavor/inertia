@@ -88,7 +88,7 @@ impl Engine {
         drop(identity);
 
         let peer_id = self.peer_id().await;
-        let multiaddrs = self.p2p_listen_addresses().await.unwrap_or_default();
+        let multiaddrs = self.p2p_invite_addresses(peer_id.as_deref()).await;
         let identity = self.identity.read().await;
         let invite = FriendInvite::new(&identity, peer_id, multiaddrs)?;
         drop(identity);
@@ -262,6 +262,17 @@ impl Engine {
             .collect())
     }
 
+    /// Addresses embedded in invites — uses `INERTIA_P2P_ANNOUNCE` when set.
+    pub async fn p2p_invite_addresses(&self, peer_id: Option<&str>) -> Vec<String> {
+        if let Some(pid) = peer_id {
+            let announced = announced_p2p_multiaddrs(pid);
+            if !announced.is_empty() {
+                return announced;
+            }
+        }
+        self.p2p_listen_addresses().await.unwrap_or_default()
+    }
+
     pub async fn dial_peer(&self, multiaddr: &str) -> CoreResult<()> {
         let p2p = self
             .p2p
@@ -348,6 +359,14 @@ impl Engine {
                     )
                 })
                 .await?;
+
+            if let (Some(p2p), Some(peer_id_str)) = (&self.p2p, contact.peer_id.as_ref()) {
+                if let Ok(peer_id) = peer_id_str.parse() {
+                    let _ = p2p
+                        .send_envelope_to_peer(peer_id, contact_envelope)
+                        .await;
+                }
+            }
         }
 
         drop(identity);
@@ -632,6 +651,24 @@ impl Engine {
     pub async fn run_expiry_sweep(&self) -> CoreResult<crate::storage::PurgeReport> {
         self.store.with(|store| store.purge_expired()).await
     }
+}
+
+/// Comma-separated multiaddrs from `INERTIA_P2P_ANNOUNCE`, with `/p2p/<peer_id>` appended when missing.
+fn announced_p2p_multiaddrs(peer_id: &str) -> Vec<String> {
+    let Some(raw) = std::env::var("INERTIA_P2P_ANNOUNCE").ok() else {
+        return Vec::new();
+    };
+    raw.split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|addr| {
+            if addr.contains("/p2p/") {
+                addr.to_string()
+            } else {
+                format!("{addr}/p2p/{peer_id}")
+            }
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

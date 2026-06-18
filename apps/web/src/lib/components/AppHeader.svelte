@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import InertiaLogo from '$lib/components/InertiaLogo.svelte';
   import OnlineStatus from '$lib/components/OnlineStatus.svelte';
   import { identityState } from '$lib/identity.svelte';
 
@@ -54,7 +55,10 @@
 <header class="app-header">
   <div class="header-inner">
     <div class="header-start">
-      <a href="/" class="brand">Inertia</a>
+      <a href="/" class="brand">
+        <InertiaLogo />
+        <span class="brand-name">Inertia</span>
+      </a>
 
       <nav class="primary-tabs" aria-label="Principal">
         {#each primaryTabs as tab}
@@ -140,17 +144,27 @@
   }
 
   .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     flex-shrink: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--text);
     text-decoration: none;
+    border-radius: 6px;
+    transition: opacity 0.12s;
   }
 
   .brand:hover {
     text-decoration: none;
-    color: var(--accent);
+    opacity: 0.82;
+  }
+
+  .brand-name {
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+    color: var(--text);
   }
 
   .primary-tabs {

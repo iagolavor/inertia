@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inertia — Rounded Square Variations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@500;700;800&family=Archivo:wght@600;700;800&family=Barlow:wght@500;700&family=Be+Vietnam+Pro:wght@500;700&family=DM+Sans:opsz,wght@9..40,500;9..40,700&family=Epilogue:wght@600;700;800&family=Figtree:wght@600;700;800&family=Geologica:wght@500;700&family=Instrument+Sans:wght@500;600;700&family=Jost:wght@500;600;700&family=Lexend:wght@500;600;700&family=Montserrat:wght@600;700;800&family=Onest:wght@500;600;700&family=Outfit:wght@500;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Poppins:wght@500;600;700&family=Raleway:wght@600;700;800&family=Rubik:wght@500;600;700&family=Urbanist:wght@600;700;800&family=Work+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --page-bg: #08090c;
+      --card-bg: #101218;
+      --border: #222833;
+      --muted: #8b919a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 2rem 1.25rem 4rem;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--page-bg);
+      color: #e8eaed;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 1240px; margin: 0 auto; }
+    h1 { font-size: 1.8rem; letter-spacing: -0.04em; margin: 0 0 0.35rem; }
+    .intro { color: var(--muted); max-width: 68ch; margin-bottom: 2rem; font-size: 0.92rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--card-bg);
+    }
+    .meta { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); }
+    .meta h2 { margin: 0; font-size: 0.88rem; font-weight: 600; }
+    .meta p { margin: 0.15rem 0 0; font-size: 0.72rem; color: var(--muted); }
+    .swatch {
+      display: inline-flex; gap: 4px; margin-top: 0.4rem;
+    }
+    .swatch span {
+      width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12);
+    }
+    .previews { display: grid; grid-template-columns: 1fr 1fr; }
+    .pane {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 120px; padding: 1.2rem 0.85rem;
+    }
+    .logo {
+      display: flex; align-items: center;
+      gap: var(--gap, 0.6rem);
+      flex-direction: var(--dir, row);
+    }
+    .word {
+      font-family: var(--font);
+      font-weight: var(--weight, 700);
+      font-size: var(--size, 1.5rem);
+      letter-spacing: var(--track, -0.035em);
+      color: var(--word-color);
+      text-transform: var(--case, none);
+      line-height: 1.05;
+    }
+    svg.mark { flex-shrink: 0; display: block; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Rounded Square — 20 Variations</h1>
+    <p class="intro">
+      Based on <strong>Mutual link · rounded square nodes</strong> — two soft peers connected by a bridge.
+      Twenty typography and color directions; each card shows dark and light backgrounds.
+    </p>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <script>
+    function outlineSquares(c) {
+      return `<svg class="mark" width="${c.w ?? 50}" height="36" viewBox="0 0 50 36" aria-hidden="true">
+        <rect x="4" y="10" width="16" height="16" rx="${c.rx ?? 5}" fill="none" stroke="${c.ring}" stroke-width="${c.sw ?? 2}"/>
+        <rect x="30" y="10" width="16" height="16" rx="${c.rx ?? 5}" fill="none" stroke="${c.ring}" stroke-width="${c.sw ?? 2}"/>
+        <line x1="20" y1="18" x2="30" y2="18" stroke="${c.link}" stroke-width="${c.lw ?? 2}" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    const variations = [
+      {
+        id: 1, name: '01 — Inertia default', note: 'DM Sans · brand blue + green',
+        font: "'DM Sans', sans-serif", weight: '700',
+        swatch: ['#6c9eff', '#51cf66', '#0f1117'],
+        dark: { bg: '#0f1117', word: '#e8eaed', ring: '#6c9eff', link: '#51cf66' },
+        light: { bg: '#f4f6fb', word: '#1a1d27', ring: '#3b6fd9', link: '#2f9e44' },
+        mark: outlineSquares
+      },
+      {
+        id: 2, name: '02 — Plus Jakarta', note: 'Modern geometric sans · indigo + emerald',
+        font: "'Plus Jakarta Sans', sans-serif", weight: '800', size: '1.45rem',
+        swatch: ['#818cf8', '#34d399', '#0c0a14'],
+        dark: { bg: '#0c0a14', word: '#eef2ff', ring: '#818cf8', link: '#34d399' },
+        light: { bg: '#f5f3ff', word: '#1e1b4b', ring: '#6366f1', link: '#059669' },
+        mark: outlineSquares
+      },
+      {
+        id: 3, name: '03 — Outfit heavy', note: 'Tight tracking · cobalt + lime',
+        font: "'Outfit', sans-serif", weight: '800', track: '-0.05em',
+        swatch: ['#60a5fa', '#a3e635', '#030712'],
+        dark: { bg: '#030712', word: '#f9fafb', ring: '#60a5fa', link: '#a3e635', sw: 2.5, lw: 2.5 },
+        light: { bg: '#ffffff', word: '#111827', ring: '#2563eb', link: '#65a30d', sw: 2.5, lw: 2.5 },
+        mark: outlineSquares
+      },
+      {
+        id: 4, name: '04 — Instrument Sans', note: 'Apple-adjacent · slate + sky',
+        font: "'Instrument Sans', sans-serif", weight: '600', size: '1.48rem',
+        swatch: ['#38bdf8', '#94a3b8', '#0f172a'],
+        dark: { bg: '#0f172a', word: '#f1f5f9', ring: '#38bdf8', link: '#94a3b8' },
+        light: { bg: '#f8fafc', word: '#0f172a', ring: '#0284c7', link: '#64748b' },
+        mark: outlineSquares
+      },
+      {
+        id: 5, name: '05 — Epilogue', note: 'Warm coral squares · peach word',
+        font: "'Epilogue', sans-serif", weight: '700',
+        swatch: ['#fb7185', '#fcd34d', '#1c1012'],
+        dark: { bg: '#1c1012', word: '#fff1f2', ring: '#fb7185', link: '#fcd34d' },
+        light: { bg: '#fff5f5', word: '#4c0519', ring: '#e11d48', link: '#ca8a04' },
+        mark: outlineSquares
+      },
+      {
+        id: 6, name: '06 — Lexend', note: 'Readable · teal + mint (accessibility font)',
+        font: "'Lexend', sans-serif", weight: '600', track: '-0.02em',
+        swatch: ['#2dd4bf', '#6ee7b7', '#042f2e'],
+        dark: { bg: '#042f2e', word: '#ecfdf5', ring: '#2dd4bf', link: '#6ee7b7' },
+        light: { bg: '#f0fdfa', word: '#134e4a', ring: '#0d9488', link: '#10b981' },
+        mark: outlineSquares
+      },
+      {
+        id: 7, name: '07 — Archivo', note: 'Newsprint feel · orange + charcoal link',
+        font: "'Archivo', sans-serif", weight: '700', size: '1.52rem',
+        swatch: ['#fb923c', '#525252', '#171717'],
+        dark: { bg: '#171717', word: '#fafafa', ring: '#fb923c', link: '#a3a3a3' },
+        light: { bg: '#fafafa', word: '#171717', ring: '#ea580c', link: '#525252' },
+        mark: outlineSquares
+      },
+      {
+        id: 8, name: '08 — Rubik', note: 'Friendly rounds · purple + pink',
+        font: "'Rubik', sans-serif", weight: '600',
+        swatch: ['#c084fc', '#f472b6', '#1a0f24'],
+        dark: { bg: '#1a0f24', word: '#faf5ff', ring: '#c084fc', link: '#f472b6', rx: 6 },
+        light: { bg: '#fdf4ff', word: '#581c87', ring: '#a855f7', link: '#db2777', rx: 6 },
+        mark: outlineSquares
+      },
+      {
+        id: 9, name: '09 — Geologica', note: 'Geometric display · yellow + electric blue',
+        font: "'Geologica', sans-serif", weight: '700', track: '-0.04em',
+        swatch: ['#facc15', '#3b82f6', '#0a0a0a'],
+        dark: { bg: '#0a0a0a', word: '#fefce8', ring: '#facc15', link: '#3b82f6' },
+        light: { bg: '#fefce8', word: '#1c1917', ring: '#ca8a04', link: '#1d4ed8' },
+        mark: outlineSquares
+      },
+      {
+        id: 10, name: '10 — Raleway', note: 'Elegant wide · rose + wine',
+        font: "'Raleway', sans-serif", weight: '700', track: '0.02em',
+        swatch: ['#fda4af', '#be123c', '#1a0a10'],
+        dark: { bg: '#1a0a10', word: '#ffe4e6', ring: '#fda4af', link: '#fb7185' },
+        light: { bg: '#fff1f2', word: '#881337', ring: '#e11d48', link: '#9f1239' },
+        mark: outlineSquares
+      },
+      {
+        id: 11, name: '11 — Filled squares', note: 'Poppins · solid nodes · white bridge',
+        font: "'Poppins', sans-serif", weight: '600', size: '1.42rem',
+        swatch: ['#22d3ee', '#ffffff', '#0c1220'],
+        dark: { bg: '#0c1220', word: '#e0f2fe', ring: '#22d3ee', link: '#e2e8f0' },
+        light: { bg: '#ecfeff', word: '#0c4a6e', ring: '#0891b2', link: '#334155' },
+        mark: (c) => `<svg class="mark" width="50" height="36" viewBox="0 0 50 36" aria-hidden="true">
+          <rect x="4" y="10" width="16" height="16" rx="5" fill="${c.ring}"/>
+          <rect x="30" y="10" width="16" height="16" rx="5" fill="${c.ring}"/>
+          <rect x="19" y="16" width="12" height="4" rx="2" fill="${c.link}"/>
+        </svg>`
+      },
+      {
+        id: 12, name: '12 — Ultra round', note: 'Figtree · rx=8 squircle peers',
+        font: "'Figtree', sans-serif", weight: '700',
+        swatch: ['#4ade80', '#86efac', '#052e16'],
+        dark: { bg: '#052e16', word: '#dcfce7', ring: '#4ade80', link: '#86efac', rx: 8 },
+        light: { bg: '#f0fdf4', word: '#14532d', ring: '#16a34a', link: '#22c55e', rx: 8 },
+        mark: outlineSquares
+      },
+      {
+        id: 13, name: '13 — Monochrome', note: 'Work Sans · black & white only',
+        font: "'Work Sans', sans-serif", weight: '600', track: '-0.03em',
+        swatch: ['#ffffff', '#888888', '#000000'],
+        dark: { bg: '#000', word: '#fff', ring: '#fff', link: '#888', sw: 1.75 },
+        light: { bg: '#fff', word: '#000', ring: '#000', link: '#666', sw: 1.75 },
+        mark: outlineSquares
+      },
+      {
+        id: 14, name: '14 — Onest', note: 'Cyrillic-ready · cyan + violet',
+        font: "'Onest', sans-serif", weight: '700',
+        swatch: ['#22d3ee', '#a78bfa', '#0b1020'],
+        dark: { bg: '#0b1020', word: '#ecfeff', ring: '#22d3ee', link: '#a78bfa' },
+        light: { bg: '#f0f9ff', word: '#0c4a6e', ring: '#0891b2', link: '#7c3aed' },
+        mark: outlineSquares
+      },
+      {
+        id: 15, name: '15 — Barlow condensed', note: 'Compact industrial · rust + sand',
+        font: "'Barlow', sans-serif", weight: '700', size: '1.58rem', track: '0.01em',
+        swatch: ['#d97706', '#d6d3d1', '#1c1917'],
+        dark: { bg: '#1c1917', word: '#fafaf9', ring: '#d97706', link: '#d6d3d1' },
+        light: { bg: '#fafaf9', word: '#292524', ring: '#b45309', link: '#78716c' },
+        mark: outlineSquares
+      },
+      {
+        id: 16, name: '16 — Urbanist', note: 'lowercase inertia · pastel duo',
+        font: "'Urbanist', sans-serif", weight: '700', size: '1.55rem', case: 'lowercase',
+        swatch: ['#93c5fd', '#fda4af', '#1e1b2e'],
+        dark: { bg: '#1e1b2e', word: '#e0e7ff', ring: '#93c5fd', link: '#fda4af' },
+        light: { bg: '#eef2ff', word: '#312e81', ring: '#3b82f6', link: '#f43f5e' },
+        mark: outlineSquares
+      },
+      {
+        id: 17, name: '17 — Jost', note: 'Futura-like · neon green + graphite',
+        font: "'Jost', sans-serif", weight: '600', track: '0.04em', case: 'uppercase', size: '1.2rem',
+        swatch: ['#bef264', '#52525b', '#18181b'],
+        dark: { bg: '#18181b', word: '#fafafa', ring: '#bef264', link: '#71717a' },
+        light: { bg: '#fafafa', word: '#18181b', ring: '#84cc16', link: '#3f3f46' },
+        mark: outlineSquares
+      },
+      {
+        id: 18, name: '18 — Be Vietnam Pro', note: 'Soft international · ocean gradient fill',
+        font: "'Be Vietnam Pro', sans-serif", weight: '700',
+        swatch: ['#0ea5e9', '#6366f1', '#0c1929'],
+        dark: { bg: '#0c1929', word: '#e0f2fe', g1: '#0ea5e9', g2: '#6366f1', link: '#7dd3fc' },
+        light: { bg: '#f0f9ff', word: '#0c4a6e', g1: '#0284c7', g2: '#4f46e5', link: '#38bdf8' },
+        mark: (c) => `<svg class="mark" width="50" height="36" viewBox="0 0 50 36" aria-hidden="true">
+          <defs><linearGradient id="sq${c.uid}" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="${c.g1}"/><stop offset="100%" stop-color="${c.g2}"/>
+          </linearGradient></defs>
+          <rect x="4" y="10" width="16" height="16" rx="5" fill="none" stroke="url(#sq${c.uid})" stroke-width="2"/>
+          <rect x="30" y="10" width="16" height="16" rx="5" fill="none" stroke="url(#sq${c.uid})" stroke-width="2"/>
+          <line x1="20" y1="18" x2="30" y2="18" stroke="${c.link}" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>`
+      },
+      {
+        id: 19, name: '19 — Albert Sans', note: 'Dot bridge · amber + slate squares',
+        font: "'Albert Sans', sans-serif", weight: '700',
+        swatch: ['#fbbf24', '#64748b', '#0f1419'],
+        dark: { bg: '#0f1419', word: '#fef3c7', ring: '#fbbf24', link: '#94a3b8' },
+        light: { bg: '#fffbeb', word: '#78350f', ring: '#d97706', link: '#475569' },
+        mark: (c) => `<svg class="mark" width="52" height="36" viewBox="0 0 52 36" aria-hidden="true">
+          <rect x="4" y="10" width="16" height="16" rx="5" fill="none" stroke="${c.ring}" stroke-width="2"/>
+          <rect x="32" y="10" width="16" height="16" rx="5" fill="none" stroke="${c.ring}" stroke-width="2"/>
+          <circle cx="22" cy="18" r="1.75" fill="${c.link}"/>
+          <circle cx="26" cy="18" r="1.75" fill="${c.link}"/>
+          <circle cx="30" cy="18" r="1.75" fill="${c.link}"/>
+        </svg>`
+      },
+      {
+        id: 20, name: '20 — Montserrat stacked', note: 'Mark on top · sunset palette',
+        font: "'Montserrat', sans-serif", weight: '800', size: '1.3rem', track: '-0.02em',
+        dir: 'column', gap: '0.4rem',
+        swatch: ['#f97316', '#ec4899', '#1a0a1e'],
+        dark: { bg: '#1a0a1e', word: '#fce7f3', ring: '#f97316', link: '#ec4899' },
+        light: { bg: '#fdf2f8', word: '#831843', ring: '#ea580c', link: '#db2777' },
+        mark: outlineSquares
+      }
+    ];
+
+    const grid = document.getElementById('grid');
+
+    for (const v of variations) {
+      const card = document.createElement('article');
+      card.className = 'card';
+
+      const wordStyle = (pane) => `
+        --font:${v.font};--word-color:${pane.word};
+        --size:${v.size ?? '1.5rem'};--weight:${v.weight ?? '700'};
+        --track:${v.track ?? '-0.035em'};--case:${v.case ?? 'none'};
+        --dir:${v.dir ?? 'row'};--gap:${v.gap ?? '0.6rem'};
+      `;
+
+      const renderPane = (pane, suffix) => {
+        const colors = { ...pane, uid: `${v.id}-${suffix}` };
+        const text = v.case === 'lowercase' ? 'inertia' : v.case === 'uppercase' ? 'INERTIA' : 'Inertia';
+        return `<div class="pane" style="background:${pane.bg}">
+          <div class="logo" style="${wordStyle(pane)}">
+            ${v.mark(colors)}
+            <span class="word">${text}</span>
+          </div>
+        </div>`;
+      };
+
+      const swatchHtml = (v.swatch || []).map((c) => `<span style="background:${c}"></span>`).join('');
+
+      card.innerHTML = `
+        <div class="meta">
+          <h2>${v.name}</h2>
+          <p>${v.note}</p>
+          <div class="swatch">${swatchHtml}</div>
+        </div>
+        <div class="previews">
+          ${renderPane(v.dark, 'd')}
+          ${renderPane(v.light, 'l')}
+        </div>`;
+      grid.appendChild(card);
+    }
+  </script>
+</body>
+</html>

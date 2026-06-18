@@ -3,16 +3,11 @@
   import { prepareImageForUpload } from '$lib/image';
 
   interface Props {
-    placeholder?: string;
     disabled?: boolean;
     onposted?: () => void;
   }
 
-  let {
-    placeholder = 'O que queres partilhar?',
-    disabled = false,
-    onposted
-  }: Props = $props();
+  let { disabled = false, onposted }: Props = $props();
 
   let body = $state('');
   let mediaPreview = $state<string | null>(null);
@@ -91,7 +86,7 @@
   <div class="composer-box">
     <textarea
       bind:value={body}
-      {placeholder}
+      placeholder="Write here"
       rows="2"
       disabled={posting || disabled}
       onkeydown={onKeydown}
