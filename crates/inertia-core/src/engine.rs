@@ -12,10 +12,10 @@ use crate::error::{CoreError, CoreResult};
 use crate::expiry::ExpiryScheduler;
 use crate::identity::Identity;
 use crate::invite::FriendInvite;
-use crate::p2p::{build_message_envelope, build_post_envelope, P2pEvent, P2pNode};
+use crate::p2p::{build_comment_envelope, build_message_envelope, build_post_envelope, P2pEvent, P2pNode};
 use crate::storage::{
     AppSettings, ArchivedFeedItem, ConnectionState, Contact, FeedBackup, FeedItem,
-    FeedRestoreReport, LocalPost, OutboxEntry, ProfilePhoto,
+    FeedRestoreReport, LocalPost, OutboxEntry, PostComment, ProfilePhoto,
 };
 use crate::store_handle::StoreHandle;
 
@@ -428,7 +428,92 @@ impl Engine {
         };
 
         items.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+        for item in &mut items {
+            item.comment_count = self
+                .store
+                .with(|store| store.count_post_comments(&item.content_id))
+                .await
+                .unwrap_or(0);
+        }
+
         Ok(items)
+    }
+
+    pub async fn get_feed_item(&self, content_id: &str) -> CoreResult<Option<FeedItem>> {
+        let items = self.list_feed().await?;
+        Ok(items.into_iter().find(|item| item.content_id == content_id))
+    }
+
+    pub async fn list_post_comments(&self, post_id: &str) -> CoreResult<Vec<PostComment>> {
+        self.store
+            .with(|store| store.list_post_comments(post_id))
+            .await
+    }
+
+    pub async fn add_post_comment(&self, post_id: &str, body: &str) -> CoreResult<PostComment> {
+        let body = body.trim();
+        if body.is_empty() {
+            return Err(CoreError::Invite("comment cannot be empty".into()));
+        }
+
+        let identity = self.identity.read().await;
+        if identity.display_name.is_empty() {
+            return Err(CoreError::IdentityNotInitialized);
+        }
+
+        let comment = PostComment {
+            id: uuid::Uuid::new_v4().to_string(),
+            post_id: post_id.to_string(),
+            author_id: identity.signing_pubkey.clone(),
+            author_name: identity.display_name.clone(),
+            body: body.to_string(),
+            created_at: chrono::Utc::now(),
+        };
+        drop(identity);
+
+        self.store
+            .with_mut(|store| store.insert_post_comment(&comment))
+            .await?;
+
+        let contacts = self.store.with(|store| store.list_contacts()).await?;
+        let identity = self.identity.read().await;
+
+        for contact in &contacts {
+            let contact_envelope =
+                build_comment_envelope(&identity, contact, post_id, body)?;
+            let envelope_id = contact_envelope.id.clone();
+            let contact_envelope_json = serde_json::to_string(&contact_envelope)?;
+
+            self.store
+                .with_mut(|store| {
+                    store.insert_outbox(
+                        &OutboxEntry {
+                            content_id: envelope_id,
+                            recipient_id: contact.id.clone(),
+                            status: DeliveryStatus::Pending,
+                            expires_at: contact_envelope.expires_at,
+                            retry_count: 0,
+                            ciphertext: contact_envelope.ciphertext.clone(),
+                            content_type: ContentType::Comment,
+                        },
+                        &contact_envelope_json,
+                    )
+                })
+                .await?;
+
+            if let (Some(p2p), Some(peer_id_str)) = (&self.p2p, contact.peer_id.as_ref()) {
+                if let Ok(peer_id) = peer_id_str.parse() {
+                    let _ = p2p
+                        .send_envelope_to_peer(peer_id, contact_envelope)
+                        .await;
+                }
+            }
+        }
+
+        drop(identity);
+        info!(post_id, "comment saved and queued for peers");
+        Ok(comment)
     }
 
     async fn collect_ephemeral_feed_items(&self) -> CoreResult<Vec<FeedItem>> {
@@ -469,6 +554,7 @@ impl Engine {
                 expires_at: p.expires_at,
                 is_own: true,
                 is_archived: false,
+                comment_count: 0,
             })
             .collect();
 
@@ -486,6 +572,7 @@ impl Engine {
                 expires_at: entry.expires_at,
                 is_own: false,
                 is_archived: false,
+                comment_count: 0,
             });
         }
 
@@ -539,7 +626,7 @@ impl Engine {
         caption: Option<&str>,
     ) -> CoreResult<ProfilePhoto> {
         let blob_hash = self.store_blob(data).await?;
-        self.insert_profile_photo_record(blob_hash, caption).await
+        self.insert_profile_photo_record(blob_hash, caption, None).await
     }
 
     pub async fn publish_profile_photo(
@@ -549,10 +636,15 @@ impl Engine {
     ) -> CoreResult<PublishPhotoResult> {
         let blob_hash = self.store_blob(data).await?;
         let photo = self
-            .insert_profile_photo_record(blob_hash.clone(), caption)
+            .insert_profile_photo_record(blob_hash.clone(), caption, None)
             .await?;
         let body = caption.unwrap_or("");
         let content_id = self.send_post(body, Some(&blob_hash)).await?;
+        self.store
+            .with_mut(|store| store.update_profile_photo_content_id(&photo.id, &content_id))
+            .await?;
+        let mut photo = photo;
+        photo.content_id = Some(content_id.clone());
         Ok(PublishPhotoResult { photo, content_id })
     }
 
@@ -560,6 +652,7 @@ impl Engine {
         &self,
         blob_hash: String,
         caption: Option<&str>,
+        content_id: Option<String>,
     ) -> CoreResult<ProfilePhoto> {
         let photos = self
             .store
@@ -570,6 +663,7 @@ impl Engine {
             id: uuid::Uuid::new_v4().to_string(),
             blob_hash,
             caption: caption.map(|s| s.to_string()),
+            content_id,
             sort_order: photos.len() as i32,
             created_at: chrono::Utc::now(),
         };

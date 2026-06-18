@@ -5,9 +5,10 @@
 
   interface Props {
     post: FeedItem;
+    onopen?: (post: FeedItem) => void;
   }
 
-  let { post }: Props = $props();
+  let { post, onopen }: Props = $props();
 
   function timeAgo(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime();
@@ -40,12 +41,33 @@
   </header>
 
   {#if post.media_ref}
-    <img class="post-media" src={blobUrl(post.media_ref)} alt="" loading="lazy" />
+    <button type="button" class="media-btn" onclick={() => onopen?.(post)}>
+      <img class="post-media" src={blobUrl(post.media_ref)} alt="" loading="lazy" />
+    </button>
   {/if}
 
   {#if post.body}
     <FormattedText text={post.body} class="post-body" />
   {/if}
+
+  <div class="post-actions">
+    <button type="button" class="action-btn" onclick={() => onopen?.(post)}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linejoin="round"
+        />
+      </svg>
+      {#if (post.comment_count ?? 0) > 0}
+        <span>{post.comment_count} comment{(post.comment_count ?? 0) === 1 ? '' : 's'}</span>
+      {:else}
+        <span>Comment</span>
+      {/if}
+    </button>
+  </div>
 </article>
 
 <style>
@@ -97,9 +119,51 @@
     max-height: 420px;
     object-fit: cover;
     border-radius: 8px;
-    margin-bottom: 0.65rem;
     display: block;
     background: var(--bg);
+  }
+
+  .media-btn {
+    display: block;
+    width: 100%;
+    padding: 0;
+    margin-bottom: 0.65rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .media-btn:hover .post-media {
+    opacity: 0.92;
+  }
+
+  .post-actions {
+    margin-top: 0.5rem;
+  }
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .action-btn svg {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  .action-btn:hover {
+    color: var(--text);
   }
 
   :global(.post-body) {

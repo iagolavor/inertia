@@ -3,11 +3,27 @@
   import { api, type FeedItem } from '$lib/api';
   import PostComposer from '$lib/components/PostComposer.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
+  import PostDetailModal from '$lib/components/PostDetailModal.svelte';
   import { identityState } from '$lib/identity.svelte';
 
   let feed = $state<FeedItem[]>([]);
   let feedLoading = $state(false);
   let feedError = $state('');
+  let selectedPost = $state<FeedItem | null>(null);
+  let detailOpen = $state(false);
+
+  async function openPost(post: FeedItem) {
+    selectedPost = post;
+    detailOpen = true;
+  }
+
+  async function onCommentAdded() {
+    await loadFeed();
+    if (selectedPost) {
+      const updated = feed.find((p) => p.content_id === selectedPost!.content_id);
+      if (updated) selectedPost = updated;
+    }
+  }
 
   async function loadFeed() {
     if (!identityState.apiOnline || !identityState.identity) return;
@@ -66,10 +82,18 @@
       <p class="empty">Ainda sem posts. Publica algo ou convida um amigo.</p>
     {:else}
       {#each feed as post (post.content_id)}
-        <PostCard {post} />
+        <PostCard {post} onopen={openPost} />
       {/each}
     {/if}
   </div>
+
+  <PostDetailModal
+    open={detailOpen}
+    post={selectedPost}
+    disabled={!identityState.apiOnline}
+    onclose={() => (detailOpen = false)}
+    oncomment={onCommentAdded}
+  />
 {:else}
   <div class="card">
     <h2>Get started</h2>

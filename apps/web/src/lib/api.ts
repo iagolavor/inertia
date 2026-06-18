@@ -59,6 +59,16 @@ export interface FeedItem {
   expires_at: string;
   is_own: boolean;
   is_archived: boolean;
+  comment_count?: number;
+}
+
+export interface PostComment {
+  id: string;
+  post_id: string;
+  author_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
 }
 
 export interface AppSettings {
@@ -89,6 +99,7 @@ export interface ProfilePhoto {
   id: string;
   blob_hash: string;
   caption: string | null;
+  content_id: string | null;
   sort_order: number;
   created_at: string;
 }
@@ -210,6 +221,14 @@ export const api = {
       body: JSON.stringify({ content_id, recipient_id })
     }),
   listFeed: () => request<FeedItem[]>('/feed'),
+  getPost: (content_id: string) => request<FeedItem>(`/posts/${content_id}`),
+  listPostComments: (post_id: string) =>
+    request<PostComment[]>(`/posts/${post_id}/comments`),
+  addPostComment: (post_id: string, body: string) =>
+    request<PostComment>(`/posts/${post_id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body })
+    }),
   getSettings: () => request<AppSettings>('/settings'),
   setFeedHistoryEnabled: (feed_history_enabled: boolean) =>
     request<AppSettings>('/settings', {

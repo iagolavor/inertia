@@ -9,6 +9,7 @@ use crate::identity::{MESSAGE_TTL_SECS, POST_TTL_SECS};
 pub enum ContentType {
     Message,
     Post,
+    Comment,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,6 +45,12 @@ pub struct PostPayload {
     pub media_ref: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentPayload {
+    pub post_id: String,
+    pub body: String,
+}
+
 impl ContentEnvelope {
     pub fn new_message(
         author_signing_pubkey: String,
@@ -76,6 +83,25 @@ impl ContentEnvelope {
             author_signing_pubkey,
             author_encryption_pubkey,
             content_type: ContentType::Post,
+            created_at: now,
+            expires_at: now + chrono::Duration::seconds(POST_TTL_SECS),
+            ciphertext,
+            signature,
+        }
+    }
+
+    pub fn new_comment(
+        author_signing_pubkey: String,
+        author_encryption_pubkey: String,
+        ciphertext: Vec<u8>,
+        signature: Vec<u8>,
+    ) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4().to_string(),
+            author_signing_pubkey,
+            author_encryption_pubkey,
+            content_type: ContentType::Comment,
             created_at: now,
             expires_at: now + chrono::Duration::seconds(POST_TTL_SECS),
             ciphertext,

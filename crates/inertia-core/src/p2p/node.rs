@@ -443,6 +443,34 @@ async fn process_incoming_envelope(
             let payload: crate::content::PostPayload = serde_json::from_slice(&plaintext)?;
             (payload.body, payload.media_ref)
         }
+        ContentType::Comment => {
+            let payload: crate::content::CommentPayload = serde_json::from_slice(&plaintext)?;
+            let sender_id = envelope.author_signing_pubkey.clone();
+            let author_name = store
+                .with(|s| s.list_contacts())
+                .await
+                .ok()
+                .and_then(|contacts| {
+                    contacts
+                        .into_iter()
+                        .find(|c| c.id == sender_id || c.signing_pubkey == sender_id)
+                        .map(|c| c.display_name)
+                })
+                .unwrap_or_else(|| "Friend".to_string());
+
+            let comment = crate::storage::PostComment {
+                id: envelope.id.clone(),
+                post_id: payload.post_id,
+                author_id: sender_id,
+                author_name,
+                body: payload.body,
+                created_at: envelope.created_at,
+            };
+            store
+                .with_mut(|s| s.insert_post_comment(&comment))
+                .await?;
+            return Ok(());
+        }
     };
 
     let sender_id = envelope.author_signing_pubkey.clone();
@@ -537,6 +565,33 @@ pub fn build_message_envelope(
     )?;
 
     let mut envelope = ContentEnvelope::new_message(
+        identity.signing_pubkey.clone(),
+        identity.encryption_pubkey.clone(),
+        ciphertext,
+        vec![],
+    );
+    envelope.signature = identity.sign(&envelope.signing_bytes())?;
+    Ok(envelope)
+}
+
+pub fn build_comment_envelope(
+    identity: &Identity,
+    recipient: &Contact,
+    post_id: &str,
+    body: &str,
+) -> CoreResult<ContentEnvelope> {
+    let payload = crate::content::CommentPayload {
+        post_id: post_id.to_string(),
+        body: body.to_string(),
+    };
+    let plaintext = serde_json::to_vec(&payload)?;
+    let ciphertext = encrypt_for_recipient(
+        identity.encryption_secret()?,
+        &recipient.encryption_pubkey,
+        &plaintext,
+    )?;
+
+    let mut envelope = ContentEnvelope::new_comment(
         identity.signing_pubkey.clone(),
         identity.encryption_pubkey.clone(),
         ciphertext,

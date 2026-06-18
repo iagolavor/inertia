@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api, blobUrl, type ProfilePhoto } from '$lib/api';
+  import { api, blobUrl, type FeedItem, type ProfilePhoto } from '$lib/api';
   import Avatar from '$lib/components/Avatar.svelte';
   import PhotoGrid from '$lib/components/PhotoGrid.svelte';
   import ProfileEditModal from '$lib/components/ProfileEditModal.svelte';
+  import PostDetailModal from '$lib/components/PostDetailModal.svelte';
   import { identityState, refreshIdentity, setIdentity, startP2pInBackground } from '$lib/identity.svelte';
   import { prepareImageForUpload } from '$lib/image';
 
@@ -16,6 +17,8 @@
   let editSaving = $state(false);
   let editUploading = $state(false);
   let editError = $state('');
+  let selectedPost = $state<FeedItem | null>(null);
+  let detailOpen = $state(false);
 
   async function loadPhotos() {
     if (!identityState.apiOnline || !identityState.identity) return;
@@ -108,6 +111,25 @@
       editUploading = false;
     }
   }
+
+  async function openPostById(contentId: string) {
+    try {
+      selectedPost = await api.getPost(contentId);
+      detailOpen = true;
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to open post';
+    }
+  }
+
+  async function onCommentAdded() {
+    if (selectedPost) {
+      try {
+        selectedPost = await api.getPost(selectedPost.content_id);
+      } catch {
+        // ignore refresh errors
+      }
+    }
+  }
 </script>
 
 {#if identityState.loading}
@@ -186,6 +208,7 @@
     {photos}
     disabled={!identityState.apiOnline}
     onuploaded={loadPhotos}
+    onopenpost={openPostById}
   />
 
   <ProfileEditModal
@@ -200,6 +223,14 @@
     onclose={() => (editOpen = false)}
     onsave={saveProfile}
     onphoto={uploadProfilePhoto}
+  />
+
+  <PostDetailModal
+    open={detailOpen}
+    post={selectedPost}
+    disabled={!identityState.apiOnline}
+    onclose={() => (detailOpen = false)}
+    oncomment={onCommentAdded}
   />
 
   {#if error}<p class="error">{error}</p>{/if}

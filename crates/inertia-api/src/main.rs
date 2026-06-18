@@ -83,6 +83,11 @@ struct CreatePostRequest {
 }
 
 #[derive(Deserialize)]
+struct AddCommentRequest {
+    body: String,
+}
+
+#[derive(Deserialize)]
 struct UploadPhotoRequest {
     data_base64: String,
     caption: Option<String>,
@@ -128,6 +133,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/outbox", get(list_outbox))
         .route("/messages", post(send_message))
         .route("/posts", post(create_post))
+        .route("/posts/:id", get(get_post))
+        .route("/posts/:id/comments", get(list_post_comments).post(add_post_comment))
         .route("/feed", get(list_feed))
         .route("/feed/backup", get(export_feed_backup))
         .route(
@@ -319,6 +326,51 @@ async fn create_post(
         .await
         .map_err(api_err)?;
     Ok(Json(serde_json::json!({ "content_id": content_id })))
+}
+
+async fn get_post(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<inertia_core::FeedItem>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .get_feed_item(&id)
+        .await
+        .map_err(api_err)?
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ApiError {
+                    error: "post not found".into(),
+                }),
+            )
+        })
+        .map(Json)
+}
+
+async fn list_post_comments(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Vec<inertia_core::PostComment>>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .list_post_comments(&id)
+        .await
+        .map(Json)
+        .map_err(api_err)
+}
+
+async fn add_post_comment(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<AddCommentRequest>,
+) -> Result<Json<inertia_core::PostComment>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .add_post_comment(&id, &body.body)
+        .await
+        .map(Json)
+        .map_err(api_err)
 }
 
 async fn list_feed(

@@ -76,7 +76,7 @@
 
     try {
       if (mediaBase64) {
-        await api.uploadProfilePhoto(mediaBase64, text || undefined);
+        await api.createPost(text, mediaBase64);
       } else {
         await api.createPost(text);
       }

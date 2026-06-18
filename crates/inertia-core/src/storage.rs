@@ -68,7 +68,18 @@ pub struct ProfilePhoto {
     pub id: String,
     pub blob_hash: String,
     pub caption: Option<String>,
+    pub content_id: Option<String>,
     pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PostComment {
+    pub id: String,
+    pub post_id: String,
+    pub author_id: String,
+    pub author_name: String,
+    pub body: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -83,6 +94,7 @@ pub struct FeedItem {
     pub expires_at: DateTime<Utc>,
     pub is_own: bool,
     pub is_archived: bool,
+    pub comment_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,6 +148,7 @@ impl ArchivedFeedItem {
             expires_at: archived_expires_at(),
             is_own: self.is_own,
             is_archived: true,
+            comment_count: 0,
         }
     }
 }
@@ -176,12 +189,14 @@ fn content_type_str(t: ContentType) -> &'static str {
     match t {
         ContentType::Message => "message",
         ContentType::Post => "post",
+        ContentType::Comment => "comment",
     }
 }
 
 fn parse_content_type(s: &str) -> ContentType {
     match s {
         "post" => ContentType::Post,
+        "comment" => ContentType::Comment,
         _ => ContentType::Message,
     }
 }
@@ -304,6 +319,39 @@ impl Store {
         self.ensure_identity_bio_column()?;
         self.ensure_inbox_media_ref_column()?;
         self.ensure_feed_archive_tables()?;
+        self.ensure_post_comments_table()?;
+        self.ensure_profile_photo_content_id_column()?;
+        Ok(())
+    }
+
+    fn ensure_post_comments_table(&self) -> CoreResult<()> {
+        self.conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS post_comments (
+                id TEXT PRIMARY KEY,
+                post_id TEXT NOT NULL,
+                author_id TEXT NOT NULL,
+                author_name TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_post_comments_post_id ON post_comments(post_id);
+            ",
+        )?;
+        Ok(())
+    }
+
+    fn ensure_profile_photo_content_id_column(&self) -> CoreResult<()> {
+        let mut stmt = self.conn.prepare("PRAGMA table_info(profile_photos)")?;
+        let cols: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>("name"))?
+            .filter_map(Result::ok)
+            .collect();
+
+        if !cols.iter().any(|c| c == "content_id") {
+            self.conn
+                .execute("ALTER TABLE profile_photos ADD COLUMN content_id TEXT", [])?;
+        }
         Ok(())
     }
 
@@ -725,12 +773,13 @@ impl Store {
 
     pub fn insert_profile_photo(&self, photo: &ProfilePhoto) -> CoreResult<()> {
         self.conn.execute(
-            "INSERT INTO profile_photos (id, blob_hash, caption, sort_order, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO profile_photos (id, blob_hash, caption, content_id, sort_order, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 photo.id,
                 photo.blob_hash,
                 photo.caption,
+                photo.content_id,
                 photo.sort_order,
                 photo.created_at.to_rfc3339(),
             ],
@@ -738,9 +787,21 @@ impl Store {
         Ok(())
     }
 
+    pub fn update_profile_photo_content_id(
+        &self,
+        photo_id: &str,
+        content_id: &str,
+    ) -> CoreResult<()> {
+        self.conn.execute(
+            "UPDATE profile_photos SET content_id = ?1 WHERE id = ?2",
+            params![content_id, photo_id],
+        )?;
+        Ok(())
+    }
+
     pub fn list_profile_photos(&self) -> CoreResult<Vec<ProfilePhoto>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, blob_hash, caption, sort_order, created_at
+            "SELECT id, blob_hash, caption, content_id, sort_order, created_at
              FROM profile_photos ORDER BY sort_order, created_at DESC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -748,6 +809,7 @@ impl Store {
                 id: row.get("id")?,
                 blob_hash: row.get("blob_hash")?,
                 caption: row.get("caption")?,
+                content_id: row.get("content_id")?,
                 sort_order: row.get("sort_order")?,
                 created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
                     .map(|dt| dt.with_timezone(&Utc))
@@ -756,6 +818,75 @@ impl Store {
         })?;
         rows.collect::<std::result::Result<Vec<_>, _>>()
             .map_err(CoreError::from)
+    }
+
+    pub fn insert_post_comment(&self, comment: &PostComment) -> CoreResult<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO post_comments
+             (id, post_id, author_id, author_name, body, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                comment.id,
+                comment.post_id,
+                comment.author_id,
+                comment.author_name,
+                comment.body,
+                comment.created_at.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_post_comments(&self, post_id: &str) -> CoreResult<Vec<PostComment>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, post_id, author_id, author_name, body, created_at
+             FROM post_comments WHERE post_id = ?1 ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map([post_id], |row| {
+            Ok(PostComment {
+                id: row.get("id")?,
+                post_id: row.get("post_id")?,
+                author_id: row.get("author_id")?,
+                author_name: row.get("author_name")?,
+                body: row.get("body")?,
+                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(CoreError::from)
+    }
+
+    pub fn count_post_comments(&self, post_id: &str) -> CoreResult<u32> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM post_comments WHERE post_id = ?1",
+            params![post_id],
+            |row| row.get(0),
+        )?;
+        Ok(count as u32)
+    }
+
+    pub fn get_local_post(&self, content_id: &str) -> CoreResult<Option<LocalPost>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT content_id, body, media_ref, created_at, expires_at
+             FROM local_posts WHERE content_id = ?1",
+        )?;
+        let mut rows = stmt.query([content_id])?;
+        if let Some(row) = rows.next()? {
+            return Ok(Some(LocalPost {
+                content_id: row.get("content_id")?,
+                body: row.get("body")?,
+                media_ref: row.get("media_ref")?,
+                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                expires_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("expires_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+            }));
+        }
+        Ok(None)
     }
 
     pub fn store_blob(&self, data: &[u8]) -> CoreResult<String> {
