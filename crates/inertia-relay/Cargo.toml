@@ -1,0 +1,17 @@
+[package]
+name = "inertia-relay"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "libp2p circuit relay for Inertia — connectivity only, no user data"
+
+[[bin]]
+name = "inertia-relay"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+libp2p = { version = "0.54", features = ["tokio", "tcp", "noise", "yamux", "macros", "relay", "identify", "ping"] }
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

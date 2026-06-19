@@ -21,6 +21,8 @@ pub struct Contact {
     pub encryption_pubkey: String,
     pub last_seen: Option<DateTime<Utc>>,
     pub connection_state: ConnectionState,
+    #[serde(default)]
+    pub multiaddrs: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,6 +102,9 @@ pub struct FeedItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub feed_history_enabled: bool,
+    pub p2p_listen_port: u16,
+    pub relay_multiaddr: Option<String>,
+    pub p2p_announce: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,6 +133,9 @@ pub struct FeedRestoreReport {
 }
 
 const FEED_HISTORY_KEY: &str = "feed_history_enabled";
+const P2P_LISTEN_PORT_KEY: &str = "p2p_listen_port";
+const RELAY_MULTIADDR_KEY: &str = "relay_multiaddr";
+const P2P_ANNOUNCE_KEY: &str = "p2p_announce";
 const ARCHIVED_EXPIRES_AT: &str = "2099-01-01T00:00:00+00:00";
 
 fn archived_expires_at() -> DateTime<Utc> {
@@ -217,20 +225,47 @@ fn parse_connection_state(s: &str) -> ConnectionState {
     }
 }
 
+fn encode_multiaddrs(addrs: &[String]) -> String {
+    serde_json::to_string(addrs).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn decode_multiaddrs(raw: &str) -> Vec<String> {
+    serde_json::from_str(raw).unwrap_or_default()
+}
+
+fn merge_multiaddr_lists(existing: &[String], new: &[String]) -> Vec<String> {
+    let mut out = existing.to_vec();
+    for addr in new {
+        if !out.contains(addr) {
+            out.push(addr.clone());
+        }
+    }
+    out
+}
+
 pub struct Store {
     conn: Connection,
+    data_dir: PathBuf,
     blob_dir: PathBuf,
 }
 
 impl Store {
+    pub fn data_dir(&self) -> &Path {
+        &self.data_dir
+    }
+
     pub fn open(data_dir: impl AsRef<Path>) -> CoreResult<Self> {
-        let data_dir = data_dir.as_ref();
-        std::fs::create_dir_all(data_dir)?;
+        let data_dir = data_dir.as_ref().to_path_buf();
+        std::fs::create_dir_all(&data_dir)?;
         let blob_dir = data_dir.join("blobs");
         std::fs::create_dir_all(&blob_dir)?;
 
         let conn = Connection::open(data_dir.join("inertia.db"))?;
-        let store = Self { conn, blob_dir };
+        let store = Self {
+            conn,
+            data_dir,
+            blob_dir,
+        };
         store.migrate()?;
         Ok(store)
     }
@@ -321,6 +356,22 @@ impl Store {
         self.ensure_feed_archive_tables()?;
         self.ensure_post_comments_table()?;
         self.ensure_profile_photo_content_id_column()?;
+        self.ensure_contact_multiaddrs_column()?;
+        Ok(())
+    }
+
+    fn ensure_contact_multiaddrs_column(&self) -> CoreResult<()> {
+        let mut stmt = self.conn.prepare("PRAGMA table_info(contacts)")?;
+        let cols: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>("name"))?
+            .filter_map(Result::ok)
+            .collect();
+        if !cols.iter().any(|c| c == "multiaddrs") {
+            self.conn.execute(
+                "ALTER TABLE contacts ADD COLUMN multiaddrs TEXT NOT NULL DEFAULT '[]'",
+                [],
+            )?;
+        }
         Ok(())
     }
 
@@ -511,10 +562,15 @@ impl Store {
     }
 
     pub fn upsert_contact(&self, contact: &Contact) -> CoreResult<()> {
+        let mut contact = contact.clone();
+        if let Ok(existing) = self.get_contact(&contact.id) {
+            contact.multiaddrs =
+                merge_multiaddr_lists(&existing.multiaddrs, &contact.multiaddrs);
+        }
         self.conn.execute(
             "INSERT OR REPLACE INTO contacts
-             (id, phone_hash, display_name, peer_id, signing_pubkey, encryption_pubkey, last_seen, connection_state)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             (id, phone_hash, display_name, peer_id, signing_pubkey, encryption_pubkey, last_seen, connection_state, multiaddrs)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 contact.id,
                 contact.phone_hash,
@@ -524,19 +580,36 @@ impl Store {
                 contact.encryption_pubkey,
                 contact.last_seen.map(|t| t.to_rfc3339()),
                 connection_state_str(contact.connection_state),
+                encode_multiaddrs(&contact.multiaddrs),
             ],
         )?;
         Ok(())
     }
 
+    pub fn merge_contact_multiaddrs_by_peer_id(
+        &self,
+        peer_id: &str,
+        new_addrs: &[String],
+    ) -> CoreResult<()> {
+        for mut contact in self.list_contacts()? {
+            if contact.peer_id.as_deref() == Some(peer_id) {
+                contact.multiaddrs = merge_multiaddr_lists(&contact.multiaddrs, new_addrs);
+                self.upsert_contact(&contact)?;
+                return Ok(());
+            }
+        }
+        Ok(())
+    }
+
     pub fn list_contacts(&self) -> CoreResult<Vec<Contact>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, phone_hash, display_name, peer_id, signing_pubkey, encryption_pubkey, last_seen, connection_state
+            "SELECT id, phone_hash, display_name, peer_id, signing_pubkey, encryption_pubkey, last_seen, connection_state, multiaddrs
              FROM contacts ORDER BY display_name",
         )?;
         let rows = stmt.query_map([], |row| {
             let state_str: String = row.get("connection_state")?;
             let connection_state = parse_connection_state(&state_str);
+            let multiaddrs_raw: String = row.get("multiaddrs").unwrap_or_else(|_| "[]".into());
             Ok(Contact {
                 id: row.get("id")?,
                 phone_hash: row.get("phone_hash")?,
@@ -549,6 +622,7 @@ impl Store {
                     .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .map(|dt| dt.with_timezone(&Utc)),
                 connection_state,
+                multiaddrs: decode_multiaddrs(&multiaddrs_raw),
             })
         })?;
         rows.collect::<std::result::Result<Vec<_>, _>>()
@@ -907,26 +981,82 @@ impl Store {
     }
 
     pub fn get_settings(&self) -> CoreResult<AppSettings> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT value FROM app_settings WHERE key = ?1")?;
-        let mut rows = stmt.query(params![FEED_HISTORY_KEY])?;
-        let enabled = if let Some(row) = rows.next()? {
-            row.get::<_, String>("value")? == "true"
-        } else {
-            false
-        };
         Ok(AppSettings {
-            feed_history_enabled: enabled,
+            feed_history_enabled: self.get_bool_setting(FEED_HISTORY_KEY)?.unwrap_or(false),
+            p2p_listen_port: self
+                .get_string_setting(P2P_LISTEN_PORT_KEY)?
+                .and_then(|s| s.parse().ok())
+                .filter(|&port| port > 0)
+                .unwrap_or(4784),
+            relay_multiaddr: self
+                .get_string_setting(RELAY_MULTIADDR_KEY)?
+                .filter(|s| !s.trim().is_empty()),
+            p2p_announce: self
+                .get_string_setting(P2P_ANNOUNCE_KEY)?
+                .filter(|s| !s.trim().is_empty()),
         })
     }
 
     pub fn set_feed_history_enabled(&self, enabled: bool) -> CoreResult<()> {
+        self.set_string_setting(
+            FEED_HISTORY_KEY,
+            if enabled { "true" } else { "false" },
+        )
+    }
+
+    pub fn update_connection_settings(
+        &self,
+        p2p_listen_port: Option<u16>,
+        relay_multiaddr: Option<Option<String>>,
+        p2p_announce: Option<Option<String>>,
+    ) -> CoreResult<()> {
+        if let Some(port) = p2p_listen_port.filter(|&p| p > 0) {
+            self.set_string_setting(P2P_LISTEN_PORT_KEY, &port.to_string())?;
+        }
+        if let Some(relay) = relay_multiaddr {
+            match relay.filter(|s| !s.trim().is_empty()) {
+                Some(value) => self.set_string_setting(RELAY_MULTIADDR_KEY, value.trim())?,
+                None => self.delete_setting(RELAY_MULTIADDR_KEY)?,
+            }
+        }
+        if let Some(announce) = p2p_announce {
+            match announce.filter(|s| !s.trim().is_empty()) {
+                Some(value) => self.set_string_setting(P2P_ANNOUNCE_KEY, value.trim())?,
+                None => self.delete_setting(P2P_ANNOUNCE_KEY)?,
+            }
+        }
+        Ok(())
+    }
+
+    fn get_bool_setting(&self, key: &str) -> CoreResult<Option<bool>> {
+        Ok(self
+            .get_string_setting(key)?
+            .map(|value| value == "true"))
+    }
+
+    fn get_string_setting(&self, key: &str) -> CoreResult<Option<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM app_settings WHERE key = ?1")?;
+        let mut rows = stmt.query(params![key])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(row.get::<_, String>("value")?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn set_string_setting(&self, key: &str, value: &str) -> CoreResult<()> {
         self.conn.execute(
             "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![FEED_HISTORY_KEY, if enabled { "true" } else { "false" }],
+            params![key, value],
         )?;
+        Ok(())
+    }
+
+    fn delete_setting(&self, key: &str) -> CoreResult<()> {
+        self.conn.execute("DELETE FROM app_settings WHERE key = ?1", params![key])?;
         Ok(())
     }
 
@@ -1163,6 +1293,7 @@ mod tests {
             encryption_pubkey: "enc".into(),
             last_seen: None,
             connection_state: ConnectionState::Offline,
+            multiaddrs: Vec::new(),
         };
         store.upsert_contact(&contact).unwrap();
         assert_eq!(store.list_contacts().unwrap().len(), 1);

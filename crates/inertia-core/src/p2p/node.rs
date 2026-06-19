@@ -5,7 +5,10 @@ use std::time::Duration;
 use futures::{FutureExt, StreamExt};
 use libp2p::request_response::{self, Event, Message, OutboundRequestId};
 use libp2p::swarm::NetworkBehaviour;
-use libp2p::{identify, multiaddr::Protocol, noise, tcp, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder};
+use libp2p::{
+    dcutr, identify, multiaddr::Protocol, noise, relay, tcp, yamux, Multiaddr, PeerId, Swarm,
+    SwarmBuilder,
+};
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tracing::{debug, info, warn};
 
@@ -17,12 +20,15 @@ use crate::storage::{ConnectionState, Contact, InboxEntry};
 use crate::store_handle::StoreHandle;
 
 use super::codec::{protocol_stream, request_response_config, JsonCodec};
+use super::keypair::load_or_create_keypair;
 use super::protocol::{
     FriendRequest, InertiaRequest, InertiaResponse, InviteRedemption, SendEnvelope,
 };
 
 #[derive(NetworkBehaviour)]
 pub struct InertiaBehaviour {
+    pub relay_client: relay::client::Behaviour,
+    pub dcutr: dcutr::Behaviour,
     pub request_response: request_response::Behaviour<JsonCodec>,
     pub identify: identify::Behaviour,
 }
@@ -50,23 +56,16 @@ impl P2pNode {
         store: StoreHandle,
         identity: Arc<RwLock<Identity>>,
         listen_addr: Multiaddr,
+        relay_multiaddr: Option<String>,
         event_tx: mpsc::UnboundedSender<P2pEvent>,
     ) -> CoreResult<Self> {
-        let local_key = libp2p::identity::Keypair::generate_ed25519();
+        let data_dir = store
+            .with(|s| Ok(s.data_dir().to_path_buf()))
+            .await?;
+        let local_key = load_or_create_keypair(&data_dir)?;
         let peer_id = local_key.public().to_peer_id();
 
-        let behaviour = InertiaBehaviour {
-            request_response: request_response::Behaviour::new(
-                [(protocol_stream(), request_response::ProtocolSupport::Full)],
-                request_response_config(),
-            ),
-            identify: identify::Behaviour::new(identify::Config::new(
-                "/inertia/1.0.0".into(),
-                local_key.public(),
-            )),
-        };
-
-        let mut swarm = SwarmBuilder::with_existing_identity(local_key)
+        let mut swarm = SwarmBuilder::with_existing_identity(local_key.clone())
             .with_tokio()
             .with_tcp(
                 tcp::Config::default(),
@@ -74,7 +73,22 @@ impl P2pNode {
                 yamux::Config::default,
             )
             .map_err(|e| CoreError::P2p(e.to_string()))?
-            .with_behaviour(|_| behaviour)
+            .with_relay_client(noise::Config::new, yamux::Config::default)
+            .map_err(|e| CoreError::P2p(e.to_string()))?
+            .with_behaviour(move |key, relay_client| {
+                Ok(InertiaBehaviour {
+                    relay_client,
+                    dcutr: dcutr::Behaviour::new(key.public().to_peer_id()),
+                    request_response: request_response::Behaviour::new(
+                        [(protocol_stream(), request_response::ProtocolSupport::Full)],
+                        request_response_config(),
+                    ),
+                    identify: identify::Behaviour::new(identify::Config::new(
+                        "/inertia/1.0.0".into(),
+                        key.public(),
+                    )),
+                })
+            })
             .map_err(|e| CoreError::P2p(e.to_string()))?
             .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
             .build();
@@ -82,6 +96,21 @@ impl P2pNode {
         swarm
             .listen_on(listen_addr)
             .map_err(|e| CoreError::P2p(e.to_string()))?;
+
+        if let Some(relay) = relay_multiaddr.as_deref().filter(|s| !s.trim().is_empty()) {
+            match relay.trim().parse::<Multiaddr>() {
+                Ok(relay_addr) => {
+                    let circuit_addr = relay_circuit_listen_addr(&relay_addr);
+                    match swarm.listen_on(circuit_addr.clone()) {
+                        Ok(listener_id) => {
+                            info!(%circuit_addr, ?listener_id, "listening via relay circuit");
+                        }
+                        Err(e) => warn!(error = %e, "failed to listen via relay circuit"),
+                    }
+                }
+                Err(e) => warn!(relay = %relay, error = %e, "invalid relay multiaddr"),
+            }
+        }
 
         let node = Self {
             peer_id,
@@ -103,6 +132,29 @@ impl P2pNode {
     pub async fn listen_addresses(&self) -> Vec<Multiaddr> {
         let swarm = self.swarm.lock().await;
         swarm.listeners().cloned().collect()
+    }
+
+    pub async fn routable_listen_addresses(&self) -> Vec<String> {
+        let swarm = self.swarm.lock().await;
+        let peer_id = self.peer_id.to_string();
+        let mut addrs: Vec<String> = swarm
+            .external_addresses()
+            .chain(swarm.listeners())
+            .filter(|addr| is_routable_multiaddr(addr))
+            .map(|addr| ensure_peer_id_suffix(addr, &peer_id))
+            .collect();
+        addrs.sort();
+        addrs.dedup();
+        addrs.sort_by_key(|addr| !addr.contains("/p2p-circuit/"));
+        addrs
+    }
+
+    pub async fn connected_peer_ids(&self) -> Vec<String> {
+        let swarm = self.swarm.lock().await;
+        swarm
+            .connected_peers()
+            .map(|peer_id| peer_id.to_string())
+            .collect()
     }
 
     pub async fn dial(&self, addr: Multiaddr) -> CoreResult<()> {
@@ -214,8 +266,14 @@ impl P2pNode {
                 };
 
                 match event {
-                    libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                    libp2p::swarm::SwarmEvent::ConnectionEstablished {
+                        peer_id,
+                        endpoint,
+                        ..
+                    } => {
                         info!(%peer_id, "peer connected");
+                        let remote = endpoint.get_remote_address().to_string();
+                        persist_peer_multiaddrs(&store, &peer_id, &[remote]).await;
                         let _ = event_tx.send(P2pEvent::PeerConnected(peer_id));
                         update_contact_state(&store, &peer_id, ConnectionState::Online).await;
                     }
@@ -282,11 +340,49 @@ impl P2pNode {
                                 .await;
                         }
                     }
+                    libp2p::swarm::SwarmEvent::Behaviour(
+                        InertiaBehaviourEvent::RelayClient(relay::client::Event::ReservationReqAccepted {
+                            relay_peer_id,
+                            ..
+                        }),
+                    ) => {
+                        info!(%relay_peer_id, "relay reservation accepted");
+                    }
+                    libp2p::swarm::SwarmEvent::Behaviour(
+                        InertiaBehaviourEvent::Dcutr(dcutr::Event { remote_peer_id, result }),
+                    ) => match result {
+                        Ok(connection_id) => {
+                            info!(%remote_peer_id, ?connection_id, "direct connection upgrade succeeded");
+                        }
+                        Err(error) => {
+                            debug!(%remote_peer_id, ?error, "direct connection upgrade failed");
+                        }
+                    }
+                    libp2p::swarm::SwarmEvent::Behaviour(
+                        InertiaBehaviourEvent::Identify(identify::Event::Received {
+                            peer_id,
+                            info,
+                            ..
+                        }),
+                    ) => {
+                        let addrs: Vec<String> =
+                            info.listen_addrs.iter().map(|a| a.to_string()).collect();
+                        if !addrs.is_empty() {
+                            persist_peer_multiaddrs(&store, &peer_id, &addrs).await;
+                        }
+                    }
                     _ => debug!("swarm event"),
                 }
             }
         });
     }
+}
+
+async fn persist_peer_multiaddrs(store: &StoreHandle, peer_id: &PeerId, addrs: &[String]) {
+    let peer_id = peer_id.to_string();
+    let _ = store
+        .with_mut(|s| s.merge_contact_multiaddrs_by_peer_id(&peer_id, addrs))
+        .await;
 }
 
 async fn update_contact_state(store: &StoreHandle, peer_id: &PeerId, state: ConnectionState) {
@@ -328,6 +424,7 @@ async fn handle_inbound_request(
                 encryption_pubkey: accept.encryption_pubkey,
                 last_seen: Some(chrono::Utc::now()),
                 connection_state: ConnectionState::Online,
+                multiaddrs: Vec::new(),
             };
             store.with_mut(|s| s.upsert_contact(&contact)).await?;
             Ok(InertiaResponse::Ok)
@@ -345,6 +442,7 @@ async fn handle_inbound_request(
                 encryption_pubkey: redemption.encryption_pubkey,
                 last_seen: Some(chrono::Utc::now()),
                 connection_state: ConnectionState::Online,
+                multiaddrs: Vec::new(),
             };
             store.with_mut(|s| s.upsert_contact(&contact)).await?;
             info!(friend = %contact.display_name, "invite redeemed");
@@ -401,6 +499,7 @@ async fn handle_outbound_response(
                 encryption_pubkey: accept.encryption_pubkey,
                 last_seen: Some(chrono::Utc::now()),
                 connection_state: ConnectionState::Online,
+                multiaddrs: Vec::new(),
             };
             store.with_mut(|s| s.upsert_contact(&contact)).await?;
         }
@@ -608,4 +707,26 @@ fn peer_id_from_multiaddr(addr: &Multiaddr) -> CoreResult<PeerId> {
             _ => None,
         })
         .ok_or_else(|| CoreError::P2p("multiaddr missing /p2p peer id".into()))
+}
+
+fn relay_circuit_listen_addr(relay: &Multiaddr) -> Multiaddr {
+    if relay.iter().any(|p| matches!(p, Protocol::P2pCircuit)) {
+        relay.clone()
+    } else {
+        relay.clone().with(Protocol::P2pCircuit)
+    }
+}
+
+fn is_routable_multiaddr(addr: &Multiaddr) -> bool {
+    let raw = addr.to_string();
+    !raw.contains("/ip4/0.0.0.0/") && !raw.contains("/ip6/::/")
+}
+
+fn ensure_peer_id_suffix(addr: &Multiaddr, peer_id: &str) -> String {
+    let raw = addr.to_string();
+    if raw.contains("/p2p/") {
+        raw
+    } else {
+        format!("{raw}/p2p/{peer_id}")
+    }
 }

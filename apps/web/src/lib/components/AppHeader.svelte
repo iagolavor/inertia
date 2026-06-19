@@ -2,6 +2,7 @@
   import { page } from '$app/state';
   import InertiaLogo from '$lib/components/InertiaLogo.svelte';
   import OnlineStatus from '$lib/components/OnlineStatus.svelte';
+  import P2pStatus from '$lib/components/P2pStatus.svelte';
   import { identityState } from '$lib/identity.svelte';
 
   const primaryTabs = [
@@ -80,6 +81,11 @@
     <div class="header-end">
       <OnlineStatus
         online={identityState.apiOnline}
+        loading={identityState.loading}
+        compact
+      />
+      <P2pStatus
+        status={identityState.p2pStatus}
         loading={identityState.loading}
         compact
       />
