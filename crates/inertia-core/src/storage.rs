@@ -105,6 +105,7 @@ pub struct AppSettings {
     pub p2p_listen_port: u16,
     pub relay_multiaddr: Option<String>,
     pub p2p_announce: Option<String>,
+    pub web_origin: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,6 +137,7 @@ const FEED_HISTORY_KEY: &str = "feed_history_enabled";
 const P2P_LISTEN_PORT_KEY: &str = "p2p_listen_port";
 const RELAY_MULTIADDR_KEY: &str = "relay_multiaddr";
 const P2P_ANNOUNCE_KEY: &str = "p2p_announce";
+const WEB_ORIGIN_KEY: &str = "web_origin";
 const ARCHIVED_EXPIRES_AT: &str = "2099-01-01T00:00:00+00:00";
 
 fn archived_expires_at() -> DateTime<Utc> {
@@ -994,6 +996,9 @@ impl Store {
             p2p_announce: self
                 .get_string_setting(P2P_ANNOUNCE_KEY)?
                 .filter(|s| !s.trim().is_empty()),
+            web_origin: self
+                .get_string_setting(WEB_ORIGIN_KEY)?
+                .filter(|s| !s.trim().is_empty()),
         })
     }
 
@@ -1009,6 +1014,7 @@ impl Store {
         p2p_listen_port: Option<u16>,
         relay_multiaddr: Option<Option<String>>,
         p2p_announce: Option<Option<String>>,
+        web_origin: Option<Option<String>>,
     ) -> CoreResult<()> {
         if let Some(port) = p2p_listen_port.filter(|&p| p > 0) {
             self.set_string_setting(P2P_LISTEN_PORT_KEY, &port.to_string())?;
@@ -1023,6 +1029,12 @@ impl Store {
             match announce.filter(|s| !s.trim().is_empty()) {
                 Some(value) => self.set_string_setting(P2P_ANNOUNCE_KEY, value.trim())?,
                 None => self.delete_setting(P2P_ANNOUNCE_KEY)?,
+            }
+        }
+        if let Some(origin) = web_origin {
+            match origin.filter(|s| !s.trim().is_empty()) {
+                Some(value) => self.set_string_setting(WEB_ORIGIN_KEY, value.trim())?,
+                None => self.delete_setting(WEB_ORIGIN_KEY)?,
             }
         }
         Ok(())

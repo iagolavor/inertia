@@ -1,8 +1,10 @@
 use std::collections::HashSet;
+use std::net::IpAddr;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
+use libp2p::multiaddr::Protocol;
 use libp2p::{Multiaddr, PeerId};
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tracing::{info, warn};
@@ -131,10 +133,32 @@ impl Engine {
         }
         drop(identity);
 
+        let status = self.p2p_status().await;
+        if !status.relay_configured || !status.relay_connected {
+            return Err(CoreError::Invite(
+                "connect to the relay in Settings before inviting (header must show Relay OK)"
+                    .into(),
+            ));
+        }
+        let relay_multiaddr = self.effective_relay().await.ok_or_else(|| {
+            CoreError::Invite("relay multiaddr is not configured".into())
+        })?;
+        validate_relay_multiaddr(&relay_multiaddr)?;
+
         let peer_id = self.peer_id().await;
         let multiaddrs = self.p2p_invite_addresses(peer_id.as_deref()).await;
+        if multiaddrs.is_empty() {
+            return Err(CoreError::Invite(
+                "no routable P2P addresses — check relay connection and try again".into(),
+            ));
+        }
         let identity = self.identity.read().await;
-        let invite = FriendInvite::new(&identity, peer_id, multiaddrs)?;
+        let invite = FriendInvite::new(
+            &identity,
+            peer_id,
+            multiaddrs,
+            relay_multiaddr,
+        )?;
         drop(identity);
 
         self.store
@@ -144,7 +168,8 @@ impl Engine {
             .await?;
 
         let payload = invite.to_payload()?;
-        let link = invite.to_link(web_origin)?;
+        let web_origin = self.resolve_invite_web_origin(web_origin).await;
+        let link = invite.to_link(web_origin.as_deref())?;
         let safety_code = invite.safety_code();
         Ok(InviteResponse {
             link,
@@ -165,6 +190,7 @@ impl Engine {
             expires_at: invite.expires_at,
             peer_id: invite.peer_id,
             multiaddrs: invite.multiaddrs,
+            relay_multiaddr: invite.relay_multiaddr.clone(),
         })
     }
 
@@ -179,6 +205,11 @@ impl Engine {
             return Err(CoreError::Invite(
                 "you already accepted this invite on this device".into(),
             ));
+        }
+
+        self.apply_relay_from_invite(&invite.relay_multiaddr).await?;
+        if let Err(e) = self.redial_known_peers().await {
+            warn!(error = %e, "redial after applying invite relay failed");
         }
 
         let p2p_guard = self.p2p.lock().await;
@@ -360,8 +391,20 @@ impl Engine {
     }
 
     pub async fn p2p_status(&self) -> P2pStatus {
+        let relay = self.effective_relay().await;
+        let relay_peer_id = relay.as_deref().and_then(peer_id_from_multiaddr_str);
+        let relay_tcp_reachable = if let Some(ref addr) = relay {
+            Some(relay_tcp_reachable(addr).await)
+        } else {
+            None
+        };
+
         let guard = self.p2p.lock().await;
         if let Some(p2p) = guard.as_ref() {
+            let connected_peer_ids = p2p.connected_peer_ids().await;
+            let relay_connected = relay_peer_id
+                .as_ref()
+                .is_some_and(|id| connected_peer_ids.iter().any(|p| p == id));
             P2pStatus {
                 running: true,
                 peer_id: Some(p2p.peer_id_string()),
@@ -371,7 +414,11 @@ impl Engine {
                     .into_iter()
                     .map(|a| a.to_string())
                     .collect(),
-                connected_peer_ids: p2p.connected_peer_ids().await,
+                connected_peer_ids,
+                relay_configured: relay.is_some(),
+                relay_peer_id,
+                relay_connected,
+                relay_tcp_reachable,
             }
         } else {
             P2pStatus {
@@ -379,6 +426,10 @@ impl Engine {
                 peer_id: None,
                 listen_addresses: Vec::new(),
                 connected_peer_ids: Vec::new(),
+                relay_configured: relay.is_some(),
+                relay_peer_id,
+                relay_connected: false,
+                relay_tcp_reachable,
             }
         }
     }
@@ -732,9 +783,16 @@ impl Engine {
         p2p_listen_port: Option<u16>,
         relay_multiaddr: Option<Option<String>>,
         p2p_announce: Option<Option<String>>,
+        web_origin: Option<Option<String>>,
     ) -> CoreResult<AppSettings> {
         if let Some(enabled) = feed_history_enabled {
             self.set_feed_history_enabled(enabled).await?;
+        }
+
+        if let Some(Some(ref relay)) = relay_multiaddr {
+            if !relay.trim().is_empty() {
+                validate_relay_multiaddr(relay)?;
+            }
         }
 
         self.store
@@ -743,6 +801,7 @@ impl Engine {
                     p2p_listen_port,
                     relay_multiaddr,
                     p2p_announce,
+                    web_origin,
                 )?;
                 store.get_settings()
             })
@@ -772,6 +831,49 @@ impl Engine {
             .await
             .ok()
             .and_then(|s| s.relay_multiaddr)
+    }
+
+    /// Apply relay from a signed invite when env override is not set.
+    async fn apply_relay_from_invite(&self, relay: &str) -> CoreResult<()> {
+        if std::env::var("INERTIA_RELAY")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .is_some()
+        {
+            return Ok(());
+        }
+        validate_relay_multiaddr(relay)?;
+        self.update_settings(
+            None,
+            None,
+            Some(Some(relay.to_string())),
+            None,
+            None,
+        )
+        .await?;
+        info!("applied relay multiaddr from invite");
+        Ok(())
+    }
+
+    async fn resolve_invite_web_origin(&self, request_origin: Option<&str>) -> Option<String> {
+        if let Ok(raw) = std::env::var("INERTIA_WEB_ORIGIN") {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+        if let Ok(settings) = self.store.with(|s| s.get_settings()).await {
+            if let Some(origin) = settings.web_origin {
+                let trimmed = origin.trim();
+                if !trimmed.is_empty() {
+                    return Some(trimmed.to_string());
+                }
+            }
+        }
+        request_origin
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
     }
 
     pub async fn export_feed_backup(&self) -> CoreResult<FeedBackup> {
@@ -1067,6 +1169,77 @@ pub struct P2pStatus {
     pub peer_id: Option<String>,
     pub listen_addresses: Vec<String>,
     pub connected_peer_ids: Vec<String>,
+    /// True when `INERTIA_RELAY` or settings relay multiaddr is set.
+    pub relay_configured: bool,
+    /// Peer id extracted from the configured relay multiaddr.
+    pub relay_peer_id: Option<String>,
+    /// libp2p session to the relay peer is up.
+    pub relay_connected: bool,
+    /// TCP connect probe to the relay host:port (None if relay not configured).
+    pub relay_tcp_reachable: Option<bool>,
+}
+
+fn validate_relay_multiaddr(raw: &str) -> CoreResult<()> {
+    let trimmed = raw.trim();
+    let addr: Multiaddr = trimmed
+        .parse()
+        .map_err(|e| CoreError::P2p(format!("invalid relay multiaddr: {e}")))?;
+    let mut has_ip = false;
+    let mut has_tcp = false;
+    for protocol in addr.iter() {
+        match protocol {
+            Protocol::Ip4(_) | Protocol::Ip6(_) => has_ip = true,
+            Protocol::Tcp(_) => has_tcp = true,
+            _ => {}
+        }
+    }
+    if !has_ip || !has_tcp {
+        return Err(CoreError::P2p(
+            "relay multiaddr must be a full address like /ip4/HOST/tcp/9000/p2p/PEER_ID — not just the peer id".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn peer_id_from_multiaddr_str(multiaddr: &str) -> Option<String> {
+    multiaddr
+        .parse::<Multiaddr>()
+        .ok()?
+        .iter()
+        .find_map(|protocol| match protocol {
+            Protocol::P2p(peer_id) => Some(peer_id.to_string()),
+            _ => None,
+        })
+}
+
+fn relay_tcp_endpoint(multiaddr: &str) -> Option<(IpAddr, u16)> {
+    let addr = multiaddr.parse::<Multiaddr>().ok()?;
+    let mut ip = None;
+    let mut port = None;
+    for protocol in addr.iter() {
+        match protocol {
+            Protocol::Ip4(v) => ip = Some(IpAddr::V4(v)),
+            Protocol::Ip6(v) => ip = Some(IpAddr::V6(v)),
+            Protocol::Tcp(p) => port = Some(p),
+            _ => {}
+        }
+    }
+    Some((ip?, port?))
+}
+
+async fn relay_tcp_reachable(multiaddr: &str) -> bool {
+    let Some((ip, port)) = relay_tcp_endpoint(multiaddr) else {
+        return false;
+    };
+    match tokio::time::timeout(
+        Duration::from_secs(2),
+        tokio::net::TcpStream::connect((ip, port)),
+    )
+    .await
+    {
+        Ok(Ok(_stream)) => true,
+        _ => false,
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -1092,4 +1265,5 @@ pub struct InvitePreview {
     pub expires_at: chrono::DateTime<chrono::Utc>,
     pub peer_id: Option<String>,
     pub multiaddrs: Vec<String>,
+    pub relay_multiaddr: String,
 }

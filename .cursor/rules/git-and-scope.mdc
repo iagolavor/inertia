@@ -1,0 +1,23 @@
+---
+description: Git hygiene and focused, encapsulated changes only
+alwaysApply: true
+---
+
+# Git hygiene and change scope
+
+## Branches
+
+- **One concern per branch/PR** — name reflects the feature (`feature/relay-p2p-connection`), not vague prep labels.
+- **Delete remote branches** after merge (or when abandoned). Do not leave stale remotes; offer to delete when work is merged or dropped.
+- **Do not push new commits to a branch after its PR merged** — open a new branch for follow-up work.
+
+## Commits and PRs
+
+- **Encapsulated changes only** — each commit/PR should map to one coherent unit of work that fits the project spirit (local-first, P2P, minimal scope).
+- **No broad grab-bag PRs** — do not mix unrelated items (e.g. relay feature + git audit + placeholder cleanup) in one PR.
+- **Ask before committing** unless the user explicitly asked for a commit. Do not auto-commit audit reports, policy files, or large doc dumps without review.
+
+## Before acting
+
+- Confirm the user has seen findings before creating commits or opening PRs for non-trivial work.
+- Split unrelated work into separate branches from `development`.

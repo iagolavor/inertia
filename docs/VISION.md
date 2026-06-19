@@ -105,28 +105,53 @@ To create a peer-to-peer social media system that:
 
 ## Technical Architecture Overview
 
+Each user runs **local-first** software on their own device. A small **VPS relay** (`inertia-relay`) provides connectivity only — no accounts, no SQLite, no decrypted content. Friends exchange **signed invite links** that bootstrap both the relay network and the inviter's reachability.
+
 ```plaintext
-+-----------------------------+
-|         User Device         |
-| (Cryptographic identity)    |
-+-----------------------------+
-          | Local-first
-          v
-+-----------------------------+
-|   Rust Core (libp2p)        |
-| - P2P connections           |
-| - Encryption & identity     |
-| - Invite signing            |
-| - Ephemeral storage         |
-+-----------------------------+
-          | Local API
-          v
+┌─────────────────────┐         ┌─────────────────────┐
+│  User A (device)    │         │  User B (device)    │
+│  inertia-api        │         │  inertia-api        │
+│  inertia-core+P2P   │         │  inertia-core+P2P   │
+│  SvelteKit (browser)│         │  SvelteKit (browser)│
+└──────────┬──────────┘         └──────────┬──────────┘
+           │  E2E encrypted envelopes      │
+           │  (Noise + ChaCha20)           │
+           └────────────┬──────────────────┘
+                        │ circuit relay (TCP)
+                        ▼
+              ┌─────────────────────┐
+              │  VPS (optional)     │
+              │  inertia-relay      │
+              │  libp2p relay only  │
+              │  no user data       │
+              └─────────────────────┘
+```
+
+**Per device:**
+
+```plaintext
 +-----------------------------+
 |   SvelteKit Frontend        |
 | - Invite / QR UI            |
 | - Friends, messages, outbox |
 +-----------------------------+
+          | HTTP /api (local)
+          v
++-----------------------------+
+|   inertia-api (127.0.0.1)   |
++-----------------------------+
+          |
+          v
++-----------------------------+
+|   inertia-core (libp2p)     |
+| - P2P + relay client        |
+| - Encryption & identity     |
+| - Invite signing            |
+| - SQLite + blobs (local)    |
++-----------------------------+
 ```
+
+See [VPS-RELAY.md](./VPS-RELAY.md) for relay deployment and [MILESTONE-VPS-RELAY.md](./MILESTONE-VPS-RELAY.md) for the connectivity milestone.
 
 ---
 
@@ -138,7 +163,7 @@ To create a peer-to-peer social media system that:
 |----------|--------|-------------|
 | Friend discovery | **Invite link + QR** | No global directory. Users share invites over channels they already trust. |
 | Identity | **Cryptographic keypair** | No phone numbers, no SMS relay, no account database. |
-| Connectivity | **Strict P2P** | Delivery only when both peers are online. Outbox handles failures. |
+| Connectivity | **libp2p P2P + optional VPS relay** | Direct paths when possible; circuit relay via `inertia-relay` when NAT blocks. Relay is connectivity only — not a central account server. |
 | Post expiration | **7 days** | Default TTL for posts. |
 | Message expiration | **7 days** | Same as posts. |
 | Invite expiration | **15 minutes** | Links expire quickly; generate a fresh one anytime. |
@@ -156,25 +181,34 @@ To create a peer-to-peer social media system that:
 - **Friendship is mutual** — accept stores keys locally; optional P2P handshake notifies the other side.
 - **No global directory** — zero centralized user storage.
 
-**Invite payload:**
+**Invite payload (version 2):**
 
 ```
 version, display_name, signing_pubkey, encryption_pubkey,
-peer_id, multiaddrs[], created_at, expires_at, nonce, signature
+peer_id, multiaddrs[], relay_multiaddr,
+created_at, expires_at, nonce, signature
 ```
 
+- **`multiaddrs`** — how to dial the inviter (circuit addresses via relay preferred).
+- **`relay_multiaddr`** — shared VPS relay (`/ip4/HOST/tcp/9000/p2p/RELAY_PEER_ID`), signed by the inviter. On accept, the accepter applies this to Settings so new users can reach the network without a separate relay handoff.
+
 Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<payload>`.
+
+**Invite generation** requires the inviter to be **Relay OK** (libp2p connected to the configured relay). This guarantees every new invite carries a working relay address.
+
+**On accept:** accepter verifies signature + safety code, applies `relay_multiaddr` to local settings (unless `INERTIA_RELAY` env overrides), dials relay + inviter addresses, then completes P2P `InviteRedemption`.
 
 **Single-use redemption:** the inviter's device stores each issued nonce. When a friend accepts, they send a P2P `InviteRedemption` request; the inviter marks the nonce consumed and rejects any second attempt. Acceptance requires the inviter to be online with P2P running.
 
 ---
 
-## 2. P2P Transport (strict mode)
+## 2. P2P Transport
 
-- libp2p with TCP/Noise/Yamux.
-- No relays, no TURN, no friend-as-relay.
-- Peers connect via multiaddrs exchanged in invites.
-- Connection states: `online`, `offline`, `unreachable`.
+- libp2p with TCP / Noise / Yamux.
+- **Relay client** + **DCUtR** (hole punching): try direct path when possible; fall back to circuit via VPS (`inertia-relay`).
+- **VPS relay** (`inertia-relay`): one TCP port, stable relay peer id, no user payloads stored.
+- Peers connect via multiaddrs in invites; relay multiaddr in invite v2 bootstraps new users.
+- Connection states: `online`, `offline`, `unreachable`. Header shows **API** vs **P2P** (relay health + friend count).
 
 ---
 
@@ -242,6 +276,7 @@ blobs/         (content-addressed media files)
 | 1 | Rust core: identity, storage, expiry |
 | 2 | libp2p messaging, outbox |
 | 3 | SvelteKit UI + local API |
-| 4 | **Invite flow, feed, profile, settings, backup** (current) |
+| 4 | Invite flow, feed, profile, settings, backup |
+| 4b | **VPS relay** (`inertia-relay`), relay client, invite v2 with embedded relay |
 | 5 | Capacitor mobile shell |
 | 6 | P2P blob sync, thumbnails, orphan blob GC |

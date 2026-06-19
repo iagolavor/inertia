@@ -27,6 +27,10 @@ export interface P2pStatus {
   peer_id: string | null;
   listen_addresses: string[];
   connected_peer_ids: string[];
+  relay_configured: boolean;
+  relay_peer_id: string | null;
+  relay_connected: boolean;
+  relay_tcp_reachable: boolean | null;
 }
 
 export interface InviteResponse {
@@ -44,9 +48,8 @@ export interface InvitePreview {
   expires_at: string;
   peer_id: string | null;
   multiaddrs: string[];
+  relay_multiaddr: string;
 }
-
-export interface InboxEntry {
   content_id: string;
   sender_id: string;
   received_at: string;
@@ -84,6 +87,7 @@ export interface AppSettings {
   p2p_listen_port: number;
   relay_multiaddr: string | null;
   p2p_announce: string | null;
+  web_origin: string | null;
 }
 
 export interface FeedBackup {
@@ -247,6 +251,7 @@ export const api = {
     p2p_listen_port?: number;
     relay_multiaddr?: string;
     p2p_announce?: string;
+    web_origin?: string;
   }) =>
     request<AppSettings>('/settings', {
       method: 'PATCH',

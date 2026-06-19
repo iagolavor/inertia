@@ -83,4 +83,6 @@ pub struct UpdateSettingsRequest {
     pub relay_multiaddr: Option<String>,
     #[serde(default)]
     pub p2p_announce: Option<String>,
+    #[serde(default)]
+    pub web_origin: Option<String>,
 }
