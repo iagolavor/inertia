@@ -50,6 +50,8 @@ export interface InvitePreview {
   multiaddrs: string[];
   relay_multiaddr: string;
 }
+
+export interface InboxEntry {
   content_id: string;
   sender_id: string;
   received_at: string;

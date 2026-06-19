@@ -3,8 +3,6 @@
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png" />
     <img src="docs/logo-light.png" alt="Inertia" width="200" />
   </picture>
-  <br />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg" alt="AGPL-3.0-or-later" /></a>
 </p>
 
 **A local-first, P2P, ephemeral social network**

@@ -63,7 +63,7 @@ gh pr create --base master --head development `
 ## 3. Merge
 
 - Use a **merge commit** (not squash) to keep branch history aligned with git-flow.
-- Do not delete `development` after merge — both branches stay protected.
+- Do not delete `development` after merge. **`master` stays protected** (release PRs only); `development` is open for direct push while the project is solo.
 
 ## 4. Tag and GitHub Release
 
