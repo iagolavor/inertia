@@ -8,6 +8,9 @@
     "api:restart": "powershell -ExecutionPolicy Bypass -File scripts/stop-api.ps1; cargo run -p inertia-api",
     "api:window": "powershell -ExecutionPolicy Bypass -File scripts/start-api-window.ps1",
     "relay": "cargo run -p inertia-relay",
-    "web": "npm run dev --prefix apps/web"
+    "vps:ssh": "powershell -ExecutionPolicy Bypass -File scripts/vps-ssh.ps1",
+    "web": "npm run dev --prefix apps/web",
+    "web:build": "npm run build --prefix apps/web",
+    "web:preview": "npm run preview --prefix apps/web -- --host"
   }
 }

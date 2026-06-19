@@ -10,19 +10,48 @@
 
   let { status, loading = false, compact = false }: Props = $props();
 
-  const connectedCount = $derived(status?.connected_peer_ids.length ?? 0);
+  const relayPeerId = $derived(status?.relay_peer_id ?? null);
+
+  const friendCount = $derived(
+    status?.connected_peer_ids.filter((id) => id !== relayPeerId).length ?? 0
+  );
+
   const running = $derived(Boolean(status?.running));
-  const online = $derived(running && connectedCount > 0);
-  const idle = $derived(running && connectedCount === 0);
+  const relayConfigured = $derived(Boolean(status?.relay_configured));
+  const relayConnected = $derived(Boolean(status?.relay_connected));
+  const relayTcpOk = $derived(status?.relay_tcp_reachable === true);
+  const relayTcpFailed = $derived(status?.relay_tcp_reachable === false);
+
+  const friendsOnline = $derived(running && friendCount > 0);
+  const relayHealthy = $derived(relayConfigured && relayConnected && relayTcpOk);
+  const relayWaiting = $derived(
+    running && relayConfigured && !relayConnected && relayTcpOk
+  );
+  const relayDown = $derived(relayConfigured && relayTcpFailed);
+
+  const online = $derived(friendsOnline || relayHealthy);
+  const idle = $derived(running && !friendsOnline && !relayDown && !relayHealthy);
 
   const title = $derived(
     loading
       ? 'Checking P2P…'
       : !running
         ? 'P2P not running — check Settings or restart the API'
-        : connectedCount > 0
-          ? `P2P connected to ${connectedCount} peer(s)`
-          : 'P2P running — waiting for peers'
+        : [
+            friendCount > 0 ? `Connected to ${friendCount} friend(s)` : null,
+            relayConfigured
+              ? relayConnected
+                ? 'Relay: libp2p connected'
+                : relayTcpOk
+                  ? 'Relay: port open, libp2p not connected yet'
+                  : relayTcpFailed
+                    ? 'Relay: TCP port unreachable — check VPS firewall'
+                    : 'Relay: checking…'
+              : 'No relay configured',
+            friendCount === 0 && !relayConfigured ? 'Waiting for friends or relay config' : null
+          ]
+            .filter(Boolean)
+            .join(' · ')
   );
 
   const label = $derived(
@@ -30,9 +59,15 @@
       ? 'P2P…'
       : !running
         ? 'P2P off'
-        : connectedCount > 0
-          ? `P2P ${connectedCount}`
-          : 'P2P idle'
+        : relayDown
+          ? 'Relay down'
+          : friendsOnline
+            ? `P2P ${friendCount}`
+            : relayHealthy
+              ? 'Relay OK'
+              : relayWaiting
+                ? 'Relay…'
+                : 'P2P idle'
   );
 </script>
 
@@ -40,13 +75,14 @@
   class="p2p-status"
   class:compact
   class:is-online={online && !loading}
-  class:is-idle={idle && !loading}
-  class:is-offline={!running && !loading}
+  class:is-idle={idle && !loading && !relayWaiting}
+  class:is-warn={relayWaiting && !loading}
+  class:is-offline={(!running || relayDown) && !loading}
   class:is-loading={loading}
   {title}
   aria-label={title}
 >
-  <StatusDot online={online || idle} {loading} size={compact ? 8 : 9} />
+  <StatusDot online={online || idle || relayWaiting} {loading} size={compact ? 8 : 9} />
   <span class="label">{label}</span>
 </div>
 
@@ -80,6 +116,10 @@
     border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
   }
 
+  .p2p-status.is-warn {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  }
+
   .p2p-status.is-offline {
     border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
   }
@@ -93,6 +133,10 @@
   }
 
   .is-idle .label {
+    color: var(--accent);
+  }
+
+  .is-warn .label {
     color: var(--accent);
   }
 

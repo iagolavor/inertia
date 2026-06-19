@@ -10,7 +10,9 @@ use crate::storage::{ConnectionState, Contact};
 /// Invite links expire after 15 minutes.
 pub const INVITE_TTL_SECS: i64 = 15 * 60;
 
-const INVITE_VERSION: u8 = 1;
+/// Current invite format — includes signed relay multiaddr for network bootstrap.
+pub const INVITE_VERSION: u8 = 2;
+
 const INVITE_SCHEME: &str = "inertia://invite/";
 const WEB_INVITE_PREFIX: &str = "/invite#";
 
@@ -22,6 +24,8 @@ pub struct FriendInvite {
     pub encryption_pubkey: String,
     pub peer_id: Option<String>,
     pub multiaddrs: Vec<String>,
+    /// Shared VPS relay multiaddr. Accepter applies this to reach the inviter.
+    pub relay_multiaddr: String,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub nonce: String,
@@ -33,6 +37,7 @@ impl FriendInvite {
         identity: &Identity,
         peer_id: Option<String>,
         multiaddrs: Vec<String>,
+        relay_multiaddr: String,
     ) -> CoreResult<Self> {
         let now = Utc::now();
         let mut invite = Self {
@@ -42,6 +47,7 @@ impl FriendInvite {
             encryption_pubkey: identity.encryption_pubkey.clone(),
             peer_id,
             multiaddrs,
+            relay_multiaddr,
             created_at: now,
             expires_at: now + chrono::Duration::seconds(INVITE_TTL_SECS),
             nonce: Uuid::new_v4().to_string(),
@@ -60,6 +66,7 @@ impl FriendInvite {
             encryption_pubkey: &self.encryption_pubkey,
             peer_id: self.peer_id.as_deref(),
             multiaddrs: &self.multiaddrs,
+            relay_multiaddr: &self.relay_multiaddr,
             created_at: self.created_at,
             expires_at: self.expires_at,
             nonce: &self.nonce,
@@ -68,7 +75,14 @@ impl FriendInvite {
 
     pub fn verify(&self) -> CoreResult<()> {
         if self.version != INVITE_VERSION {
-            return Err(CoreError::Crypto("unsupported invite version".into()));
+            return Err(CoreError::Invite(
+                "unsupported invite version — ask the inviter for a new link".into(),
+            ));
+        }
+        if self.relay_multiaddr.trim().is_empty() {
+            return Err(CoreError::Invite(
+                "invite is missing relay network info — ask for a new link".into(),
+            ));
         }
         if Utc::now() > self.expires_at {
             return Err(CoreError::Invite("invite has expired".into()));
@@ -138,6 +152,7 @@ struct InviteSigningPayload<'a> {
     encryption_pubkey: &'a str,
     peer_id: Option<&'a str>,
     multiaddrs: &'a [String],
+    relay_multiaddr: &'a str,
     created_at: DateTime<Utc>,
     expires_at: DateTime<Utc>,
     nonce: &'a str,
@@ -192,17 +207,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn round_trip_invite() {
+    fn round_trip_invite_with_relay() {
         let id = Identity::generate("Alice");
         let invite = FriendInvite::new(
             &id,
             Some("12D3KooW".into()),
-            vec!["/ip4/127.0.0.1/tcp/4001".into()],
+            vec!["/ip4/127.0.0.1/tcp/4001/p2p-circuit/p2p/12D3KooW".into()],
+            "/ip4/203.0.113.10/tcp/9000/p2p/12D3KooWRelay".into(),
         )
         .unwrap();
+        assert_eq!(invite.version, INVITE_VERSION);
         let link = invite.to_link(Some("http://localhost:5173")).unwrap();
         let parsed = FriendInvite::parse(&link).unwrap();
         assert_eq!(parsed.display_name, "Alice");
+        assert_eq!(parsed.relay_multiaddr, invite.relay_multiaddr);
         assert_eq!(parsed.safety_code(), invite.safety_code());
+    }
+
+    #[test]
+    fn rejects_version_one_invite() {
+        let id = Identity::generate("Alice");
+        let mut invite = FriendInvite::new(
+            &id,
+            Some("12D3KooW".into()),
+            vec!["/ip4/127.0.0.1/tcp/4001".into()],
+            "/ip4/203.0.113.10/tcp/9000/p2p/12D3KooWRelay".into(),
+        )
+        .unwrap();
+        invite.version = 1;
+        let err = invite.verify().unwrap_err().to_string();
+        assert!(err.contains("unsupported invite version"));
     }
 }

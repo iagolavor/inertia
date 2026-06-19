@@ -37,6 +37,13 @@ async fn update_settings(
             Some(value.trim().to_string())
         }
     });
+    let web_origin_update = body.web_origin.as_ref().map(|value| {
+        if value.trim().is_empty() {
+            None
+        } else {
+            Some(value.trim().to_string())
+        }
+    });
 
     let engine = state.engine.lock().await;
     engine
@@ -45,6 +52,7 @@ async fn update_settings(
             body.p2p_listen_port,
             relay_update,
             announce_update,
+            web_origin_update,
         )
         .await
         .map(Json)

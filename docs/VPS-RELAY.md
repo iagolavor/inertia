@@ -75,18 +75,83 @@ Data directory defaults to `./relay-data`.
 
 ---
 
-## Brother test checklist (Phase 3 preview)
+## Brother test checklist (Phase 3)
 
-1. Deploy relay on VPS; confirm port open.
-2. **You:** start API + web, set relay multiaddr in Settings, create profile.
-3. **Brother:** same relay config, create profile.
-4. **You:** Friends → Generate invite → send link.
-5. **Brother:** open invite, verify safety code, Accept.
+### 1. Deploy relay on VPS
+
+Confirm port open (`nc -vz YOUR_VPS_IP 9000`). Copy relay multiaddr from logs.
+
+### 2. Build and run on each machine
+
+Each person runs **inertia-api** locally and opens the **built web UI** in a browser on the same machine. The API never leaves the device.
+
+**Prerequisites**
+
+| Tool | Windows | Linux |
+|------|---------|-------|
+| Rust | [rustup.rs](https://rustup.rs) | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| Node 20+ | [nodejs.org](https://nodejs.org) | `sudo apt install nodejs npm` or nvm |
+
+**Terminal 1 — API** (keep running)
+
+```powershell
+# Windows (repo root)
+npm run api
+```
+
+```bash
+# Linux (repo root)
+cargo run -p inertia-api
+```
+
+**Terminal 2 — web UI**
+
+Dev mode (you, while hacking):
+
+```bash
+npm run web
+# open http://localhost:5173
+```
+
+Production-style static build (recommended for brother test):
+
+```bash
+npm run web:build
+npm run web:preview
+# default http://localhost:4173 — use --host so LAN devices can connect
+```
+
+On Windows, `web:preview` binds `0.0.0.0` via `--host`. Note your LAN IP (e.g. `192.168.1.10`) and the preview port.
+
+### 3. Connection settings (both sides)
+
+**Inviter** must show **Relay OK** before generating an invite.
+
+**Accepter** — relay is applied automatically from the invite on Accept (no manual relay paste needed unless using `INERTIA_RELAY` env override).
+
+Optional per device:
+
+| Field | Example |
+|-------|---------|
+| Invite announce addresses | Your LAN/public reachability, e.g. `/ip4/192.168.1.10/tcp/4784` |
+| Invite link base URL | `http://192.168.1.10:4173` (your preview URL, no trailing slash) |
+
+### 4. Test flow
+
+1. **You:** create profile, set relay in Settings (Relay OK), generate invite.
+2. **Brother:** create profile, open invite — relay configured from link on accept.
+3. **You:** Friends → Generate invite → send link (Signal/iMessage/etc.).
+4. **Brother:** open link in his browser (must hit *his* local web UI via the base URL you configured).
+5. **Brother:** verify safety code, Accept.
 6. **Brother:** post text; **you:** Feed reload.
 7. **You:** DM; **brother:** Messages.
 8. Restart one API; confirm delivery resumes without a new invite.
 
 Text-only posts until P2P blob sync lands (Phase 4 in milestone doc).
+
+### 5. Invite links without a shared URL
+
+If you skip **Invite link base URL**, generated links use the `inertia://invite/…` scheme. The recipient can paste the payload at `/invite` on their local app instead of opening a web URL.
 
 ---
 
@@ -111,10 +176,19 @@ Text-only posts until P2P blob sync lands (Phase 4 in milestone doc).
 
 ## Related env vars
 
+**Relay (VPS)**
+
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `INERTIA_RELAY_ADDR` | `0.0.0.0:9000` | Relay listen host:port |
 | `INERTIA_RELAY_DATA_DIR` | `./relay-data` | Relay identity persistence |
 | `RUST_LOG` | `inertia_relay=info` | Log verbosity |
 
-Client-side (each device): `INERTIA_RELAY`, `INERTIA_P2P_LISTEN_PORT`, `INERTIA_P2P_ANNOUNCE` — see Settings → Connection.
+**Client (each device)** — see also Settings → Connection
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `INERTIA_RELAY` | — | Relay multiaddr clients dial |
+| `INERTIA_P2P_LISTEN_PORT` | `4784` | Fixed TCP listen port |
+| `INERTIA_P2P_ANNOUNCE` | — | Comma-separated multiaddrs for invites |
+| `INERTIA_WEB_ORIGIN` | — | Base URL for invite links (overrides browser origin) |
