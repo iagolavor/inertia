@@ -1,5 +1,6 @@
 /target
 /data
+relay-data/
 node_modules
 .svelte-kit
 build
