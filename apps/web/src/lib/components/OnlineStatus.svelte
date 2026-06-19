@@ -17,7 +17,7 @@
         ? 'Clica para desligar o API bridge'
         : 'Clica para tentar ligar — se estiver parado, corre: cargo run -p inertia-api'
   );
-  const label = $derived(loading ? 'checking…' : online ? 'online' : 'offline');
+  const label = $derived(loading ? 'API…' : online ? 'API' : 'API off');
 </script>
 
 <button

@@ -1,4 +1,4 @@
-import { api, type Identity } from '$lib/api';
+import { api, type Identity, type P2pStatus } from '$lib/api';
 import { clearDeviceProfile, readDeviceProfile, writeDeviceProfile } from '$lib/device-db';
 
 export const identityState = $state({
@@ -6,6 +6,7 @@ export const identityState = $state({
 	apiOnline: false,
 	loading: true,
 	p2pInfo: null as { peer_id: string | null; addresses: string[] } | null,
+	p2pStatus: null as P2pStatus | null,
 	profileLocked: false
 });
 
@@ -27,14 +28,17 @@ async function syncFromApi() {
 			} else {
 				identityState.p2pInfo = await api.startP2p();
 			}
+			identityState.p2pStatus = await api.p2pStatus();
 		} catch {
 			identityState.p2pInfo = null;
+			identityState.p2pStatus = null;
 		}
 		return;
 	}
 
 	identityState.identity = null;
 	identityState.p2pInfo = null;
+	identityState.p2pStatus = null;
 	identityState.profileLocked = false;
 	await clearDeviceProfile().catch(() => {});
 }
@@ -113,6 +117,7 @@ export async function toggleApiBridge() {
 		}
 		identityState.apiOnline = false;
 		identityState.p2pInfo = null;
+		identityState.p2pStatus = null;
 		await syncFromLocalDb();
 	} finally {
 		identityState.loading = false;
@@ -122,7 +127,9 @@ export async function toggleApiBridge() {
 export async function startP2pInBackground() {
 	try {
 		identityState.p2pInfo = await api.startP2p();
+		identityState.p2pStatus = await api.p2pStatus();
 	} catch {
 		identityState.p2pInfo = null;
+		identityState.p2pStatus = null;
 	}
 }

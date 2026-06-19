@@ -76,5 +76,11 @@ pub struct UploadPhotoRequest {
 
 #[derive(Deserialize)]
 pub struct UpdateSettingsRequest {
-    pub feed_history_enabled: bool,
+    pub feed_history_enabled: Option<bool>,
+    #[serde(default)]
+    pub p2p_listen_port: Option<u16>,
+    #[serde(default)]
+    pub relay_multiaddr: Option<String>,
+    #[serde(default)]
+    pub p2p_announce: Option<String>,
 }

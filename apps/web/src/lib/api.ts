@@ -19,6 +19,14 @@ export interface Contact {
   encryption_pubkey: string;
   last_seen: string | null;
   connection_state: 'online' | 'offline' | 'unreachable';
+  multiaddrs?: string[];
+}
+
+export interface P2pStatus {
+  running: boolean;
+  peer_id: string | null;
+  listen_addresses: string[];
+  connected_peer_ids: string[];
 }
 
 export interface InviteResponse {
@@ -73,6 +81,9 @@ export interface PostComment {
 
 export interface AppSettings {
   feed_history_enabled: boolean;
+  p2p_listen_port: number;
+  relay_multiaddr: string | null;
+  p2p_announce: string | null;
 }
 
 export interface FeedBackup {
@@ -215,6 +226,7 @@ export const api = {
     }),
   p2pAddresses: () =>
     request<{ peer_id: string | null; addresses: string[] }>('/p2p/addresses'),
+  p2pStatus: () => request<P2pStatus>('/p2p/status'),
   retryOutbox: (content_id: string, recipient_id: string) =>
     request<void>('/outbox/retry', {
       method: 'POST',
@@ -230,11 +242,22 @@ export const api = {
       body: JSON.stringify({ body })
     }),
   getSettings: () => request<AppSettings>('/settings'),
+  updateSettings: (settings: {
+    feed_history_enabled?: boolean;
+    p2p_listen_port?: number;
+    relay_multiaddr?: string;
+    p2p_announce?: string;
+  }) =>
+    request<AppSettings>('/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(settings)
+    }),
   setFeedHistoryEnabled: (feed_history_enabled: boolean) =>
     request<AppSettings>('/settings', {
       method: 'PATCH',
       body: JSON.stringify({ feed_history_enabled })
     }),
+  p2pShareAddress: () => request<{ multiaddr: string | null }>('/p2p/share-address'),
   exportFeedBackup: () => request<FeedBackup>('/feed/backup'),
   restoreFeedBackup: (backup: FeedBackup) =>
     request<FeedRestoreReport>(

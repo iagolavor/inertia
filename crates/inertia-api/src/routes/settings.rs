@@ -23,9 +23,29 @@ async fn update_settings(
     State(state): State<AppState>,
     Json(body): Json<UpdateSettingsRequest>,
 ) -> Result<Json<AppSettings>, (StatusCode, Json<ApiError>)> {
+    let relay_update = body.relay_multiaddr.as_ref().map(|value| {
+        if value.trim().is_empty() {
+            None
+        } else {
+            Some(value.trim().to_string())
+        }
+    });
+    let announce_update = body.p2p_announce.as_ref().map(|value| {
+        if value.trim().is_empty() {
+            None
+        } else {
+            Some(value.trim().to_string())
+        }
+    });
+
     let engine = state.engine.lock().await;
     engine
-        .set_feed_history_enabled(body.feed_history_enabled)
+        .update_settings(
+            body.feed_history_enabled,
+            body.p2p_listen_port,
+            relay_update,
+            announce_update,
+        )
         .await
         .map(Json)
         .map_err(api_err)

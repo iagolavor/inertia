@@ -120,6 +120,7 @@ impl FriendInvite {
             encryption_pubkey: self.encryption_pubkey.clone(),
             last_seen: None,
             connection_state: ConnectionState::Offline,
+            multiaddrs: self.multiaddrs.clone(),
         }
     }
 

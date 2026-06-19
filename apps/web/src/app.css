@@ -88,6 +88,24 @@ textarea {
   margin-bottom: 1rem;
 }
 
+.card.settings-section {
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.settings-section .section-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settings-section .section-desc {
+  margin: 0 0 0.85rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
