@@ -20,6 +20,7 @@ use crate::storage::{ConnectionState, Contact, InboxEntry};
 use crate::store_handle::StoreHandle;
 
 use super::codec::{protocol_stream, request_response_config, JsonCodec};
+use super::keypair::load_or_create_keypair;
 use super::protocol::{
     FriendRequest, InertiaRequest, InertiaResponse, InviteRedemption, SendEnvelope,
 };
@@ -58,7 +59,10 @@ impl P2pNode {
         relay_multiaddr: Option<String>,
         event_tx: mpsc::UnboundedSender<P2pEvent>,
     ) -> CoreResult<Self> {
-        let local_key = libp2p::identity::Keypair::generate_ed25519();
+        let data_dir = store
+            .with(|s| Ok(s.data_dir().to_path_buf()))
+            .await?;
+        let local_key = load_or_create_keypair(&data_dir)?;
         let peer_id = local_key.public().to_peer_id();
 
         let mut swarm = SwarmBuilder::with_existing_identity(local_key.clone())

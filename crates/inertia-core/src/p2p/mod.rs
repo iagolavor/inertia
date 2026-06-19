@@ -1,4 +1,5 @@
 mod codec;
+mod keypair;
 mod node;
 pub mod protocol;
 
