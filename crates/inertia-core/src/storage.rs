@@ -245,18 +245,27 @@ fn merge_multiaddr_lists(existing: &[String], new: &[String]) -> Vec<String> {
 
 pub struct Store {
     conn: Connection,
+    data_dir: PathBuf,
     blob_dir: PathBuf,
 }
 
 impl Store {
+    pub fn data_dir(&self) -> &Path {
+        &self.data_dir
+    }
+
     pub fn open(data_dir: impl AsRef<Path>) -> CoreResult<Self> {
-        let data_dir = data_dir.as_ref();
-        std::fs::create_dir_all(data_dir)?;
+        let data_dir = data_dir.as_ref().to_path_buf();
+        std::fs::create_dir_all(&data_dir)?;
         let blob_dir = data_dir.join("blobs");
         std::fs::create_dir_all(&blob_dir)?;
 
         let conn = Connection::open(data_dir.join("inertia.db"))?;
-        let store = Self { conn, blob_dir };
+        let store = Self {
+            conn,
+            data_dir,
+            blob_dir,
+        };
         store.migrate()?;
         Ok(store)
     }
