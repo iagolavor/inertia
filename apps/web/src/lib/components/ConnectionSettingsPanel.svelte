@@ -5,6 +5,7 @@
   let listenPort = $state(4784);
   let relayMultiaddr = $state('');
   let p2pAnnounce = $state('');
+  let webOrigin = $state('');
   let shareMultiaddr = $state<string | null>(null);
   let loading = $state(true);
   let saving = $state(false);
@@ -30,10 +31,11 @@
         api.getSettings(),
         api.p2pShareAddress()
       ]);
-      const { p2p_listen_port, relay_multiaddr, p2p_announce } = settings;
+      const { p2p_listen_port, relay_multiaddr, p2p_announce, web_origin } = settings;
       listenPort = p2p_listen_port;
       relayMultiaddr = relay_multiaddr ?? '';
       p2pAnnounce = p2p_announce ?? '';
+      webOrigin = web_origin ?? '';
       shareMultiaddr = multiaddr;
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load connection settings';
@@ -50,7 +52,8 @@
       await api.updateSettings({
         p2p_listen_port: listenPort,
         relay_multiaddr: relayMultiaddr,
-        p2p_announce: p2pAnnounce
+        p2p_announce: p2pAnnounce,
+        web_origin: webOrigin
       });
       message = 'Saved. Restart the API for listen port changes to take effect.';
       await refreshIdentity({ silent: true });
@@ -93,9 +96,13 @@
       <input
         id="relay"
         type="text"
-        placeholder="/ip4/203.0.113.10/tcp/9000/p2p/12D3Koo…"
+        placeholder="/ip4/203.0.113.10/tcp/9000/p2p/12D3KooW…"
         bind:value={relayMultiaddr}
       />
+      <p class="field-hint">
+        Full multiaddr from the VPS relay logs — include IP, port, and peer id. Do not paste only
+        the <code>12D3KooW…</code> id.
+      </p>
     </div>
 
     <div class="field">
@@ -106,6 +113,21 @@
         placeholder="/ip4/203.0.113.10/tcp/4784, comma-separated"
         bind:value={p2pAnnounce}
       ></textarea>
+    </div>
+
+    <div class="field">
+      <label for="web-origin">Invite link base URL</label>
+      <input
+        id="web-origin"
+        type="url"
+        placeholder="http://192.168.1.10:4173"
+        bind:value={webOrigin}
+      />
+      <p class="field-hint">
+        Overrides the browser URL in invite links. Use your LAN IP and web port so friends can open
+        the link on their machine. Leave empty to use this browser&apos;s address, or set
+        <code>INERTIA_WEB_ORIGIN</code> via env.
+      </p>
     </div>
 
     {#if shareMultiaddr}
@@ -158,6 +180,18 @@
     color: var(--text);
     font: inherit;
     font-size: 0.875rem;
+  }
+
+  .field-hint {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  .field-hint code {
+    font-family: monospace;
+    font-size: 0.75rem;
   }
 
   .share-row {

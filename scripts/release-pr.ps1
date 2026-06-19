@@ -9,7 +9,10 @@ $ErrorActionPreference = "Stop"
 $tag = if ($Version -match '^v') { $Version } else { "v$Version" }
 $title = "Release $tag"
 
-git fetch origin master development 2>$null | Out-Null
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+$null = git fetch origin master development 2>&1
+$ErrorActionPreference = $prevEap
 
 $range = "origin/master..origin/development"
 $ahead = git rev-list --count $range
@@ -34,9 +37,11 @@ foreach ($subject in $mergeSubjects) {
     }
 }
 
-$lastTag = git describe --tags --abbrev=0 origin/master 2>$null
+$ErrorActionPreference = 'Continue'
+$lastTag = (git describe --tags --abbrev=0 origin/master 2>$null)
+$ErrorActionPreference = $prevEap
 $sinceLine = if ($lastTag) { "Since $lastTag on master." } else { "First tagged release." }
-$changes = if ($prLines.Count -gt 0) { $prLines -join "`n" } else { "- (no merge commits parsed — list highlights manually)" }
+$changes = if ($prLines.Count -gt 0) { $prLines -join "`n" } else { "- (no merge commits parsed; list highlights manually)" }
 
 $body = @"
 ## Summary

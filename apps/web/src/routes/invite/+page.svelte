@@ -78,6 +78,9 @@
       <p style="color: var(--muted); font-size: 0.8rem; margin: 0.75rem 0 0;">
         Accepting contacts them directly over P2P. If they are offline, wait and try again before the link expires.
       </p>
+      <p style="color: var(--muted); font-size: 0.8rem; margin: 0.75rem 0 0;">
+        This invite includes the shared relay network — accepting will configure it on this device if needed.
+      </p>
       <button class="btn" style="margin-top: 1rem;" onclick={accept} disabled={accepting}>
         {accepting ? 'Accepting...' : 'Accept'}
       </button>
