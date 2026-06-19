@@ -86,23 +86,6 @@
     letter-spacing: -0.02em;
   }
 
-  .settings-section {
-    margin-bottom: 1rem;
-  }
-
-  .section-title {
-    margin: 0 0 0.35rem;
-    font-size: 1rem;
-    font-weight: 600;
-  }
-
-  .section-desc {
-    margin: 0 0 0.85rem;
-    font-size: 0.875rem;
-    color: var(--muted);
-    line-height: 1.45;
-  }
-
   .identity-list {
     margin: 0;
     display: flex;

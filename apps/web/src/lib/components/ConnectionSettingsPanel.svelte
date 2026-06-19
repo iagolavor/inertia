@@ -17,16 +17,24 @@
     }
   });
 
+  async function refreshShareMultiaddr() {
+    const { multiaddr } = await api.p2pShareAddress();
+    shareMultiaddr = multiaddr;
+  }
+
   async function loadSettings() {
     loading = true;
     error = '';
     try {
-      const settings = await api.getSettings();
-      listenPort = settings.p2p_listen_port;
-      relayMultiaddr = settings.relay_multiaddr ?? '';
-      p2pAnnounce = settings.p2p_announce ?? '';
-      const share = await api.p2pShareAddress();
-      shareMultiaddr = share.multiaddr;
+      const [settings, { multiaddr }] = await Promise.all([
+        api.getSettings(),
+        api.p2pShareAddress()
+      ]);
+      const { p2p_listen_port, relay_multiaddr, p2p_announce } = settings;
+      listenPort = p2p_listen_port;
+      relayMultiaddr = relay_multiaddr ?? '';
+      p2pAnnounce = p2p_announce ?? '';
+      shareMultiaddr = multiaddr;
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load connection settings';
     } finally {
@@ -46,8 +54,7 @@
       });
       message = 'Saved. Restart the API for listen port changes to take effect.';
       await refreshIdentity({ silent: true });
-      const share = await api.p2pShareAddress();
-      shareMultiaddr = share.multiaddr;
+      await refreshShareMultiaddr();
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to save connection settings';
     } finally {
@@ -68,10 +75,9 @@
 
 <section class="card settings-section">
   <h2 class="section-title">Connection</h2>
-  <p class="section-desc">
-    P2P listen port, relay, and addresses advertised in invites. Environment variables
-    (`INERTIA_RELAY`, `INERTIA_P2P_LISTEN_PORT`, `INERTIA_P2P_ANNOUNCE`) override saved
-    values when set.
+  <p class="muted">
+    How this device listens and connects to friends. Set relay and announce addresses so
+    invites work across networks.
   </p>
 
   {#if loading}
@@ -105,15 +111,15 @@
     {#if shareMultiaddr}
       <div class="share-row">
         <code class="mono">{shareMultiaddr}</code>
-        <button type="button" class="btn-secondary" onclick={copyShareAddress}>Copy</button>
+        <button type="button" class="btn btn-secondary btn-compact" onclick={copyShareAddress}>Copy</button>
       </div>
     {:else if identityState.p2pInfo?.peer_id}
       <p class="muted">No shareable multiaddr yet — set announce addresses or wait for P2P.</p>
     {/if}
 
     <div class="actions">
-      <button type="button" class="btn" disabled={saving} onclick={saveSettings}>
-        {saving ? 'Saving…' : 'Save connection settings'}
+      <button type="button" class="btn btn-secondary btn-compact" disabled={saving} onclick={saveSettings}>
+        {saving ? 'Saving…' : 'Save'}
       </button>
     </div>
 
@@ -171,6 +177,12 @@
     margin-top: 0.25rem;
   }
 
+  .btn-compact {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
   .notice {
     margin: 0.75rem 0 0;
     font-size: 0.8125rem;
@@ -189,5 +201,8 @@
 
   .muted {
     color: var(--muted);
+    font-size: 0.875rem;
+    margin: 0 0 0.85rem;
+    line-height: 1.45;
   }
 </style>
