@@ -302,6 +302,47 @@ impl Engine {
         self.store.with(|store| store.list_inbox()).await
     }
 
+    pub async fn list_conversation_messages(
+        &self,
+        contact_id: &str,
+    ) -> CoreResult<Vec<ConversationMessage>> {
+        self.store
+            .with(|store| store.get_contact(contact_id))
+            .await?;
+
+        let received = self
+            .store
+            .with(|store| store.list_inbox_messages_from_sender(contact_id))
+            .await?;
+        let sent = self
+            .store
+            .with(|store| store.list_sent_messages_for_recipient(contact_id))
+            .await?;
+
+        let mut messages: Vec<ConversationMessage> = received
+            .into_iter()
+            .map(|entry| ConversationMessage {
+                content_id: entry.content_id,
+                body: entry.body,
+                at: entry.received_at,
+                expires_at: entry.expires_at,
+                is_own: false,
+                delivery_status: None,
+            })
+            .chain(sent.into_iter().map(|entry| ConversationMessage {
+                content_id: entry.content_id,
+                body: entry.body,
+                at: entry.sent_at,
+                expires_at: entry.expires_at,
+                is_own: true,
+                delivery_status: Some(entry.status),
+            }))
+            .collect();
+
+        messages.sort_by_key(|m| m.at);
+        Ok(messages)
+    }
+
     /// Idempotent — returns the current peer id if P2P is already running.
     pub async fn ensure_p2p_started(&self) -> CoreResult<String> {
         self.start_p2p(0).await
@@ -537,15 +578,14 @@ impl Engine {
 
         for contact in &contacts {
             let contact_envelope =
-                build_post_envelope(&identity, contact, body, media_ref)?;
-            let envelope_id = contact_envelope.id.clone();
+                build_post_envelope(&identity, contact, &content_id, body, media_ref)?;
             let contact_envelope_json = serde_json::to_string(&contact_envelope)?;
 
             self.store
                 .with_mut(|store| {
                     store.insert_outbox(
                         &OutboxEntry {
-                            content_id: envelope_id,
+                            content_id: content_id.clone(),
                             recipient_id: contact.id.clone(),
                             status: DeliveryStatus::Pending,
                             expires_at: contact_envelope.expires_at,
@@ -984,6 +1024,14 @@ impl Engine {
                         content_type: ContentType::Message,
                     },
                     &envelope_json,
+                )?;
+                store.insert_sent_message(
+                    &content_id,
+                    recipient_id,
+                    body,
+                    envelope.created_at,
+                    envelope.expires_at,
+                    DeliveryStatus::Pending,
                 )
             })
             .await?;
@@ -1266,4 +1314,14 @@ pub struct InvitePreview {
     pub peer_id: Option<String>,
     pub multiaddrs: Vec<String>,
     pub relay_multiaddr: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ConversationMessage {
+    pub content_id: String,
+    pub body: String,
+    pub at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub is_own: bool,
+    pub delivery_status: Option<DeliveryStatus>,
 }

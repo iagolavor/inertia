@@ -1,4 +1,4 @@
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::get;
 use axum::{Json, Router};
@@ -9,7 +9,9 @@ use crate::error::{api_err, ApiError};
 use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
-    Router::new().route("/contacts", get(list_contacts).post(add_contact))
+    Router::new()
+        .route("/contacts", get(list_contacts).post(add_contact))
+        .route("/contacts/:contact_id/messages", get(list_conversation_messages))
 }
 
 async fn list_contacts(
@@ -31,6 +33,18 @@ async fn add_contact(
             &body.signing_pubkey,
             &body.encryption_pubkey,
         )
+        .await
+        .map(Json)
+        .map_err(api_err)
+}
+
+async fn list_conversation_messages(
+    State(state): State<AppState>,
+    Path(contact_id): Path<String>,
+) -> Result<Json<Vec<inertia_core::ConversationMessage>>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .list_conversation_messages(&contact_id)
         .await
         .map(Json)
         .map_err(api_err)

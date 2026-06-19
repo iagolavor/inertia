@@ -621,6 +621,7 @@ async fn process_incoming_envelope(
 pub fn build_post_envelope(
     identity: &Identity,
     recipient: &Contact,
+    content_id: &str,
     body: &str,
     media_ref: Option<&str>,
 ) -> CoreResult<ContentEnvelope> {
@@ -641,6 +642,7 @@ pub fn build_post_envelope(
         ciphertext,
         vec![],
     );
+    envelope.id = content_id.to_string();
     envelope.signature = identity.sign(&envelope.signing_bytes())?;
     Ok(envelope)
 }

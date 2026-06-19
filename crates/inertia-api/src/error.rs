@@ -12,6 +12,7 @@ pub fn api_err(e: CoreError) -> (StatusCode, Json<ApiError>) {
     let status = match &e {
         CoreError::Invite(_) => StatusCode::BAD_REQUEST,
         CoreError::ProfileAlreadyExists => StatusCode::CONFLICT,
+        CoreError::ContactNotFound(_) => StatusCode::NOT_FOUND,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     };
     (

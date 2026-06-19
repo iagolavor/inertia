@@ -62,6 +62,15 @@ export interface InboxEntry {
   content_type: 'message' | 'post';
 }
 
+export interface ConversationMessage {
+  content_id: string;
+  body: string;
+  at: string;
+  expires_at: string;
+  is_own: boolean;
+  delivery_status: 'pending' | 'failed' | 'delivered' | 'expired' | null;
+}
+
 export interface FeedItem {
   content_id: string;
   author_id: string;
@@ -218,6 +227,8 @@ export const api = {
       body: JSON.stringify({ invite })
     }),
   listContacts: () => request<Contact[]>('/contacts'),
+  listConversationMessages: (contactId: string) =>
+    request<ConversationMessage[]>(`/contacts/${encodeURIComponent(contactId)}/messages`),
   listInbox: () => request<InboxEntry[]>('/inbox'),
   listOutbox: () => request<OutboxEntry[]>('/outbox'),
   sendMessage: (recipient_id: string, body: string) =>
