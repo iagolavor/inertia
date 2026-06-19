@@ -292,10 +292,12 @@ impl Engine {
             .parse::<Multiaddr>()
             .map_err(|e| CoreError::P2p(e.to_string()))?;
 
+        let relay_multiaddr = self.effective_relay().await;
         let node = P2pNode::start(
             self.store.clone(),
             Arc::clone(&self.identity),
             listen_addr,
+            relay_multiaddr,
             self.event_tx.clone(),
         )
         .await?;
@@ -395,16 +397,27 @@ impl Engine {
                 return announced;
             }
         }
+
+        if let Ok(addrs) = self.p2p_routable_addresses().await {
+            if !addrs.is_empty() {
+                return addrs;
+            }
+        }
+
         self.p2p_listen_addresses().await.unwrap_or_default()
     }
 
+    pub async fn p2p_routable_addresses(&self) -> CoreResult<Vec<String>> {
+        let guard = self.p2p.lock().await;
+        let p2p = guard
+            .as_ref()
+            .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
+        Ok(p2p.routable_listen_addresses().await)
+    }
+
     pub async fn connection_share_multiaddr(&self) -> CoreResult<Option<String>> {
-        let peer_id = self.peer_id().await;
-        let Some(peer_id) = peer_id else {
-            return Ok(None);
-        };
-        let addresses = self.p2p_invite_addresses(Some(&peer_id)).await;
-        Ok(addresses.into_iter().next())
+        let addrs = self.p2p_invite_addresses(self.peer_id().await.as_deref()).await;
+        Ok(addrs.into_iter().next())
     }
 
     pub async fn dial_peer(&self, multiaddr: &str) -> CoreResult<()> {
