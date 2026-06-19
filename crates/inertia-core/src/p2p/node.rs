@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{FutureExt, StreamExt};
+use futures::StreamExt;
 use libp2p::request_response::{self, Event, Message, OutboundRequestId};
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::{
@@ -257,12 +257,11 @@ impl P2pNode {
             loop {
                 let event = {
                     let mut swarm = swarm.lock().await;
-                    StreamExt::next(&mut *swarm).now_or_never().flatten()
+                    swarm.next().await
                 };
 
                 let Some(event) = event else {
-                    tokio::task::yield_now().await;
-                    continue;
+                    break;
                 };
 
                 match event {
