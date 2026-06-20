@@ -6,9 +6,9 @@ Download **[inertia-windows-x64.zip](https://github.com/iagolavor/inertia/releas
 |------|--------|
 | **Run** | Double-click `run.cmd` → [http://127.0.0.1:4783](http://127.0.0.1:4783) |
 | **Data** | Stored in `data/` next to the exe (back it up to keep your profile and friends) |
-| **Update** | Double-click `update.cmd` — downloads the latest release zip, keeps `data/` |
+| **Update** | Double-click `update.cmd`. Downloads the latest release zip and keeps `data/`. |
 
-Nothing else to install — no Rust, Node, Git, or winget.
+Nothing else to install: no Rust, Node, Git, or winget.
 
 ---
 

@@ -23,7 +23,7 @@
 
 **Inertia** is a small, chronological social app for a closed circle of friends. Each person runs the stack on their own machine: a Rust API, embedded database, and libp2p networking. Posts and messages expire after seven days unless you keep a local archive.
 
-Identity is cryptographic — no signup server. You add friends with signed invite links (and optional QR codes). When both sides are online, content travels peer-to-peer; an optional [VPS relay](docs/VPS-RELAY.md) you control helps with NAT.
+Identity is cryptographic. There is no signup server. You add friends with signed invite links (and optional QR codes). When both sides are online, content travels peer-to-peer; an optional [VPS relay](docs/VPS-RELAY.md) you control helps with NAT.
 
 > **Status:** Active prototype. Expect rough edges. Default branch is `development`.
 
@@ -39,9 +39,9 @@ Identity is cryptographic — no signup server. You add friends with signed invi
 
 Download **[inertia-windows-x64.zip](https://github.com/iagolavor/inertia/releases/latest)**, extract, double-click **`run.cmd`**.
 
-Opens **http://127.0.0.1:4783** — no Rust, Node, or Git.
+Opens **http://127.0.0.1:4783**. No Rust, Node, or Git required.
 
-[Full guide →](docs/WINDOWS-SETUP.md)
+[Full guide](docs/WINDOWS-SETUP.md)
 
 </td>
 <td width="50%" valign="top">
@@ -60,21 +60,21 @@ cd apps/web && npm install && cd ../..
 
 ```bash
 npm run api:release          # terminal 1
-npm run web:build && npm run web:preview   # terminal 2 → :4173
+npm run web:build && npm run web:preview   # terminal 2, :4173
 ```
 
 **Hack on the UI (HMR):**
 
 ```bash
 npm run api                  # terminal 1
-npm run web                  # terminal 2 → :5173
+npm run web                  # terminal 2, :5173
 ```
 
 </td>
 </tr>
 </table>
 
-**First launch:** create a profile → set your relay in **Settings → Connection** ([relay guide](docs/VPS-RELAY.md)) → invite a friend → post on **Feed**.
+**First launch:** create a profile, set your relay in **Settings → Connection** ([relay guide](docs/VPS-RELAY.md)), invite a friend, post on **Feed**.
 
 In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`** task (debug + Vite).
 
@@ -142,7 +142,7 @@ Copy [`.env.example`](.env.example) to `.env` for VPS SSH (`npm run vps:ssh`).
 | `INERTIA_API_ADDR` | `127.0.0.1:4783` | API listen address |
 | `INERTIA_WEB_DIR` | `./web` beside exe | Serve UI from API (Windows zip) |
 | `INERTIA_P2P_LISTEN_PORT` | `4784` | libp2p TCP port |
-| `INERTIA_RELAY` | — | Relay multiaddr override |
+| `INERTIA_RELAY` | (none) | Relay multiaddr override |
 
 See [AGENTS.md](AGENTS.md) for agent-oriented notes.
 
@@ -163,8 +163,8 @@ inertia/
 
 | Phase | Focus |
 |-------|--------|
-| 0–3 | Core, P2P, UI — **done** |
-| 4 | Invites, feed, profile, backup, relay — **in progress** |
+| 0–3 | Core, P2P, UI (**done**) |
+| 4 | Invites, feed, profile, backup, relay (**in progress**) |
 | 5 | Mobile shell (Capacitor) |
 | 6 | P2P blob sync, thumbnails |
 
