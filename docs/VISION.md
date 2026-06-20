@@ -57,7 +57,7 @@ To create a peer-to-peer social media system that:
 
 ## Non-Goals
 
-- **No Global Discovery**: No hashtags, trending, global feeds, or user search.
+- **No Global Discovery**: No hashtags, trending, global feeds, or **user** search. An optional **public relay list** (connectivity nodes only) is allowed — see §2b.
 - **No Permanent Archives**: Once expired, content is gone.
 - **No Corporate Servers**: No central infrastructure for accounts, content, or analytics.
 - **No Phone-Based Directory**: No "type a number and find them" registry.
@@ -168,6 +168,8 @@ See [VPS-RELAY.md](./VPS-RELAY.md) for relay deployment and [MILESTONE-VPS-RELAY
 | Message expiration | **7 days** | Same as posts. |
 | Invite expiration | **15 minutes** | Links expire quickly; generate a fresh one anytime. |
 | Invite usage | **Single-use** | Each nonce can be redeemed once; issuer must be online to accept. |
+| Relay hosting | **Community VPS (optional)** | Anyone can run `inertia-relay`. No user data on the host — connectivity only. |
+| Public relay list | **Curated directory of relays** | Not a user directory. Helps clients pick bootstrap relays; no accounts or content. |
 
 ---
 
@@ -209,6 +211,79 @@ Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<pay
 - **VPS relay** (`inertia-relay`): one TCP port, stable relay peer id, no user payloads stored.
 - Peers connect via multiaddrs in invites; relay multiaddr in invite v2 bootstraps new users.
 - Connection states: `online`, `offline`, `unreachable`. Header shows **API** vs **P2P** (relay health + friend count).
+
+---
+
+## 2b. Community Relays and Public Relay List (planned)
+
+Today every invite embeds one `relay_multiaddr` from the inviter's settings. That works for private circles (family, friends). To grow beyond hand-picked relays without a central **account** server, Inertia can support **public community relays** — optional VPS nodes run by volunteers or small operators, listed in a **public relay list**.
+
+This is **not** global user discovery. It is a directory of **connectivity helpers** (multiaddr + metadata), similar in spirit to public Matrix or email relay lists — not a searchable people graph.
+
+### What a community relay host provides
+
+- Runs **`inertia-relay`** on a VPS (see [VPS-RELAY.md](./VPS-RELAY.md)).
+- Stable libp2p peer id, one TCP port, no SQLite, no decrypted payloads.
+- Enough bandwidth for **peak** circuit relay when NAT blocks direct paths; most sessions should upgrade to direct connections via DCUtR.
+
+**Rough sizing (indicative, not guarantees):**
+
+| Community on relay | Typical VPS | Indicative cost |
+|--------------------|-------------|-----------------|
+| ~50–200 users | 1 vCPU, 1–2 GB RAM | ~R$25–80/mo (BR/EU providers) |
+| ~500–2,000 users | 2 vCPU, 4 GB RAM | ~R$60–120/mo |
+| ~5,000+ users | 4 vCPU, 8 GB RAM or **multiple relays** | ~R$150–300/mo per node |
+
+"Users on relay" ≠ simultaneous connections. Relay load depends on **concurrent circuits** and **blob traffic** when direct dial fails — monitor and shard before one box becomes a hotspot.
+
+### Public relay list
+
+A **public relay list** is a signed or auditable manifest (JSON, static site, or git repo) clients fetch optionally:
+
+```plaintext
+relay_id, multiaddr, display_name, region, optional_host_pubkey,
+optional_join_fee, optional_pix_key, health_hint, operator_url
+```
+
+- Clients may ship a **default list** (project-maintained) and let users add community entries in Settings.
+- Invites can still embed a specific relay; the list is for **bootstrap** when you don't know anyone yet or need a fallback.
+- Listing is **voluntary** — operators opt in; the project does not operate a user database.
+
+Scaling to large numbers of users means **many relays**, not one mega-host: invite trees cluster around popular relays unless the list spreads load across regions and operators.
+
+### Optional join fee via PIX (Brazil-first)
+
+Community hosts need a simple way to recover VPS costs without ads or a central payment platform storing identities.
+
+**Idea (future invite v3, optional):** embed host funding hints in the invite or relay list entry:
+
+- **`pix_key`** — operator's PIX EVP (email, phone, or random key).
+- **`join_fee_brl`** — e.g. `1.00` (R$1 one-time chip-in).
+- **`payment_ref`** — nonce or unique amount suffix for reconciliation.
+
+**User journey:**
+
+1. Accepter scans invite QR (or picks a relay from the public list).
+2. UI shows: *"R$1 via PIX helps run this relay"* + PIX QR / copia-e-cola.
+3. After payment is confirmed, friend acceptance proceeds (P2P `InviteRedemption` as today).
+
+**Why PIX fits:** instant, familiar in Brazil, low friction for person-to-person transfers; invite flow is already QR-native.
+
+**What we must build (later):**
+
+- **Payment verification** — manual confirm, unique-amount reconciliation, or PSP webhook (OpenPix, Mercado Pago, etc.); paying PIX must not be honor-system only if access is gated on payment.
+- **Clear trust copy** — user pays **the relay operator**, not "Inertia the company."
+- **Geography** — PIX is Brazil-specific; other regions need different optional funding fields or no fee.
+- **Regulatory awareness** — charging for relay access may implicate local payment rules; community co-op framing vs commercial service TBD with real-world advice.
+
+**Economics (example):** R$1 × 500 joins = R$500 gross — enough to fund a modest VPS for a long time if traffic stays community-scaled. Ongoing hosting still needs either repeated fees, donations, or operator goodwill; one-time R$1 is a **bootstrap subsidy**, not infinite margin.
+
+### Principles
+
+- **Relay ≠ social server** — paying for relay access buys **connectivity**, not your posts, keys, or feed on someone else's disk.
+- **No central wallet** — funds flow host-to-joiner via PIX; Inertia software stays out of custody where possible.
+- **Public relays are optional** — private invites with a free family relay remain the core model.
+- **Abuse** — open relays need rate limits and monitoring (see [SECURITY-TODO.md](./SECURITY-TODO.md)); paid join is one **social** throttle, not a crypto guarantee by itself.
 
 ---
 
@@ -265,6 +340,8 @@ blobs/         (content-addressed media files)
 2. Web/PWA vs mobile-first for v1?
 3. Media size limits for strict P2P? *(~2 MB per image, client-side compression)*
 4. User-configurable post TTL? *(optional local feed archive exists)*
+5. Public relay list — who curates the default manifest, and how are unhealthy relays delisted?
+6. PIX join fee — manual confirm vs PSP webhook for v1 community hosts?
 
 ---
 
@@ -280,3 +357,4 @@ blobs/         (content-addressed media files)
 | 4b | **VPS relay** (`inertia-relay`), relay client, invite v2 with embedded relay |
 | 5 | Capacitor mobile shell |
 | 6 | P2P blob sync, thumbnails, orphan blob GC |
+| 7 | **Community relays** — public relay list, optional PIX join fee in invite v3, host health hints |
