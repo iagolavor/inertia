@@ -15,6 +15,7 @@
     "web:preview": "npm run preview --prefix apps/web -- --host",
     "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1",
     "run:windows": "powershell -ExecutionPolicy Bypass -File scripts/run-windows.ps1",
-    "update:windows": "powershell -ExecutionPolicy Bypass -File scripts/update-windows.ps1"
+    "update:windows": "powershell -ExecutionPolicy Bypass -File scripts/update-windows.ps1",
+    "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1"
   }
 }

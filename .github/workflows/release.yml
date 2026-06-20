@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Build API (release)
+        run: cargo build --release -p inertia-api
+
+      - name: Build web UI
+        run: npm ci --prefix apps/web && npm run build --prefix apps/web
+
+      - name: Package Windows zip
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1 -Tag $tag
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/inertia-windows-x64.zip
+          generate_release_notes: true
