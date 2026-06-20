@@ -12,9 +12,12 @@
   let message = $state('');
   let error = $state('');
 
+  let settingsLoaded = $state(false);
+
   $effect(() => {
-    if (identityState.apiOnline && identityState.identity) {
-      loadSettings();
+    if (identityState.apiOnline && identityState.identity && !settingsLoaded) {
+      settingsLoaded = true;
+      void loadSettings();
     }
   });
 
