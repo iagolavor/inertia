@@ -100,14 +100,12 @@ impl Engine {
             .collect())
     }
 
-    pub async fn p2p_status(&self) -> P2pStatus {
-        let relay = self.effective_relay().await;
+    pub async fn p2p_status_snapshot(
+        &self,
+        relay: Option<String>,
+        relay_tcp_reachable: Option<bool>,
+    ) -> P2pStatus {
         let relay_peer_id = relay.as_deref().and_then(peer_id_from_multiaddr_str);
-        let relay_tcp_reachable = if let Some(ref addr) = relay {
-            Some(relay_tcp_reachable(addr).await)
-        } else {
-            None
-        };
 
         let guard = self.p2p.lock().await;
         if let Some(p2p) = guard.as_ref() {
@@ -142,6 +140,16 @@ impl Engine {
                 relay_tcp_reachable,
             }
         }
+    }
+
+    pub async fn p2p_status(&self) -> P2pStatus {
+        let relay = self.relay_multiaddr().await;
+        let relay_tcp_reachable = if let Some(ref addr) = relay {
+            Some(relay_tcp_reachable(addr).await)
+        } else {
+            None
+        };
+        self.p2p_status_snapshot(relay, relay_tcp_reachable).await
     }
 
     /// Addresses embedded in invites — uses settings or `INERTIA_P2P_ANNOUNCE` when set.
@@ -279,7 +287,7 @@ pub(super) async fn relay_tcp_reachable(multiaddr: &str) -> bool {
         return false;
     };
     match tokio::time::timeout(
-        Duration::from_secs(2),
+        Duration::from_millis(400),
         tokio::net::TcpStream::connect((ip, port)),
     )
     .await

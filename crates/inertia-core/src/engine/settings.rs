@@ -7,6 +7,10 @@ use super::p2p::validate_relay_multiaddr;
 use super::{Engine, DEFAULT_P2P_LISTEN_PORT};
 
 impl Engine {
+    pub async fn relay_multiaddr(&self) -> Option<String> {
+        self.effective_relay().await
+    }
+
     pub async fn get_settings(&self) -> CoreResult<AppSettings> {
         self.store.with(|store| store.get_settings()).await
     }

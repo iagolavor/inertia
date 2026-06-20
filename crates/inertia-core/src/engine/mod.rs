@@ -90,6 +90,10 @@ pub fn default_p2p_listen_port() -> u16 {
     p2p_listen_port_from_env().unwrap_or(DEFAULT_P2P_LISTEN_PORT)
 }
 
+pub async fn probe_relay_tcp(multiaddr: &str) -> bool {
+    p2p::relay_tcp_reachable(multiaddr).await
+}
+
 pub(crate) fn p2p_listen_port_from_env() -> Option<u16> {
     std::env::var("INERTIA_P2P_LISTEN_PORT")
         .ok()
