@@ -23,11 +23,6 @@ Nothing else to install — no Rust, Node, Git, or winget.
 
 ---
 
-## Developing Inertia on Windows
+## Developing on Windows
 
-Install [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/), clone the repo, then use the same commands as macOS/Linux — see **[README](../README.md#quick-start-developers)**.
-
-```powershell
-npm run api    # terminal 1
-npm run web    # terminal 2 → http://localhost:5173
-```
+Install [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/), clone the repo, then follow **Get started → Developers** in the [README](../README.md#get-started).
