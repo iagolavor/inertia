@@ -1,16 +1,35 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, type FeedItem } from '$lib/api';
+  import { ApiRequestError } from '$lib/api-errors';
   import PostComposer from '$lib/components/PostComposer.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
   import PostDetailModal from '$lib/components/PostDetailModal.svelte';
   import { identityState } from '$lib/identity.svelte';
+  import { formatCacheAge, readCachedFeed, writeCachedFeed } from '$lib/local-cache';
+  import { startFeedPolling, stopFeedPolling } from '$lib/presence.svelte';
 
-  let feed = $state<FeedItem[]>([]);
+  type FeedRow = FeedItem & {
+    local_media_preview?: string;
+    delivering?: boolean;
+  };
+
+  let feed = $state<FeedRow[]>([]);
   let feedLoading = $state(false);
   let feedError = $state('');
+  let showingCached = $state(false);
+  let cacheAge = $state<string | null>(null);
   let selectedPost = $state<FeedItem | null>(null);
   let detailOpen = $state(false);
+
+  async function hydrateFromCache() {
+    const cached = await readCachedFeed();
+    if (!cached) return false;
+    feed = cached.items;
+    cacheAge = formatCacheAge(cached.saved_at);
+    showingCached = true;
+    return true;
+  }
 
   async function openPost(post: FeedItem) {
     selectedPost = post;
@@ -26,24 +45,69 @@
   }
 
   async function loadFeed() {
-    if (!identityState.apiOnline || !identityState.identity) return;
+    if (!identityState.identity) return;
+
+    if (!identityState.apiOnline) {
+      await hydrateFromCache();
+      return;
+    }
+
     feedLoading = true;
     feedError = '';
     try {
-      feed = await api.listFeed();
+      const items = await api.listFeed();
+      feed = items;
+      showingCached = false;
+      cacheAge = null;
+      await writeCachedFeed(items);
       if (selectedPost) {
         const updated = feed.find((p) => p.content_id === selectedPost!.content_id);
         if (updated) selectedPost = updated;
       }
     } catch (e) {
-      feedError = e instanceof Error ? e.message : 'Falha ao carregar feed';
+      const hadCache = await hydrateFromCache();
+      if (hadCache) {
+        feedError = '';
+      } else if (e instanceof ApiRequestError) {
+        feedError = e.message;
+      } else {
+        feedError = e instanceof Error ? e.message : 'Falha ao carregar feed';
+      }
     } finally {
       feedLoading = false;
     }
   }
 
-  onMount(() => {
+  function onPosted(result: {
+    content_id: string;
+    body: string;
+    local_media_preview?: string;
+  }) {
+    if (!identityState.identity) return;
+
+    const now = new Date().toISOString();
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const optimistic: FeedRow = {
+      content_id: result.content_id,
+      author_id: identityState.identity.signing_pubkey,
+      author_name: identityState.identity.display_name,
+      body: result.body,
+      media_ref: null,
+      local_media_preview: result.local_media_preview,
+      delivering: true,
+      created_at: now,
+      expires_at: expires,
+      is_own: true,
+      is_archived: false
+    };
+
+    feed = [optimistic, ...feed.filter((p) => p.content_id !== result.content_id)];
     void loadFeed();
+  }
+
+  onMount(() => {
+    void hydrateFromCache().then(() => loadFeed());
+    startFeedPolling(loadFeed);
 
     function onVisible() {
       if (document.visibilityState === 'visible') {
@@ -51,37 +115,45 @@
       }
     }
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+    return () => {
+      stopFeedPolling();
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   });
 </script>
 
 <h1 class="page-title">Feed</h1>
-<p class="subtitle">Ephemeral P2P social — zero tracking, zero ads, your circle only.</p>
+<p class="subtitle">Ephemeral P2P social. No tracking, no ads, just your friends.</p>
 
 {#if identityState.loading}
   <p class="empty">Loading...</p>
-{:else if !identityState.apiOnline}
-  <div class="card">
-    <h2>API offline</h2>
-    <p>Start the Rust API bridge before using the app:</p>
-    <pre class="cmd">cargo run -p inertia-api</pre>
-  </div>
 {:else if identityState.identity}
+  {#if !identityState.apiOnline}
+    <p class="offline-hint muted">
+      You're viewing offline. Posting and comments are paused until the API is back.
+    </p>
+  {/if}
+
   <div class="card feed-composer">
     <PostComposer
       disabled={!identityState.apiOnline}
-      onposted={loadFeed}
+      onposted={onPosted}
     />
   </div>
 
   <div class="card feed-list">
     <div class="feed-list-header">
-      <span class="feed-list-label">Posts</span>
+      <span class="feed-list-label">
+        Posts
+        {#if showingCached && cacheAge}
+          <span class="cache-badge">saved · {cacheAge}</span>
+        {/if}
+      </span>
       <button
         type="button"
         class="btn btn-secondary btn-sm"
         onclick={() => loadFeed()}
-        disabled={feedLoading}
+        disabled={feedLoading || !identityState.apiOnline}
       >
         {feedLoading ? 'Loading…' : 'Reload'}
       </button>
@@ -106,6 +178,11 @@
     onclose={() => (detailOpen = false)}
     oncomment={onCommentAdded}
   />
+{:else if !identityState.apiOnline}
+  <div class="card">
+    <h2>Start the local API</h2>
+    <p class="muted">Inertia runs on your device — create a profile once the API bridge is running.</p>
+  </div>
 {:else}
   <div class="card">
     <h2>Get started</h2>
@@ -138,6 +215,11 @@
     color: var(--muted);
   }
 
+  .offline-hint {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+  }
+
   .feed-composer {
     padding: 0.85rem;
   }
@@ -162,6 +244,20 @@
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .cache-badge {
+    font-size: 0.68rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
   }
 
   .btn-sm {
@@ -172,12 +268,5 @@
   .list {
     padding-left: 1.25rem;
     margin: 0;
-  }
-
-  .cmd {
-    background: var(--bg);
-    padding: 1rem;
-    border-radius: 8px;
-    overflow-x: auto;
   }
 </style>

@@ -1,3 +1,4 @@
+mod activity;
 mod backup;
 mod blobs;
 mod contacts;
@@ -7,6 +8,7 @@ mod invite;
 mod messaging;
 mod outbox;
 mod p2p;
+mod p2p_status;
 mod profile;
 mod settings;
 
@@ -24,6 +26,7 @@ use crate::p2p::{P2pEvent, P2pNode};
 use crate::storage::ProfilePhoto;
 use crate::store_handle::StoreHandle;
 
+pub use activity::{P2pActivityEvent, P2pActivitySnapshot};
 pub use outbox::deliver_outbox_entry;
 
 /// Default libp2p TCP listen port when `INERTIA_P2P_LISTEN_PORT` is unset.
@@ -37,6 +40,7 @@ pub struct Engine {
     _expiry_handle: Option<tokio::task::JoinHandle<()>>,
     _p2p_event_task: tokio::task::JoinHandle<()>,
     pub(crate) event_tx: mpsc::UnboundedSender<P2pEvent>,
+    pub(crate) activity: Arc<Mutex<activity::ActivityLog>>,
 }
 
 impl Engine {
@@ -52,10 +56,18 @@ impl Engine {
 
         let (event_tx, p2p_events) = mpsc::unbounded_channel();
         let p2p = Arc::new(Mutex::new(None));
+        let activity = Arc::new(Mutex::new(activity::ActivityLog::new()));
         let p2p_for_events = Arc::clone(&p2p);
         let store_for_events = store.clone();
+        let activity_for_events = Arc::clone(&activity);
         let p2p_event_task = tokio::spawn(async move {
-            outbox::run_p2p_event_loop(p2p_events, store_for_events, p2p_for_events).await;
+            outbox::run_p2p_event_loop(
+                p2p_events,
+                store_for_events,
+                p2p_for_events,
+                activity_for_events,
+            )
+            .await;
         });
 
         let engine = Self {
@@ -65,6 +77,7 @@ impl Engine {
             _expiry_handle: expiry_handle,
             _p2p_event_task: p2p_event_task,
             event_tx,
+            activity,
         };
 
         if engine.identity.read().await.is_initialized() {
@@ -116,6 +129,17 @@ pub struct P2pStatus {
     pub relay_connected: bool,
     /// TCP connect probe to the relay host:port (None if relay not configured).
     pub relay_tcp_reachable: Option<bool>,
+    /// Outbox rows still pending or failed delivery.
+    pub pending_outbox_count: usize,
+    /// True while redialing relay and friend multiaddrs.
+    pub dial_in_progress: bool,
+    pub last_activity_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub recent_activity: Vec<P2pActivityEvent>,
+    /// Structured status layers with plain-language labels for the UI.
+    pub layers: p2p_status::P2pLayers,
+    pub labels: p2p_status::P2pLayerLabels,
+    /// `off` | `error` | `warn` | `idle` | `online` — drives header dot colour.
+    pub tone: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

@@ -2,11 +2,12 @@
   interface Props {
     online: boolean;
     loading?: boolean;
+    pulse?: boolean;
     size?: number;
     bordered?: boolean;
   }
 
-  let { online, loading = false, size = 10, bordered = false }: Props = $props();
+  let { online, loading = false, pulse = false, size = 10, bordered = false }: Props = $props();
 
   const label = $derived(loading ? 'checking…' : online ? 'online' : 'offline');
 </script>
@@ -16,6 +17,7 @@
   class:online={online && !loading}
   class:offline={!online && !loading}
   class:loading
+  class:pulse={pulse && !loading}
   class:bordered
   style:width="{size}px"
   style:height="{size}px"
@@ -48,6 +50,10 @@
 
   .dot.loading {
     background: var(--muted);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .dot.pulse {
     animation: pulse 1.2s ease-in-out infinite;
   }
 

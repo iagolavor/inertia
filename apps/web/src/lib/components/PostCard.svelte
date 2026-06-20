@@ -4,7 +4,7 @@
   import FormattedText from './FormattedText.svelte';
 
   interface Props {
-    post: FeedItem;
+    post: FeedItem & { local_media_preview?: string; delivering?: boolean };
     onopen?: (post: FeedItem) => void;
   }
 
@@ -36,6 +36,7 @@
     <div class="post-meta">
       <span class="author">{post.author_name}</span>
       {#if post.is_own}<span class="own-badge">tu</span>{/if}
+      {#if post.delivering}<span class="delivering-badge">sending…</span>{/if}
       <span class="time">{timeAgo(post.created_at)} · {timeLeft(post.expires_at, post.is_archived)}</span>
     </div>
   </header>
@@ -44,6 +45,10 @@
     <button type="button" class="media-btn" onclick={() => onopen?.(post)}>
       <img class="post-media" src={blobUrl(post.media_ref)} alt="" loading="lazy" />
     </button>
+  {:else if post.local_media_preview}
+    <div class="media-btn local-preview">
+      <img class="post-media" src={post.local_media_preview} alt="" />
+    </div>
   {/if}
 
   {#if post.body}
@@ -106,6 +111,16 @@
     font-weight: 600;
     color: var(--accent);
     text-transform: uppercase;
+  }
+
+  .delivering-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .local-preview {
+    cursor: default;
   }
 
   .time {
