@@ -89,7 +89,18 @@ This will:
 
 1. Create an annotated tag `v0.2.0` on `master`
 2. Push the tag to GitHub
-3. Create a [GitHub Release](https://github.com/iagolavor/inertia/releases) with auto-generated notes
+3. Run **GitHub Actions** (`.github/workflows/release.yml`) to build **`inertia-windows-x64.zip`** and publish a [GitHub Release](https://github.com/iagolavor/inertia/releases) with auto-generated notes
+
+Track the workflow: [Actions](https://github.com/iagolavor/inertia/actions). The zip appears on the release page in a few minutes.
+
+### Windows zip (maintainers, local test)
+
+After `cargo build --release -p inertia-api` and `npm run web:build`:
+
+```powershell
+npm run package:windows
+# → dist/inertia-windows-x64.zip
+```
 
 ## Versioning
 
@@ -102,3 +113,5 @@ Early project: use **semver** loosely (`v0.1.0`, `v0.2.0`). Bump:
 ## What visitors see
 
 GitHub’s default branch should be **development** (active README and docs). **master** + tags reflect the latest stable release.
+
+**Windows users** should download **`inertia-windows-x64.zip`** from Releases — not clone the repo. See [WINDOWS-SETUP.md](./WINDOWS-SETUP.md).

@@ -148,31 +148,39 @@ inertia/
 │   └── web/              # SvelteKit frontend
 ├── docs/
 │   ├── VISION.md         # Technical vision and decisions
+│   ├── WINDOWS-SETUP.md  # Windows end-user guide (prebuilt zip)
 │   ├── VPS-RELAY.md      # Relay deploy and brother test guide
 │   └── DESIGN.md         # Visual and UX philosophy
-├── scripts/              # Utilities (API, VPS SSH, release)
+├── scripts/              # Dev helpers, release tooling, scripts/windows/ (zip contents)
 └── package.json          # Root npm scripts (api, web, relay)
 ```
 
 ---
 
-## Prerequisites
+## Getting started on Windows
 
-- **[Rust](https://rustup.rs/)** 1.75+ (`cargo`, `rustc`)
-- **[Node.js](https://nodejs.org/)** 20 LTS+ (`npm`)
-- **Git** (optional if you use a [ZIP download](https://github.com/iagolavor/inertia/archive/refs/heads/development.zip) instead of `git clone`)
+No Rust, Node, or Git required.
 
-Works on **Windows**, **macOS**, and **Linux**. On Windows, open a new terminal after installing Rust/Node so `PATH` is updated.
+1. Download **[inertia-windows-x64.zip](https://github.com/iagolavor/inertia/releases/latest)** from GitHub Releases.
+2. Extract the folder anywhere.
+3. Double-click **`run.cmd`** — opens [http://127.0.0.1:4783](http://127.0.0.1:4783).
+4. To update later, double-click **`update.cmd`** (keeps your `data/` folder).
 
-### Windows
-
-**End users:** download **`inertia-windows-x64.zip`** from [Releases](https://github.com/iagolavor/inertia/releases/latest), extract, double-click **`run.cmd`**. See [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md).
-
-**Developers:** same as below (Rust + Node, `npm run api` + `npm run web`).
+Details and troubleshooting: **[docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md)**.
 
 ---
 
-## Quick start
+## Quick start (developers)
+
+For macOS, Linux, or [developing on Windows](docs/WINDOWS-SETUP.md#developing-inertia-on-windows).
+
+### Prerequisites
+
+- **[Rust](https://rustup.rs/)** 1.75+ (`cargo`, `rustc`)
+- **[Node.js](https://nodejs.org/)** 20 LTS+ (`npm`)
+- **Git**
+
+Open a new terminal after installing Rust/Node so `PATH` is updated.
 
 ### 1. Clone the repository
 
@@ -181,9 +189,9 @@ git clone https://github.com/iagolavor/inertia.git
 cd inertia
 ```
 
-### 2. Run Inertia (recommended — low memory)
+### 2. Run Inertia
 
-Use the **release API** and **built static UI**, not Vite dev mode. On a typical machine this is ~25 MB for the API plus a small static file server, instead of ~400 MB+ with `npm run api` + `npm run web`.
+**Daily use (low memory):** release API + static preview — not Vite dev (~400 MB+).
 
 **Terminal 1 — API** (repo root):
 
@@ -236,11 +244,8 @@ Open TCP **9000** on the VPS firewall. Copy the relay peer id from the logs into
 | `npm run web:build` | Production static build |
 | `npm run web:preview` | Serve built web UI (**recommended for daily use**) |
 | `npm run web` | Vite dev server in `apps/web` (UI development only) |
-| `npm run package:windows` | Build `dist/inertia-windows-x64.zip` locally (after release build) |
 
 Copy [`.env.example`](.env.example) to `.env` for VPS SSH defaults (gitignored).
-
-**Windows (end users):** [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) — prebuilt zip, `run.cmd`, `update.cmd`.
 
 ### VS Code / Cursor
 

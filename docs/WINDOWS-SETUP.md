@@ -1,10 +1,14 @@
 # Windows setup
 
-Download **`inertia-windows-x64.zip`** from the [latest GitHub Release](https://github.com/iagolavor/inertia/releases/latest), extract anywhere, then double-click **`run.cmd`**.
+Download **[inertia-windows-x64.zip](https://github.com/iagolavor/inertia/releases/latest)** from GitHub Releases, extract anywhere, then double-click **`run.cmd`**.
 
-- Opens **http://127.0.0.1:4783** (one app, ~25 MB RAM)
-- Your data lives in **`data/`** next to the exe
-- **Update:** double-click **`update.cmd`** (keeps `data/` and `.env`)
+| Step | Action |
+|------|--------|
+| **Run** | Double-click `run.cmd` → [http://127.0.0.1:4783](http://127.0.0.1:4783) |
+| **Data** | Stored in `data/` next to the exe (back it up to keep your profile and friends) |
+| **Update** | Double-click `update.cmd` — downloads the latest release zip, keeps `data/` |
+
+Nothing else to install — no Rust, Node, Git, or winget.
 
 ---
 
@@ -12,20 +16,18 @@ Download **`inertia-windows-x64.zip`** from the [latest GitHub Release](https://
 
 | Problem | Fix |
 |---------|-----|
-| Nothing happens when you double-click | Right-click `run.cmd` → Run, or open cmd in the folder and run `run.cmd` |
-| Port already in use | Close any other Inertia window; open Task Manager and end `inertia-api.exe` |
-| Update says no zip on release | That release was tagged before CI packaging — download the zip manually from Releases |
-| Blank page or errors after update | Run `update.cmd` again, or re-download the zip and copy your `data/` folder over |
+| Nothing happens when you double-click | Right-click `run.cmd` → **Run**, or open cmd in the folder and type `run.cmd` |
+| Port already in use | Close other Inertia windows; Task Manager → end `inertia-api.exe` |
+| Update says no zip on release | Download the zip manually from [Releases](https://github.com/iagolavor/inertia/releases) |
+| Blank page after update | Run `update.cmd` again, or re-extract a fresh zip and copy your `data/` folder over |
 
 ---
 
 ## Developing Inertia on Windows
 
-Use the normal dev setup in [README](../README.md): install Rust + Node, clone the repo, then:
+Install [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/), clone the repo, then use the same commands as macOS/Linux — see **[README](../README.md#quick-start-developers)**.
 
 ```powershell
-npm run api          # terminal 1
-npm run web          # terminal 2 → http://localhost:5173
+npm run api    # terminal 1
+npm run web    # terminal 2 → http://localhost:5173
 ```
-
-No special Windows scripts required.
