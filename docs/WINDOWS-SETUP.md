@@ -6,9 +6,9 @@ Download **[inertia-windows-x64.zip](https://github.com/iagolavor/inertia/releas
 |------|--------|
 | **Run** | Double-click `run.cmd` → [http://127.0.0.1:4783](http://127.0.0.1:4783) |
 | **Data** | Stored in `data/` next to the exe (back it up to keep your profile and friends) |
-| **Update** | Double-click `update.cmd` — downloads the latest release zip, keeps `data/` |
+| **Update** | Double-click `update.cmd`. Downloads the latest release zip and keeps `data/`. |
 
-Nothing else to install — no Rust, Node, Git, or winget.
+Nothing else to install: no Rust, Node, Git, or winget.
 
 ---
 
@@ -23,11 +23,6 @@ Nothing else to install — no Rust, Node, Git, or winget.
 
 ---
 
-## Developing Inertia on Windows
+## Developing on Windows
 
-Install [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/), clone the repo, then use the same commands as macOS/Linux — see **[README](../README.md#quick-start-developers)**.
-
-```powershell
-npm run api    # terminal 1
-npm run web    # terminal 2 → http://localhost:5173
-```
+Install [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/), clone the repo, then follow **Get started → Developers** in the [README](../README.md#get-started).
