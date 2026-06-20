@@ -1,10 +1,22 @@
 # Windows setup
 
-Fresh Windows installs often block PowerShell scripts, and may not have Git, Node, or Rust yet. This guide gets you from zero to a running Inertia instance.
+Fresh Windows installs often block PowerShell scripts, and may not have Git, Node, or Rust yet. This guide covers both **prebuilt** (recommended) and **build from source** installs.
 
 ---
 
-## Fastest path (recommended)
+## Prebuilt (recommended — no Node or Rust)
+
+Download **`inertia-windows-x64.zip`** from the [latest GitHub Release](https://github.com/iagolavor/inertia/releases/latest), extract anywhere, then double-click **`run-desktop.cmd`**.
+
+- Opens **http://127.0.0.1:4783** (API + UI in one process, ~25 MB RAM)
+- Your data lives in **`data/`** next to the exe
+- Updates: double-click **`scripts\update-windows.cmd`** — downloads the new zip, keeps `data/`
+
+---
+
+## Build from source
+
+Use this path if you are developing Inertia or a prebuilt zip is not yet published for your release.
 
 1. **Get the project folder**
    - With Git: clone the repo (see [README](../README.md)).
@@ -40,8 +52,9 @@ If PowerShell blocks scripts, use the `.cmd` wrappers — they always run with `
 |------|----------------|
 | `scripts\setup-windows-install.cmd` | Install Node/Rust/Git via winget (if missing), then build |
 | `scripts\setup-windows.cmd` | Build only (tools must already be installed) |
-| `scripts\run-windows.cmd` | Start release API + build + static web preview (low RAM) |
-| `scripts\update-windows.cmd` | Download latest release, rebuild (keeps your data) |
+| `scripts\run-windows.cmd` | Start release API + build + static web preview (source install, low RAM) |
+| `scripts\run-desktop.cmd` | Start **prebuilt** install (single window, no Node) |
+| `scripts\update-windows.cmd` | Download latest release (prebuilt when available) |
 | `scripts\update-and-run-windows.cmd` | Update, rebuild, then start Inertia |
 
 From File Explorer: right-click `setup-windows.cmd` → **Run as administrator** only if winget installs fail (usually not required).
@@ -114,10 +127,11 @@ Or double-click **`scripts\update-windows.cmd`**.
 What it does:
 
 1. Stops the API if it is running
-2. Downloads the **latest GitHub release** (default) or pulls source if you cloned with Git
-3. Keeps your **`data/`** folder and **`.env`** untouched
-4. Rebuilds the web UI and API
-5. Skips download if you are already on that version (use `-Force` to rebuild anyway)
+2. Downloads the **latest GitHub release**
+3. **Prebuilt install** (`inertia-api.exe` in folder): applies `inertia-windows-x64.zip` — **no rebuild**
+4. **Source install** (git clone): pulls source and rebuilds
+5. Keeps **`data/`** and **`.env`** untouched
+6. Skips download if you are already on that version (use `-Force` to apply again)
 
 Update and start in one step:
 
@@ -129,7 +143,8 @@ Or double-click **`scripts\update-and-run-windows.cmd`**.
 
 | Command | Description |
 |---------|-------------|
-| `npm run update:windows` | Latest **release** + rebuild |
+| `npm run update:windows` | Latest release (prebuilt zip when available) |
+| `npm run update:windows -- -Source` | Force source download + rebuild |
 | `npm run update:windows -- -Channel development` | Bleeding-edge **development** branch |
 | `npm run update:windows -- -Start` | Update, rebuild, then start Inertia |
 | `npm run update:windows -- -Force` | Rebuild even if version matches |

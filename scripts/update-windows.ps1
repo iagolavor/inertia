@@ -1,25 +1,28 @@
-# Pull the latest Inertia source and rebuild (no Git UI needed).
+# Pull the latest Inertia release and apply it (prebuilt zip when available).
 # Run from repo root:  npm run update:windows
 # Or double-click:    scripts/update-windows.cmd
 #
-# Default channel: latest GitHub release (stable). Use -Channel development for bleeding edge.
+# Prebuilt installs (inertia-api.exe in folder): downloads inertia-windows-x64.zip, no rebuild.
+# Source installs (git clone): git pull or source zip + rebuild.
 
 param(
     [ValidateSet('release', 'development')]
     [string]$Channel = 'release',
     [switch]$Force,
+    [switch]$Source,
     [switch]$Start
 )
 
 $ErrorActionPreference = 'Stop'
 $Repo = 'iagolavor/inertia'
+$PrebuiltAsset = 'inertia-windows-x64.zip'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 $CodeDirs = @('apps', 'crates', 'docker', 'docs', 'scripts', 'tools')
 $CodeFiles = @(
     'Cargo.toml', 'Cargo.lock', 'package.json', 'LICENSE', 'README.md',
-    'AGENTS.md', '.gitattributes', '.gitignore'
+    'AGENTS.md', '.gitignore'
 )
 
 function Write-Step([string]$Message) {
@@ -29,6 +32,10 @@ function Write-Step([string]$Message) {
 
 function Test-Tool([string]$Name) {
     return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Test-PrebuiltInstall {
+    return Test-Path (Join-Path $root 'inertia-api.exe')
 }
 
 function Get-LocalVersion {
@@ -58,16 +65,21 @@ function Set-LocalVersion([string]$Version) {
 
 function Get-ReleaseInfo {
     $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest"
+    $asset = $release.assets | Where-Object { $_.name -eq $PrebuiltAsset } | Select-Object -First 1
     return @{
         Tag = $release.tag_name
-        ZipUrl = "https://github.com/$Repo/archive/refs/tags/$($release.tag_name).zip"
+        SourceZipUrl = "https://github.com/$Repo/archive/refs/tags/$($release.tag_name).zip"
+        PrebuiltUrl = $asset.browser_download_url
+        HasPrebuilt = [bool]$asset
     }
 }
 
 function Get-DevelopmentInfo {
     return @{
         Tag = 'development'
-        ZipUrl = "https://github.com/$Repo/archive/refs/heads/development.zip"
+        SourceZipUrl = "https://github.com/$Repo/archive/refs/heads/development.zip"
+        PrebuiltUrl = $null
+        HasPrebuilt = $false
     }
 }
 
@@ -83,7 +95,7 @@ function Invoke-Robocopy([string]$Source, [string]$Dest) {
 }
 
 function Sync-SourceTree([string]$ExtractedRoot) {
-    Write-Host "  Syncing code from $ExtractedRoot"
+    Write-Host "  Syncing source from $ExtractedRoot"
     foreach ($dir in $CodeDirs) {
         Invoke-Robocopy (Join-Path $ExtractedRoot $dir) (Join-Path $root $dir)
     }
@@ -95,14 +107,79 @@ function Sync-SourceTree([string]$ExtractedRoot) {
     }
 }
 
-function Update-FromZip([hashtable]$Info) {
+function Backup-PreservedData([string]$BackupDir) {
+    New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
+    foreach ($item in @('data', '.env')) {
+        $src = Join-Path $root $item
+        if (Test-Path $src) {
+            Copy-Item $src (Join-Path $BackupDir $item) -Recurse -Force
+        }
+    }
+}
+
+function Restore-PreservedData([string]$BackupDir) {
+    foreach ($item in @('data', '.env')) {
+        $bak = Join-Path $BackupDir $item
+        if (Test-Path $bak) {
+            Copy-Item $bak (Join-Path $root $item) -Recurse -Force
+        }
+    }
+}
+
+function Update-FromPrebuiltZip([string]$Url, [string]$Tag) {
+    $tempRoot = Join-Path $env:TEMP "inertia-prebuilt-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    $zipPath = Join-Path $tempRoot 'inertia.zip'
+    $extractDir = Join-Path $tempRoot 'extract'
+    New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+
+    try {
+        Write-Host "  Downloading $PrebuiltAsset ($Tag)..."
+        Invoke-WebRequest -Uri $Url -OutFile $zipPath -UseBasicParsing
+
+        Write-Host '  Extracting...'
+        Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+
+        $backupDir = Join-Path $tempRoot 'backup'
+        Backup-PreservedData $backupDir
+
+        foreach ($item in @('inertia-api.exe', 'run-desktop.cmd', 'run-desktop.ps1', 'LICENSE')) {
+            $src = Join-Path $extractDir $item
+            if (Test-Path $src) {
+                Copy-Item $src (Join-Path $root $item) -Force
+            }
+        }
+
+        $scriptsSrc = Join-Path $extractDir 'scripts'
+        if (Test-Path $scriptsSrc) {
+            $scriptsDest = Join-Path $root 'scripts'
+            if (-not (Test-Path $scriptsDest)) {
+                New-Item -ItemType Directory -Path $scriptsDest -Force | Out-Null
+            }
+            Invoke-Robocopy $scriptsSrc $scriptsDest
+        }
+
+        $webSrc = Join-Path $extractDir 'web'
+        if (Test-Path $webSrc) {
+            $webDest = Join-Path $root 'web'
+            if (Test-Path $webDest) { Remove-Item $webDest -Recurse -Force }
+            Copy-Item $webSrc $webDest -Recurse -Force
+        }
+
+        Restore-PreservedData $backupDir
+        Set-LocalVersion $Tag
+    } finally {
+        Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Update-FromSourceZip([hashtable]$Info) {
     $tempRoot = Join-Path $env:TEMP "inertia-update-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
     $zipPath = Join-Path $tempRoot 'inertia.zip'
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 
     try {
-        Write-Host "  Downloading $($Info.Tag)..."
-        Invoke-WebRequest -Uri $Info.ZipUrl -OutFile $zipPath -UseBasicParsing
+        Write-Host "  Downloading source ($($Info.Tag))..."
+        Invoke-WebRequest -Uri $Info.SourceZipUrl -OutFile $zipPath -UseBasicParsing
 
         Write-Host '  Extracting...'
         Expand-Archive -Path $zipPath -DestinationPath $tempRoot -Force
@@ -121,7 +198,7 @@ function Update-FromZip([hashtable]$Info) {
 
 function Update-FromGit([hashtable]$Info) {
     if (-not (Test-Tool 'git')) {
-        throw 'Git is not installed. ZIP update runs automatically without Git - see docs/WINDOWS-SETUP.md'
+        throw 'Git is not installed. Use prebuilt or ZIP update - see docs/WINDOWS-SETUP.md'
     }
 
     $branch = (git rev-parse --abbrev-ref HEAD 2>$null).Trim()
@@ -162,6 +239,14 @@ function Update-FromGit([hashtable]$Info) {
     }
 }
 
+function Start-Inertia {
+    if (Test-PrebuiltInstall) {
+        & (Join-Path $root 'run-desktop.ps1')
+    } else {
+        & "$PSScriptRoot/run-windows.ps1"
+    }
+}
+
 Write-Step 'Stopping API (if running)'
 & "$PSScriptRoot/stop-api.ps1" | Out-Null
 
@@ -169,22 +254,30 @@ Write-Step "Checking for updates ($Channel)"
 $info = if ($Channel -eq 'release') { Get-ReleaseInfo } else { Get-DevelopmentInfo }
 $remoteLabel = $info.Tag
 $localVersion = Get-LocalVersion
+$prebuiltInstall = Test-PrebuiltInstall
+$usePrebuilt = $info.HasPrebuilt -and $prebuiltInstall -and -not $Source -and $Channel -eq 'release'
 
-Write-Host "  Local:  $(if ($localVersion) { $localVersion } else { '(unknown)' })"
-Write-Host "  Remote: $remoteLabel"
+Write-Host "  Local:    $(if ($localVersion) { $localVersion } else { '(unknown)' })"
+Write-Host "  Remote:   $remoteLabel"
+Write-Host "  Mode:     $(if ($usePrebuilt) { 'prebuilt (no rebuild)' } elseif ($Source -or -not $prebuiltInstall) { 'source + rebuild' } else { 'source + rebuild' })"
 
 if (-not $Force -and $localVersion -and $localVersion -eq $remoteLabel) {
     Write-Host ''
-    Write-Host 'Already up to date. Use -Force to rebuild anyway.' -ForegroundColor Green
+    Write-Host 'Already up to date. Use -Force to apply again anyway.' -ForegroundColor Green
+    if ($Start) { Start-Inertia }
     exit 0
 }
 
-Write-Step 'Updating source'
+Write-Step 'Updating'
 try {
-    if (Test-Path (Join-Path $root '.git')) {
+    if ($usePrebuilt) {
+        Update-FromPrebuiltZip $info.PrebuiltUrl $remoteLabel
+    } elseif (Test-Path (Join-Path $root '.git')) {
         Update-FromGit $info
+        Set-LocalVersion $remoteLabel
     } else {
-        Update-FromZip $info
+        Update-FromSourceZip $info
+        Set-LocalVersion $remoteLabel
     }
 } catch {
     Write-Host ''
@@ -192,16 +285,21 @@ try {
     exit 1
 }
 
-Set-LocalVersion $remoteLabel
-
-Write-Step 'Rebuilding (web + API)'
-& "$PSScriptRoot/setup-windows.ps1"
+if (-not $usePrebuilt) {
+    Write-Step 'Rebuilding (web + API)'
+    & "$PSScriptRoot/setup-windows.ps1"
+    Set-LocalVersion $remoteLabel
+}
 
 Write-Step 'Update complete'
 Write-Host ''
 Write-Host "Now on $remoteLabel" -ForegroundColor Green
-Write-Host 'Start Inertia:  npm run run:windows'
+if ($usePrebuilt -or (Test-PrebuiltInstall)) {
+    Write-Host 'Start Inertia:  double-click run-desktop.cmd'
+} else {
+    Write-Host 'Start Inertia:  npm run run:windows'
+}
 
 if ($Start) {
-    & "$PSScriptRoot/run-windows.ps1"
+    Start-Inertia
 }

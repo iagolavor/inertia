@@ -22,7 +22,7 @@ fi
 git tag -a "$tag" -m "Release $tag"
 git push origin "$tag"
 
-echo "Creating GitHub release for $tag..."
-gh release create "$tag" --title "$tag" --generate-notes
-
-echo "Done. Release: https://github.com/iagolavor/inertia/releases/tag/$tag"
+echo "Tag $tag pushed."
+echo "GitHub Actions builds inertia-windows-x64.zip and publishes the release."
+echo "Track: https://github.com/iagolavor/inertia/actions"
+echo "Release: https://github.com/iagolavor/inertia/releases/tag/$tag"

@@ -166,16 +166,16 @@ Works on **Windows**, **macOS**, and **Linux**. On Windows, open a new terminal 
 
 ### Windows (first time)
 
-If PowerShell blocks scripts or you do not have Git / Node / Rust yet, see **[docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md)**.
+**End users (no dev tools):** download **`inertia-windows-x64.zip`** from [Releases](https://github.com/iagolavor/inertia/releases/latest), extract, double-click **`run-desktop.cmd`** → [http://127.0.0.1:4783](http://127.0.0.1:4783).
 
-Quick path after you have the project folder:
+**Developers / build from source:** see **[docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md)**.
 
 ```powershell
 npm run setup:windows -- -InstallDeps   # winget installs + build (one time)
 npm run run:windows                       # API + web in two windows → http://localhost:4173
 ```
 
-Or double-click `scripts\setup-windows.cmd` and `scripts\run-windows.cmd` (no execution-policy change needed).
+Or double-click `scripts\setup-windows.cmd` and `scripts\run-windows.cmd`.
 
 ---
 
@@ -245,7 +245,8 @@ Open TCP **9000** on the VPS firewall. Copy the relay peer id from the logs into
 | `npm run web` | Vite dev server in `apps/web` (UI development only) |
 | `npm run setup:windows` | Windows first-time build; add `-- -InstallDeps` to install Node/Rust/Git via winget |
 | `npm run run:windows` | Start release API + web preview in two PowerShell windows |
-| `npm run update:windows` | Pull latest release and rebuild (no Git UI; keeps `data/`) |
+| `npm run update:windows` | Pull latest release (prebuilt zip when available; keeps `data/`) |
+| `npm run package:windows` | Build `dist/inertia-windows-x64.zip` locally (after release build) |
 
 Copy [`.env.example`](.env.example) to `.env` for VPS SSH defaults (gitignored).
 
@@ -290,6 +291,7 @@ Optional environment variables:
 |----------|---------|-------------|
 | `INERTIA_DATA_DIR` | `./data` | Local data directory |
 | `INERTIA_API_ADDR` | `127.0.0.1:4783` | API listen address |
+| `INERTIA_WEB_DIR` | `./web` (beside exe) | Static UI folder; when set, API serves the app on the same port |
 | `INERTIA_P2P_LISTEN_PORT` | `4784` | libp2p TCP listen port |
 | `INERTIA_RELAY` | — | Relay multiaddr (overrides Settings) |
 | `INERTIA_P2P_ANNOUNCE` | — | Comma-separated multiaddrs for invites |

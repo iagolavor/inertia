@@ -47,7 +47,6 @@ export function inertiaApiProxyOptions(): ProxyOptions {
 	return {
 		target: INERTIA_API_TARGET,
 		changeOrigin: true,
-		rewrite: (path: string) => path.replace(/^\/api/, ''),
 		timeout: 120_000,
 		proxyTimeout: 120_000,
 		configure(proxy) {

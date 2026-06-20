@@ -102,4 +102,6 @@ npm run api:stop
 # then start again via task or: npm run api
 ```
 
-**Windows first-time setup** (no Git/Node/Rust, script policy): [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) — `npm run setup:windows -- -InstallDeps` then `npm run run:windows`.
+**Windows first-time setup** (no Git/Node/Rust, script policy): [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) — prebuilt zip or `npm run setup:windows -- -InstallDeps`.
+
+**Releases:** push a `v*` tag (`scripts/release-tag.ps1`); GitHub Actions builds `inertia-windows-x64.zip`.
