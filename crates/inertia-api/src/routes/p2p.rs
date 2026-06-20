@@ -12,6 +12,7 @@ pub fn routes() -> Router<AppState> {
         .route("/p2p/start", post(start_p2p))
         .route("/p2p/addresses", get(p2p_addresses))
         .route("/p2p/status", get(p2p_status))
+        .route("/p2p/activity", get(p2p_activity))
         .route("/p2p/share-address", get(p2p_share_address))
         .route("/p2p/dial", post(dial_peer))
         .route("/p2p/friend-request", post(send_friend_request))
@@ -64,6 +65,13 @@ async fn p2p_status(
         engine.p2p_status_snapshot(relay, relay_tcp_reachable).await
     };
     Ok(Json(status))
+}
+
+async fn p2p_activity(
+    State(state): State<AppState>,
+) -> Result<Json<inertia_core::P2pActivitySnapshot>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    Ok(Json(engine.p2p_activity().await))
 }
 
 async fn p2p_share_address(

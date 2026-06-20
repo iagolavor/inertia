@@ -18,8 +18,7 @@
 {:else if !identityState.apiOnline}
   <section class="card settings-section">
     <h2 class="section-title">Feed & backup</h2>
-    <p class="section-desc muted">Start the API bridge to manage feed history and backups.</p>
-    <pre class="cmd">cargo run -p inertia-api</pre>
+    <p class="section-desc muted">Reconnect the API to manage feed history and backups.</p>
   </section>
 {:else if identityState.identity}
   <section class="card settings-section">
@@ -126,15 +125,6 @@
     font-weight: 600;
     color: var(--success);
     background: var(--badge-success-bg);
-  }
-
-  .cmd {
-    background: var(--bg);
-    padding: 1rem;
-    border-radius: 8px;
-    overflow-x: auto;
-    margin: 0;
-    font-size: 0.85rem;
   }
 
   .muted {

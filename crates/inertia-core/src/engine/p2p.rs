@@ -9,7 +9,7 @@ use tracing::{info, warn};
 use crate::error::{CoreError, CoreResult};
 use crate::p2p::P2pNode;
 
-use super::{Engine, P2pStatus};
+use super::{activity, p2p_status, Engine, P2pStatus};
 
 impl Engine {
     /// Idempotent — returns the current peer id if P2P is already running.
@@ -57,10 +57,26 @@ impl Engine {
 
     /// Dial configured relay (if any) and stored contact addresses after P2P starts.
     pub async fn redial_known_peers(&self) -> CoreResult<()> {
+        self.activity.lock().await.set_dial_in_progress(true);
+        let result = self.redial_known_peers_inner().await;
+        self.activity.lock().await.set_dial_in_progress(false);
+        result
+    }
+
+    async fn redial_known_peers_inner(&self) -> CoreResult<()> {
         if let Some(relay) = self.effective_relay().await {
             match self.dial_peer(&relay).await {
-                Ok(()) => info!("dialed configured relay"),
-                Err(e) => warn!(error = %e, "failed to dial relay"),
+                Ok(()) => {
+                    self.activity.lock().await.push("dial", "Dialed relay");
+                    info!("dialed configured relay");
+                }
+                Err(e) => {
+                    self.activity
+                        .lock()
+                        .await
+                        .push("dial_failed", format!("Relay dial failed: {e}"));
+                    warn!(error = %e, "failed to dial relay");
+                }
             }
         }
 
@@ -106,40 +122,78 @@ impl Engine {
         relay_tcp_reachable: Option<bool>,
     ) -> P2pStatus {
         let relay_peer_id = relay.as_deref().and_then(peer_id_from_multiaddr_str);
+        let pending_outbox_count = activity::count_pending_outbox(&self.store).await;
+        let activity_snap = self.activity.lock().await.snapshot();
 
         let guard = self.p2p.lock().await;
-        if let Some(p2p) = guard.as_ref() {
+        let status_core = if let Some(p2p) = guard.as_ref() {
             let connected_peer_ids = p2p.connected_peer_ids().await;
             let relay_connected = relay_peer_id
                 .as_ref()
                 .is_some_and(|id| connected_peer_ids.iter().any(|p| p == id));
-            P2pStatus {
-                running: true,
-                peer_id: Some(p2p.peer_id_string()),
-                listen_addresses: p2p
-                    .listen_addresses()
+            let friends_online_count = connected_peer_ids
+                .iter()
+                .filter(|id| relay_peer_id.as_ref() != Some(id))
+                .count();
+            (
+                true,
+                Some(p2p.peer_id_string()),
+                p2p.listen_addresses()
                     .await
                     .into_iter()
                     .map(|a| a.to_string())
                     .collect(),
                 connected_peer_ids,
-                relay_configured: relay.is_some(),
-                relay_peer_id,
                 relay_connected,
-                relay_tcp_reachable,
-            }
+                friends_online_count,
+            )
         } else {
-            P2pStatus {
-                running: false,
-                peer_id: None,
-                listen_addresses: Vec::new(),
-                connected_peer_ids: Vec::new(),
-                relay_configured: relay.is_some(),
-                relay_peer_id,
-                relay_connected: false,
-                relay_tcp_reachable,
-            }
+            (false, None, Vec::new(), Vec::new(), false, 0)
+        };
+        drop(guard);
+
+        let (
+            running,
+            peer_id,
+            listen_addresses,
+            connected_peer_ids,
+            relay_connected,
+            friends_online_count,
+        ) = status_core;
+
+        let layers = p2p_status::build_layers(
+            running,
+            relay.is_some(),
+            relay_tcp_reachable,
+            relay_connected,
+            friends_online_count,
+            activity_snap.dial_in_progress,
+            pending_outbox_count,
+        );
+        let labels = p2p_status::build_labels(&layers);
+        let tone = p2p_status::visual_tone_str(p2p_status::visual_tone(&layers)).to_string();
+
+        P2pStatus {
+            running,
+            peer_id,
+            listen_addresses,
+            connected_peer_ids,
+            relay_configured: relay.is_some(),
+            relay_peer_id,
+            relay_connected,
+            relay_tcp_reachable,
+            pending_outbox_count,
+            dial_in_progress: activity_snap.dial_in_progress,
+            last_activity_at: activity_snap.last_activity_at,
+            recent_activity: activity_snap.events,
+            layers,
+            labels,
+            tone,
         }
+    }
+
+    pub async fn p2p_activity(&self) -> super::P2pActivitySnapshot {
+        self.activity.lock().await.snapshot()
     }
 
     pub async fn p2p_status(&self) -> P2pStatus {
