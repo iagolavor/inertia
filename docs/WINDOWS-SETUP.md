@@ -1,155 +1,14 @@
 # Windows setup
 
-Fresh Windows installs often block PowerShell scripts, and may not have Git, Node, or Rust yet. This guide covers both **prebuilt** (recommended) and **build from source** installs.
+Download **[inertia-windows-x64.zip](https://github.com/iagolavor/inertia/releases/latest)** from GitHub Releases, extract anywhere, then double-click **`run.cmd`**.
 
----
+| Step | Action |
+|------|--------|
+| **Run** | Double-click `run.cmd` → [http://127.0.0.1:4783](http://127.0.0.1:4783) |
+| **Data** | Stored in `data/` next to the exe (back it up to keep your profile and friends) |
+| **Update** | Double-click `update.cmd` — downloads the latest release zip, keeps `data/` |
 
-## Prebuilt (recommended — no Node or Rust)
-
-Download **`inertia-windows-x64.zip`** from the [latest GitHub Release](https://github.com/iagolavor/inertia/releases/latest), extract anywhere, then double-click **`run-desktop.cmd`**.
-
-- Opens **http://127.0.0.1:4783** (API + UI in one process, ~25 MB RAM)
-- Your data lives in **`data/`** next to the exe
-- Updates: double-click **`scripts\update-windows.cmd`** — downloads the new zip, keeps `data/`
-
----
-
-## Build from source
-
-Use this path if you are developing Inertia or a prebuilt zip is not yet published for your release.
-
-1. **Get the project folder**
-   - With Git: clone the repo (see [README](../README.md)).
-   - Without Git: download the [latest release ZIP](https://github.com/iagolavor/inertia/releases/latest) (or [development.zip](https://github.com/iagolavor/inertia/archive/refs/heads/development.zip) for bleeding edge), extract it, and open a terminal in the extracted folder.
-
-2. **Install dependencies** (one time) — open **PowerShell** or **cmd** in the project folder:
-
-   ```powershell
-   npm run setup:windows -- -InstallDeps
-   ```
-
-   This uses [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/) to install Node.js LTS, Rust, and Git when they are missing, then builds the web UI and release API.
-
-   **No npm yet?** Install Node first (see [Manual install](#manual-install-without-winget)), open a **new** terminal, then run the command above.
-
-3. **Start Inertia**
-
-   ```powershell
-   npm run run:windows
-   ```
-
-   Two windows open: **inertia-api** (release) and **inertia-web** (static build + preview). Open [http://localhost:4173](http://localhost:4173).
-
-   This uses `api:release` and `web:build` + `web:preview` — not the Vite dev server — so RAM stays low (~25 MB API + small static server).
-
----
-
-## Double-click (no terminal typing)
-
-If PowerShell blocks scripts, use the `.cmd` wrappers — they always run with `-ExecutionPolicy Bypass`:
-
-| File | What it does |
-|------|----------------|
-| `scripts\setup-windows-install.cmd` | Install Node/Rust/Git via winget (if missing), then build |
-| `scripts\setup-windows.cmd` | Build only (tools must already be installed) |
-| `scripts\run-windows.cmd` | Start release API + build + static web preview (source install, low RAM) |
-| `scripts\run-desktop.cmd` | Start **prebuilt** install (single window, no Node) |
-| `scripts\update-windows.cmd` | Download latest release (prebuilt when available) |
-| `scripts\update-and-run-windows.cmd` | Update, rebuild, then start Inertia |
-
-From File Explorer: right-click `setup-windows.cmd` → **Run as administrator** only if winget installs fail (usually not required).
-
----
-
-## “Scripts are disabled on this system”
-
-Windows defaults can block `.ps1` files. You do **not** need to change system policy if you use:
-
-- **`npm run …`** — root `package.json` already passes `-ExecutionPolicy Bypass` for API/stop/setup scripts.
-- **`.cmd` files** in `scripts/` — same bypass, no policy change.
-
-To allow scripts for your user account (optional):
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
----
-
-## Manual install (without winget)
-
-Install these, then **open a new terminal** so `PATH` updates:
-
-| Tool | Download | Verify |
-|------|----------|--------|
-| **Node.js 20 LTS** | [nodejs.org](https://nodejs.org/) | `node -v` and `npm -v` |
-| **Rust** | [rustup.rs](https://rustup.rs/) | `cargo -v` |
-| **Git** (optional) | [git-scm.com](https://git-scm.com/download/win) | `git -v` |
-
-Then from the project folder:
-
-```powershell
-npm run setup:windows
-npm run run:windows
-```
-
-If `node` works in a new Windows Terminal tab but not in Cursor, run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/refresh-path.ps1
-```
-
----
-
-## Daily use (after first setup)
-
-| Command | Description |
-|---------|-------------|
-| `npm run run:windows` | Release API + `web:build` + static preview (two windows, low RAM) |
-| `npm run api:window` | API only in a separate window |
-| `npm run web:preview` | Static UI at `:4173` (run `npm run web:build` after UI changes) |
-| `npm run api:stop` | Free port 4783 if rebuild says “Access is denied” |
-
-**Low memory:** prefer `api:release` + `web:preview` over `npm run api` + `npm run web` (Vite dev).
-
----
-
-## Getting updates (no Git required)
-
-When a new version is released, update without opening GitHub or running git commands:
-
-```powershell
-npm run update:windows
-```
-
-Or double-click **`scripts\update-windows.cmd`**.
-
-What it does:
-
-1. Stops the API if it is running
-2. Downloads the **latest GitHub release**
-3. **Prebuilt install** (`inertia-api.exe` in folder): applies `inertia-windows-x64.zip` — **no rebuild**
-4. **Source install** (git clone): pulls source and rebuilds
-5. Keeps **`data/`** and **`.env`** untouched
-6. Skips download if you are already on that version (use `-Force` to apply again)
-
-Update and start in one step:
-
-```powershell
-npm run update:windows -- -Start
-```
-
-Or double-click **`scripts\update-and-run-windows.cmd`**.
-
-| Command | Description |
-|---------|-------------|
-| `npm run update:windows` | Latest release (prebuilt zip when available) |
-| `npm run update:windows -- -Source` | Force source download + rebuild |
-| `npm run update:windows -- -Channel development` | Bleeding-edge **development** branch |
-| `npm run update:windows -- -Start` | Update, rebuild, then start Inertia |
-| `npm run update:windows -- -Force` | Rebuild even if version matches |
-
-**Developers** on a feature branch should use `git pull`, not `update:windows` (the script will warn if you are on `feature/*`).
+Nothing else to install — no Rust, Node, Git, or winget.
 
 ---
 
@@ -157,15 +16,18 @@ Or double-click **`scripts\update-and-run-windows.cmd`**.
 
 | Problem | Fix |
 |---------|-----|
-| `'npm' is not recognized` | Install Node; open a **new** terminal |
-| `'cargo' is not recognized` | Install Rust via rustup; open a **new** terminal |
-| `Access is denied` on `inertia-api.exe` | `npm run api:stop`, then start again |
-| Web shows “API offline” | Start API (`npm run api:window` or `run:windows`); click **Retry** in the app |
-| First Rust build is slow | Normal — release build can take 5–15 minutes on first run |
-| winget not found | Use [Manual install](#manual-install-without-winget) or update Windows App Installer from the Microsoft Store |
+| Nothing happens when you double-click | Right-click `run.cmd` → **Run**, or open cmd in the folder and type `run.cmd` |
+| Port already in use | Close other Inertia windows; Task Manager → end `inertia-api.exe` |
+| Update says no zip on release | Download the zip manually from [Releases](https://github.com/iagolavor/inertia/releases) |
+| Blank page after update | Run `update.cmd` again, or re-extract a fresh zip and copy your `data/` folder over |
 
 ---
 
-## Cursor / VS Code
+## Developing Inertia on Windows
 
-After setup, use the **run** task (release API + web preview) from **Terminal → Run Task…**. See [README](../README.md#vs-code--cursor).
+Install [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/), clone the repo, then use the same commands as macOS/Linux — see **[README](../README.md#quick-start-developers)**.
+
+```powershell
+npm run api    # terminal 1
+npm run web    # terminal 2 → http://localhost:5173
+```

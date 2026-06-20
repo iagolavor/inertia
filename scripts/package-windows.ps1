@@ -8,6 +8,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+$win = Join-Path $root 'scripts/windows'
 
 $apiExe = Join-Path $root 'target/release/inertia-api.exe'
 $webBuild = Join-Path $root 'apps/web/build'
@@ -25,14 +26,10 @@ New-Item -ItemType Directory -Path $stage -Force | Out-Null
 try {
     Copy-Item $apiExe (Join-Path $stage 'inertia-api.exe')
     Copy-Item $webBuild (Join-Path $stage 'web') -Recurse
-    Copy-Item (Join-Path $root 'scripts/run-desktop.cmd') $stage
-    Copy-Item (Join-Path $root 'scripts/run-desktop.ps1') $stage
     Copy-Item (Join-Path $root 'LICENSE') $stage -ErrorAction SilentlyContinue
 
-    $scriptsOut = Join-Path $stage 'scripts'
-    New-Item -ItemType Directory -Path $scriptsOut -Force | Out-Null
-    foreach ($name in @('update-windows.ps1', 'update-windows.cmd', 'update-and-run-windows.cmd', 'stop-api.ps1')) {
-        Copy-Item (Join-Path $root "scripts/$name") $scriptsOut
+    foreach ($name in @('run.cmd', 'run.ps1', 'update.cmd', 'update.ps1')) {
+        Copy-Item (Join-Path $win $name) $stage
     }
 
     if ($Tag) {
