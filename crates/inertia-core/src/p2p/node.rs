@@ -3,36 +3,32 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{FutureExt, StreamExt};
-use libp2p::request_response::{self, Event, Message, OutboundRequestId};
-use libp2p::swarm::NetworkBehaviour;
-use libp2p::{
-    dcutr, identify, multiaddr::Protocol, noise, relay, tcp, yamux, Multiaddr, PeerId, Swarm,
-    SwarmBuilder,
-};
+use libp2p::request_response::{Event, Message, OutboundRequestId};
+use libp2p::{dcutr, identify, noise, relay, tcp, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder};
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tracing::{debug, info, warn};
 
-use crate::content::{ContentEnvelope, ContentType, DeliveryStatus, MessagePayload, PostPayload};
-use crate::crypto::{decrypt_from_sender, encrypt_for_recipient};
+use crate::content::ContentEnvelope;
 use crate::error::{CoreError, CoreResult};
 use crate::identity::Identity;
-use crate::storage::{ConnectionState, Contact, InboxEntry};
+use crate::storage::ConnectionState;
 use crate::store_handle::StoreHandle;
 
-use super::codec::{protocol_stream, request_response_config, JsonCodec};
+use super::behaviour::{build_behaviour, InertiaBehaviour, InertiaBehaviourEvent};
+use super::events::P2pEvent;
+use super::handlers::{
+    handle_inbound_request, handle_outbound_response, persist_peer_multiaddrs,
+    update_contact_state,
+};
 use super::keypair::load_or_create_keypair;
+use super::multiaddr::{
+    ensure_peer_id_suffix, is_routable_multiaddr, peer_id_from_multiaddr, relay_circuit_listen_addr,
+};
 use super::protocol::{
     BlobData, BlobRequest, FriendRequest, InertiaRequest, InertiaResponse, InviteRedemption,
     SendEnvelope,
 };
 
-#[derive(NetworkBehaviour)]
-pub struct InertiaBehaviour {
-    pub relay_client: relay::client::Behaviour,
-    pub dcutr: dcutr::Behaviour,
-    pub request_response: request_response::Behaviour<JsonCodec>,
-    pub identify: identify::Behaviour,
-}
 
 pub struct P2pNode {
     peer_id: PeerId,
@@ -41,22 +37,6 @@ pub struct P2pNode {
     identity: Arc<RwLock<Identity>>,
     event_tx: mpsc::UnboundedSender<P2pEvent>,
     pending_responses: Arc<Mutex<HashMap<OutboundRequestId, mpsc::Sender<InertiaResponse>>>>,
-}
-
-#[derive(Debug, Clone)]
-pub enum P2pEvent {
-    FriendRequestReceived(FriendRequest),
-    MessageReceived { sender_id: String, body: String },
-    DeliveryAcked {
-        content_id: String,
-        peer_id: PeerId,
-    },
-    BlobNeeded {
-        hash: String,
-        peer_id: PeerId,
-    },
-    PeerConnected(PeerId),
-    PeerDisconnected(PeerId),
 }
 
 impl P2pNode {
@@ -83,20 +63,7 @@ impl P2pNode {
             .map_err(|e| CoreError::P2p(e.to_string()))?
             .with_relay_client(noise::Config::new, yamux::Config::default)
             .map_err(|e| CoreError::P2p(e.to_string()))?
-            .with_behaviour(move |key, relay_client| {
-                Ok(InertiaBehaviour {
-                    relay_client,
-                    dcutr: dcutr::Behaviour::new(key.public().to_peer_id()),
-                    request_response: request_response::Behaviour::new(
-                        [(protocol_stream(), request_response::ProtocolSupport::Full)],
-                        request_response_config(),
-                    ),
-                    identify: identify::Behaviour::new(identify::Config::new(
-                        "/inertia/1.0.0".into(),
-                        key.public(),
-                    )),
-                })
-            })
+            .with_behaviour(|key, relay_client| build_behaviour(key, relay_client))
             .map_err(|e| CoreError::P2p(e.to_string()))?
             .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
             .build();
@@ -191,7 +158,9 @@ impl P2pNode {
 
         let response = tokio::time::timeout(Duration::from_secs(30), rx.recv())
             .await
-            .map_err(|_| CoreError::Invite("inviter did not respond in time — are they online?".into()))?
+            .map_err(|_| {
+                CoreError::Invite("inviter did not respond in time — are they online?".into())
+            })?
             .ok_or_else(|| CoreError::P2p("invite redemption channel closed".into()))?;
 
         self.pending_responses.lock().await.remove(&request_id);
@@ -199,7 +168,9 @@ impl P2pNode {
         match response {
             InertiaResponse::Ok => Ok(()),
             InertiaResponse::Error(msg) => Err(CoreError::Invite(msg)),
-            _ => Err(CoreError::Invite("unexpected response to invite redemption".into())),
+            _ => Err(CoreError::Invite(
+                "unexpected response to invite redemption".into(),
+            )),
         }
     }
 
@@ -343,9 +314,6 @@ impl P2pNode {
                 };
 
                 let Some(event) = event else {
-                    // Release the swarm lock between polls so dial/status handlers are not
-                    // starved while idle. Short sleep keeps CPU low without holding the mutex
-                    // across a full swarm.next().await.
                     tokio::time::sleep(Duration::from_millis(100)).await;
                     continue;
                 };
@@ -374,22 +342,21 @@ impl P2pNode {
                         }),
                     ) => {
                         if let Message::Request { request, channel, .. } = message {
-                            let response =
-                                match handle_inbound_request(
-                                    &store,
-                                    &identity,
-                                    &event_tx,
-                                    peer,
-                                    request,
-                                )
-                                    .await
-                                {
-                                    Ok(res) => res,
-                                    Err(e) => {
-                                        warn!(error = %e, "inbound request failed");
-                                        InertiaResponse::Error(e.to_string())
-                                    }
-                                };
+                            let response = match handle_inbound_request(
+                                &store,
+                                &identity,
+                                &event_tx,
+                                peer,
+                                request,
+                            )
+                            .await
+                            {
+                                Ok(res) => res,
+                                Err(e) => {
+                                    warn!(error = %e, "inbound request failed");
+                                    InertiaResponse::Error(e.to_string())
+                                }
+                            };
                             let mut swarm = swarm.lock().await;
                             let _ = swarm
                                 .behaviour_mut()
@@ -466,388 +433,5 @@ impl P2pNode {
                 }
             }
         });
-    }
-}
-
-async fn persist_peer_multiaddrs(store: &StoreHandle, peer_id: &PeerId, addrs: &[String]) {
-    let peer_id = peer_id.to_string();
-    let _ = store
-        .with_mut(|s| s.merge_contact_multiaddrs_by_peer_id(&peer_id, addrs))
-        .await;
-}
-
-async fn update_contact_state(store: &StoreHandle, peer_id: &PeerId, state: ConnectionState) {
-    let peer_id = peer_id.to_string();
-    let _ = store
-        .with_mut(|store| {
-            if let Ok(contacts) = store.list_contacts() {
-                for mut c in contacts {
-                    if c.peer_id.as_deref() == Some(&peer_id) {
-                        c.connection_state = state;
-                        c.last_seen = Some(chrono::Utc::now());
-                        store.upsert_contact(&c)?;
-                    }
-                }
-            }
-            Ok(())
-        })
-        .await;
-}
-
-async fn handle_inbound_request(
-    store: &StoreHandle,
-    identity: &Arc<RwLock<Identity>>,
-    event_tx: &mpsc::UnboundedSender<P2pEvent>,
-    peer: PeerId,
-    request: InertiaRequest,
-) -> CoreResult<InertiaResponse> {
-    match request {
-        InertiaRequest::FriendRequest(req) => {
-            let _ = event_tx.send(P2pEvent::FriendRequestReceived(req));
-            Ok(InertiaResponse::Ok)
-        }
-        InertiaRequest::FriendAccept(accept) => {
-            let contact = Contact {
-                id: accept.contact_id.clone(),
-                phone_hash: accept.phone_hash,
-                display_name: accept.display_name,
-                peer_id: Some(accept.peer_id),
-                signing_pubkey: accept.signing_pubkey,
-                encryption_pubkey: accept.encryption_pubkey,
-                last_seen: Some(chrono::Utc::now()),
-                connection_state: ConnectionState::Online,
-                multiaddrs: Vec::new(),
-            };
-            store.with_mut(|s| s.upsert_contact(&contact)).await?;
-            Ok(InertiaResponse::Ok)
-        }
-        InertiaRequest::InviteRedemption(redemption) => {
-            store
-                .with_mut(|s| s.consume_issued_invite(&redemption.invite_nonce))
-                .await?;
-            let contact = Contact {
-                id: redemption.signing_pubkey.clone(),
-                phone_hash: None,
-                display_name: redemption.display_name,
-                peer_id: Some(redemption.peer_id),
-                signing_pubkey: redemption.signing_pubkey,
-                encryption_pubkey: redemption.encryption_pubkey,
-                last_seen: Some(chrono::Utc::now()),
-                connection_state: ConnectionState::Online,
-                multiaddrs: Vec::new(),
-            };
-            store.with_mut(|s| s.upsert_contact(&contact)).await?;
-            info!(friend = %contact.display_name, "invite redeemed");
-            let _ = identity;
-            Ok(InertiaResponse::Ok)
-        }
-        InertiaRequest::SendEnvelope(SendEnvelope { envelope }) => {
-            let missing_hash =
-                process_incoming_envelope(store, identity, event_tx, &envelope).await?;
-            if let Some(hash) = missing_hash {
-                if !store.with(|s| Ok(s.blob_exists(&hash))).await? {
-                    let _ = event_tx.send(P2pEvent::BlobNeeded { hash, peer_id: peer });
-                }
-            }
-            Ok(InertiaResponse::DeliveryAck(
-                super::protocol::DeliveryAck {
-                    content_id: envelope.id.clone(),
-                },
-            ))
-        }
-        InertiaRequest::BlobRequest(req) => {
-            match store.with(|s| s.read_blob(&req.hash)).await {
-                Ok(data) if data.len() <= crate::storage::MAX_BLOB_BYTES => {
-                    Ok(InertiaResponse::BlobData(BlobData {
-                        hash: req.hash,
-                        data,
-                    }))
-                }
-                _ => Ok(InertiaResponse::BlobNotFound),
-            }
-        }
-        InertiaRequest::BlobPush(blob) => {
-            store
-                .with_mut(|s| s.store_blob_verified(&blob.hash, &blob.data))
-                .await?;
-            info!(hash = %blob.hash, bytes = blob.data.len(), %peer, "stored pushed blob");
-            Ok(InertiaResponse::Ok)
-        }
-    }
-}
-
-async fn handle_outbound_response(
-    store: &StoreHandle,
-    event_tx: &mpsc::UnboundedSender<P2pEvent>,
-    peer: PeerId,
-    response: InertiaResponse,
-) -> CoreResult<()> {
-    match response {
-        InertiaResponse::DeliveryAck(ack) => {
-            let _ = event_tx.send(P2pEvent::DeliveryAcked {
-                content_id: ack.content_id.clone(),
-                peer_id: peer,
-            });
-            let content_id = ack.content_id.clone();
-            store
-                .with_mut(|s| {
-                    let entries = s.list_outbox()?;
-                    for entry in entries {
-                        if entry.content_id == content_id {
-                            s.update_outbox_status(
-                                &content_id,
-                                &entry.recipient_id,
-                                DeliveryStatus::Delivered,
-                            )?;
-                            s.record_ack(&content_id, &entry.recipient_id)?;
-                            break;
-                        }
-                    }
-                    Ok(())
-                })
-                .await?;
-        }
-        InertiaResponse::FriendAccept(accept) => {
-            let contact = Contact {
-                id: accept.contact_id,
-                phone_hash: accept.phone_hash,
-                display_name: accept.display_name,
-                peer_id: Some(accept.peer_id),
-                signing_pubkey: accept.signing_pubkey,
-                encryption_pubkey: accept.encryption_pubkey,
-                last_seen: Some(chrono::Utc::now()),
-                connection_state: ConnectionState::Online,
-                multiaddrs: Vec::new(),
-            };
-            store.with_mut(|s| s.upsert_contact(&contact)).await?;
-        }
-        InertiaResponse::Ok => {}
-        InertiaResponse::Error(msg) => {
-            warn!(error = %msg, "peer returned error");
-        }
-        InertiaResponse::BlobData(_) | InertiaResponse::BlobNotFound => {}
-    }
-    Ok(())
-}
-
-async fn process_incoming_envelope(
-    store: &StoreHandle,
-    identity: &Arc<RwLock<Identity>>,
-    event_tx: &mpsc::UnboundedSender<P2pEvent>,
-    envelope: &ContentEnvelope,
-) -> CoreResult<Option<String>> {
-    if !crate::identity::Identity::verify_signature(
-        &envelope.author_signing_pubkey,
-        &envelope.signing_bytes(),
-        &envelope.signature,
-    )? {
-        return Err(CoreError::Crypto("invalid envelope signature".into()));
-    }
-
-    let id = identity.read().await;
-    let plaintext = decrypt_from_sender(
-        id.encryption_secret()?,
-        &envelope.author_encryption_pubkey,
-        &envelope.ciphertext,
-    )?;
-    drop(id);
-
-    let (body, media_ref) = match envelope.content_type {
-        ContentType::Message => {
-            let payload: MessagePayload = serde_json::from_slice(&plaintext)?;
-            (payload.body, None)
-        }
-        ContentType::Post => {
-            let payload: crate::content::PostPayload = serde_json::from_slice(&plaintext)?;
-            (payload.body, payload.media_ref)
-        }
-        ContentType::Comment => {
-            let payload: crate::content::CommentPayload = serde_json::from_slice(&plaintext)?;
-            let sender_id = envelope.author_signing_pubkey.clone();
-            let author_name = store
-                .with(|s| s.list_contacts())
-                .await
-                .ok()
-                .and_then(|contacts| {
-                    contacts
-                        .into_iter()
-                        .find(|c| c.id == sender_id || c.signing_pubkey == sender_id)
-                        .map(|c| c.display_name)
-                })
-                .unwrap_or_else(|| "Friend".to_string());
-
-            let comment = crate::storage::PostComment {
-                id: envelope.id.clone(),
-                post_id: payload.post_id,
-                author_id: sender_id,
-                author_name,
-                body: payload.body,
-                created_at: envelope.created_at,
-            };
-            store
-                .with_mut(|s| s.insert_post_comment(&comment))
-                .await?;
-            return Ok(None);
-        }
-    };
-
-    let sender_id = envelope.author_signing_pubkey.clone();
-    store
-        .with_mut(|s| {
-            s.insert_inbox(&InboxEntry {
-                content_id: envelope.id.clone(),
-                sender_id: sender_id.clone(),
-                received_at: envelope.created_at,
-                expires_at: envelope.expires_at,
-                read_at: None,
-                body: body.clone(),
-                media_ref: media_ref.clone(),
-                content_type: envelope.content_type,
-            })
-        })
-        .await?;
-
-    if envelope.content_type == ContentType::Post {
-        let author_name = store
-            .with(|s| s.list_contacts())
-            .await
-            .ok()
-            .and_then(|contacts| {
-                contacts
-                    .into_iter()
-                    .find(|c| c.id == sender_id || c.signing_pubkey == sender_id)
-                    .map(|c| c.display_name)
-            })
-            .unwrap_or_else(|| "Friend".to_string());
-
-        let archive_item = crate::storage::ArchivedFeedItem {
-            content_id: envelope.id.clone(),
-            author_id: sender_id.clone(),
-            author_name,
-            body: body.clone(),
-            media_ref: media_ref.clone(),
-            created_at: envelope.created_at,
-            is_own: false,
-        };
-        let _ = store
-            .with_mut(|s| s.try_archive_feed_item(&archive_item))
-            .await;
-    }
-
-    let _ = event_tx.send(P2pEvent::MessageReceived { sender_id, body });
-    Ok(media_ref)
-}
-
-pub fn build_post_envelope(
-    identity: &Identity,
-    recipient: &Contact,
-    content_id: &str,
-    body: &str,
-    media_ref: Option<&str>,
-) -> CoreResult<ContentEnvelope> {
-    let payload = PostPayload {
-        body: body.to_string(),
-        media_ref: media_ref.map(|s| s.to_string()),
-    };
-    let plaintext = serde_json::to_vec(&payload)?;
-    let ciphertext = encrypt_for_recipient(
-        identity.encryption_secret()?,
-        &recipient.encryption_pubkey,
-        &plaintext,
-    )?;
-
-    let mut envelope = ContentEnvelope::new_post(
-        identity.signing_pubkey.clone(),
-        identity.encryption_pubkey.clone(),
-        ciphertext,
-        vec![],
-    );
-    envelope.id = content_id.to_string();
-    envelope.signature = identity.sign(&envelope.signing_bytes())?;
-    Ok(envelope)
-}
-
-pub fn build_message_envelope(
-    identity: &Identity,
-    recipient: &Contact,
-    body: &str,
-    thread_id: &str,
-) -> CoreResult<ContentEnvelope> {
-    let payload = MessagePayload {
-        body: body.to_string(),
-        thread_id: thread_id.to_string(),
-    };
-    let plaintext = serde_json::to_vec(&payload)?;
-    let ciphertext = encrypt_for_recipient(
-        identity.encryption_secret()?,
-        &recipient.encryption_pubkey,
-        &plaintext,
-    )?;
-
-    let mut envelope = ContentEnvelope::new_message(
-        identity.signing_pubkey.clone(),
-        identity.encryption_pubkey.clone(),
-        ciphertext,
-        vec![],
-    );
-    envelope.signature = identity.sign(&envelope.signing_bytes())?;
-    Ok(envelope)
-}
-
-pub fn build_comment_envelope(
-    identity: &Identity,
-    recipient: &Contact,
-    post_id: &str,
-    body: &str,
-) -> CoreResult<ContentEnvelope> {
-    let payload = crate::content::CommentPayload {
-        post_id: post_id.to_string(),
-        body: body.to_string(),
-    };
-    let plaintext = serde_json::to_vec(&payload)?;
-    let ciphertext = encrypt_for_recipient(
-        identity.encryption_secret()?,
-        &recipient.encryption_pubkey,
-        &plaintext,
-    )?;
-
-    let mut envelope = ContentEnvelope::new_comment(
-        identity.signing_pubkey.clone(),
-        identity.encryption_pubkey.clone(),
-        ciphertext,
-        vec![],
-    );
-    envelope.signature = identity.sign(&envelope.signing_bytes())?;
-    Ok(envelope)
-}
-
-fn peer_id_from_multiaddr(addr: &Multiaddr) -> CoreResult<PeerId> {
-    addr.iter()
-        .find_map(|protocol| match protocol {
-            Protocol::P2p(peer_id) => Some(peer_id),
-            _ => None,
-        })
-        .ok_or_else(|| CoreError::P2p("multiaddr missing /p2p peer id".into()))
-}
-
-fn relay_circuit_listen_addr(relay: &Multiaddr) -> Multiaddr {
-    if relay.iter().any(|p| matches!(p, Protocol::P2pCircuit)) {
-        relay.clone()
-    } else {
-        relay.clone().with(Protocol::P2pCircuit)
-    }
-}
-
-fn is_routable_multiaddr(addr: &Multiaddr) -> bool {
-    let raw = addr.to_string();
-    !raw.contains("/ip4/0.0.0.0/") && !raw.contains("/ip6/::/")
-}
-
-fn ensure_peer_id_suffix(addr: &Multiaddr, peer_id: &str) -> String {
-    let raw = addr.to_string();
-    if raw.contains("/p2p/") {
-        raw
-    } else {
-        format!("{raw}/p2p/{peer_id}")
     }
 }
