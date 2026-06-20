@@ -6,19 +6,41 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Invoke-InertiaGit {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    $out = & git @GitArgs 2>&1
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    if ($code -ne 0) { throw "git $($GitArgs -join ' ') failed (exit $code)" }
+    return $out
+}
+
+function Test-InertiaGitRef {
+    param([string]$Ref)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    & git rev-parse $Ref 2>$null | Out-Null
+    $ok = ($LASTEXITCODE -eq 0)
+    $ErrorActionPreference = $prev
+    return $ok
+}
+
 $tag = if ($Version -match '^v') { $Version } else { "v$Version" }
 
-git fetch origin master 2>$null | Out-Null
-git checkout master
-git pull origin master
+Invoke-InertiaGit fetch origin master
+Invoke-InertiaGit checkout master
+Invoke-InertiaGit pull origin master
 
-if (git rev-parse $tag 2>$null) {
+if (Test-InertiaGitRef $tag) {
     Write-Host "Tag $tag already exists locally."
     exit 1
 }
 
-git tag -a $tag -m "Release $tag"
-git push origin $tag
+Invoke-InertiaGit tag -a $tag -m "Release $tag"
+Invoke-InertiaGit push origin $tag
 
 Write-Host "Tag $tag pushed."
 Write-Host "GitHub Actions builds inertia-windows-x64.zip and publishes the release."
