@@ -147,7 +147,7 @@ Optional per device:
 7. **You:** DM; **brother:** Messages.
 8. Restart one API; confirm delivery resumes without a new invite.
 
-Text-only posts until P2P blob sync lands (Phase 4 in milestone doc).
+Photo posts sync over P2P after the text envelope is delivered (blob push on ack, pull on reconnect).
 
 ### 5. Invite links without a shared URL
 

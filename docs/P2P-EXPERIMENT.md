@@ -26,10 +26,10 @@ This document explains how Inertia connects peers **today**, what works across t
 | Feature | Status |
 |---------|--------|
 | TCP + Noise + Yamux | Yes |
-| Relay / TURN / hole punching | **No** |
-| NAT traversal | **No** |
-| Blob sync (post images) | **No** (hash only in envelope) |
-| Auto outbox flush on reconnect | **No** (use Outbox retry) |
+| Relay / DCUtR (VPS `inertia-relay`) | **Yes** — circuit relay + hole punching |
+| NAT traversal | **Via relay** when direct TCP fails |
+| Blob sync (post images) | **Yes** — hash in envelope; bytes via `BlobPush` after ack or `BlobRequest` on demand |
+| Auto outbox flush on reconnect | **Yes** |
 
 ### Across the real internet
 
@@ -120,7 +120,7 @@ powershell -ExecutionPolicy Bypass -File scripts/p2p-docker-post.ps1 -Body "Hell
 | Invite accept fails | Docker peer not up, P2P not started, or wrong safety code |
 | Post not in feed | Peers not connected; retry outbox on sender; both need `peer_id` on contact |
 | Connection timeout | Wrong multiaddr; use `INERTIA_P2P_ANNOUNCE=/ip4/127.0.0.1/tcp/9002` for Docker |
-| Image missing | Expected — blob P2P sync not implemented |
+| Image missing | Peer offline or blob transfer failed — retry by reconnecting; check sender has the photo locally |
 
 ### Manual API checks
 
@@ -159,9 +159,9 @@ Then Docker can dial your host P2P when accepting.
 
 ## Next steps (real internet)
 
-1. Outbox auto-retry when `PeerConnected`
-2. P2P blob transfer for `media_ref`
-3. Optional relay (libp2p circuit relay or self-hosted TURN-like bridge)
-4. Advertise public IP / STUN in invite flow
+1. ~~Outbox auto-retry when `PeerConnected`~~
+2. ~~P2P blob transfer for `media_ref`~~
+3. Optional relay hardening (reservation limits)
+4. Thumbnails + orphan blob GC (Phase 6)
 
 See [VISION.md](./VISION.md) § P2P Transport.
