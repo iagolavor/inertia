@@ -160,8 +160,22 @@ inertia/
 
 - **[Rust](https://rustup.rs/)** 1.75+ (`cargo`, `rustc`)
 - **[Node.js](https://nodejs.org/)** 20 LTS+ (`npm`)
+- **Git** (optional if you use a [ZIP download](https://github.com/iagolavor/inertia/archive/refs/heads/development.zip) instead of `git clone`)
 
 Works on **Windows**, **macOS**, and **Linux**. On Windows, open a new terminal after installing Rust/Node so `PATH` is updated.
+
+### Windows (first time)
+
+If PowerShell blocks scripts or you do not have Git / Node / Rust yet, see **[docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md)**.
+
+Quick path after you have the project folder:
+
+```powershell
+npm run setup:windows -- -InstallDeps   # winget installs + build (one time)
+npm run run:windows                       # API + web in two windows → http://localhost:4173
+```
+
+Or double-click `scripts\setup-windows.cmd` and `scripts\run-windows.cmd` (no execution-policy change needed).
 
 ---
 
@@ -229,8 +243,13 @@ Open TCP **9000** on the VPS firewall. Copy the relay peer id from the logs into
 | `npm run web:build` | Production static build |
 | `npm run web:preview` | Serve built web UI (**recommended for daily use**) |
 | `npm run web` | Vite dev server in `apps/web` (UI development only) |
+| `npm run setup:windows` | Windows first-time build; add `-- -InstallDeps` to install Node/Rust/Git via winget |
+| `npm run run:windows` | Start release API + web preview in two PowerShell windows |
+| `npm run update:windows` | Pull latest release and rebuild (no Git UI; keeps `data/`) |
 
 Copy [`.env.example`](.env.example) to `.env` for VPS SSH defaults (gitignored).
+
+**Windows:** see [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) for script policy, winget installs, and double-click `.cmd` helpers.
 
 ### VS Code / Cursor
 

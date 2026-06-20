@@ -101,3 +101,5 @@ cd apps/web && npm run dev
 npm run api:stop
 # then start again via task or: npm run api
 ```
+
+**Windows first-time setup** (no Git/Node/Rust, script policy): [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) — `npm run setup:windows -- -InstallDeps` then `npm run run:windows`.
