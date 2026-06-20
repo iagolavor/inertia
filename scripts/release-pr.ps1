@@ -6,23 +6,32 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Invoke-InertiaGit {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    $out = & git @GitArgs 2>&1
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    if ($code -ne 0) { throw "git $($GitArgs -join ' ') failed (exit $code)" }
+    return $out
+}
+
 $tag = if ($Version -match '^v') { $Version } else { "v$Version" }
 $title = "Release $tag"
 
-$prevEap = $ErrorActionPreference
-$ErrorActionPreference = 'Continue'
-$null = git fetch origin master development 2>&1
-$ErrorActionPreference = $prevEap
+Invoke-InertiaGit fetch origin master development
 
 $range = "origin/master..origin/development"
-$ahead = git rev-list --count $range
+$ahead = Invoke-InertiaGit rev-list --count $range
 if ([int]$ahead -eq 0) {
     Write-Host "Nothing to release: development is not ahead of master."
     exit 1
 }
 
 $prLines = @()
-$mergeSubjects = git log $range --merges --pretty=format:%s 2>$null
+$mergeSubjects = Invoke-InertiaGit log $range --merges --pretty=format:%s
 foreach ($subject in $mergeSubjects) {
     if ($subject -match 'Merge pull request #(\d+)') {
         $num = $Matches[1]
@@ -37,16 +46,14 @@ foreach ($subject in $mergeSubjects) {
     }
 }
 
-$ErrorActionPreference = 'Continue'
-$lastTag = (git describe --tags --abbrev=0 origin/master 2>$null)
-$ErrorActionPreference = $prevEap
+$lastTag = git describe --tags --abbrev=0 origin/master 2>$null
 $sinceLine = if ($lastTag) { "Since $lastTag on master." } else { "First tagged release." }
-$changes = if ($prLines.Count -gt 0) { $prLines -join "`n" } else { "- (no merge commits parsed; list highlights manually)" }
+$changes = if ($prLines.Count -gt 0) { $prLines -join "`n" } else { "- (no merge commits parsed - list highlights manually)" }
 
 $body = @"
 ## Summary
 
-Promote development to master — **$tag**.
+Promote development to master - **$tag**.
 
 $sinceLine
 
