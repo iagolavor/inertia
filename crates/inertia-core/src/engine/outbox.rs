@@ -20,7 +20,14 @@ pub async fn run_p2p_event_loop(
             if let Err(e) = flush_outbox_for_peer(&store, &p2p, peer_id).await {
                 warn!(error = %e, "outbox flush on peer connect failed");
             }
+            if let Err(e) = super::blobs::request_missing_blobs_for_peer(&store, &p2p, peer_id).await
+            {
+                warn!(error = %e, "blob sync on peer connect failed");
+            }
+            continue;
         }
+
+        super::blobs::handle_p2p_event(event, &store, &p2p).await;
     }
 }
 

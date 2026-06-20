@@ -22,7 +22,8 @@ use crate::store_handle::StoreHandle;
 use super::codec::{protocol_stream, request_response_config, JsonCodec};
 use super::keypair::load_or_create_keypair;
 use super::protocol::{
-    FriendRequest, InertiaRequest, InertiaResponse, InviteRedemption, SendEnvelope,
+    BlobData, BlobRequest, FriendRequest, InertiaRequest, InertiaResponse, InviteRedemption,
+    SendEnvelope,
 };
 
 #[derive(NetworkBehaviour)]
@@ -46,7 +47,14 @@ pub struct P2pNode {
 pub enum P2pEvent {
     FriendRequestReceived(FriendRequest),
     MessageReceived { sender_id: String, body: String },
-    DeliveryAcked { content_id: String },
+    DeliveryAcked {
+        content_id: String,
+        peer_id: PeerId,
+    },
+    BlobNeeded {
+        hash: String,
+        peer_id: PeerId,
+    },
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
 }
@@ -246,6 +254,80 @@ impl P2pNode {
         Ok(())
     }
 
+    pub async fn request_blob_from_peer(&self, peer_id: PeerId, hash: &str) -> CoreResult<()> {
+        let (tx, mut rx) = mpsc::channel(1);
+        let request_id = {
+            let mut swarm = self.swarm.lock().await;
+            let id = swarm.behaviour_mut().request_response.send_request(
+                &peer_id,
+                InertiaRequest::BlobRequest(BlobRequest {
+                    hash: hash.to_string(),
+                }),
+            );
+            self.pending_responses.lock().await.insert(id, tx);
+            id
+        };
+
+        let response = tokio::time::timeout(Duration::from_secs(60), rx.recv())
+            .await
+            .map_err(|_| CoreError::P2p("blob request timed out".into()))?
+            .ok_or_else(|| CoreError::P2p("blob request channel closed".into()))?;
+
+        self.pending_responses.lock().await.remove(&request_id);
+
+        match response {
+            InertiaResponse::BlobData(blob) => {
+                self.store
+                    .with_mut(|s| s.store_blob_verified(&blob.hash, &blob.data))
+                    .await?;
+                Ok(())
+            }
+            InertiaResponse::BlobNotFound => Err(CoreError::P2p(format!(
+                "peer does not have blob {hash}"
+            ))),
+            InertiaResponse::Error(msg) => Err(CoreError::P2p(msg)),
+            other => Err(CoreError::P2p(format!(
+                "unexpected blob response: {other:?}"
+            ))),
+        }
+    }
+
+    pub async fn push_blob_to_peer(
+        &self,
+        peer_id: PeerId,
+        hash: &str,
+        data: &[u8],
+    ) -> CoreResult<()> {
+        let (tx, mut rx) = mpsc::channel(1);
+        let request_id = {
+            let mut swarm = self.swarm.lock().await;
+            let id = swarm.behaviour_mut().request_response.send_request(
+                &peer_id,
+                InertiaRequest::BlobPush(BlobData {
+                    hash: hash.to_string(),
+                    data: data.to_vec(),
+                }),
+            );
+            self.pending_responses.lock().await.insert(id, tx);
+            id
+        };
+
+        let response = tokio::time::timeout(Duration::from_secs(60), rx.recv())
+            .await
+            .map_err(|_| CoreError::P2p("blob push timed out".into()))?
+            .ok_or_else(|| CoreError::P2p("blob push channel closed".into()))?;
+
+        self.pending_responses.lock().await.remove(&request_id);
+
+        match response {
+            InertiaResponse::Ok => Ok(()),
+            InertiaResponse::Error(msg) => Err(CoreError::P2p(msg)),
+            other => Err(CoreError::P2p(format!(
+                "unexpected blob push response: {other:?}"
+            ))),
+        }
+    }
+
     fn spawn_event_loop(&self) {
         let swarm = Arc::clone(&self.swarm);
         let store = self.store.clone();
@@ -293,7 +375,13 @@ impl P2pNode {
                     ) => {
                         if let Message::Request { request, channel, .. } = message {
                             let response =
-                                match handle_inbound_request(&store, &identity, &event_tx, request)
+                                match handle_inbound_request(
+                                    &store,
+                                    &identity,
+                                    &event_tx,
+                                    peer,
+                                    request,
+                                )
                                     .await
                                 {
                                     Ok(res) => res,
@@ -307,7 +395,6 @@ impl P2pNode {
                                 .behaviour_mut()
                                 .request_response
                                 .send_response(channel, response);
-                            let _ = peer;
                         } else if let Message::Response {
                             response,
                             request_id,
@@ -321,6 +408,7 @@ impl P2pNode {
                             } else if let Err(e) = handle_outbound_response(
                                 &store,
                                 &event_tx,
+                                peer,
                                 response,
                             )
                             .await
@@ -410,6 +498,7 @@ async fn handle_inbound_request(
     store: &StoreHandle,
     identity: &Arc<RwLock<Identity>>,
     event_tx: &mpsc::UnboundedSender<P2pEvent>,
+    peer: PeerId,
     request: InertiaRequest,
 ) -> CoreResult<InertiaResponse> {
     match request {
@@ -453,12 +542,36 @@ async fn handle_inbound_request(
             Ok(InertiaResponse::Ok)
         }
         InertiaRequest::SendEnvelope(SendEnvelope { envelope }) => {
-            process_incoming_envelope(store, identity, event_tx, &envelope).await?;
+            let missing_hash =
+                process_incoming_envelope(store, identity, event_tx, &envelope).await?;
+            if let Some(hash) = missing_hash {
+                if !store.with(|s| Ok(s.blob_exists(&hash))).await? {
+                    let _ = event_tx.send(P2pEvent::BlobNeeded { hash, peer_id: peer });
+                }
+            }
             Ok(InertiaResponse::DeliveryAck(
                 super::protocol::DeliveryAck {
                     content_id: envelope.id.clone(),
                 },
             ))
+        }
+        InertiaRequest::BlobRequest(req) => {
+            match store.with(|s| s.read_blob(&req.hash)).await {
+                Ok(data) if data.len() <= crate::storage::MAX_BLOB_BYTES => {
+                    Ok(InertiaResponse::BlobData(BlobData {
+                        hash: req.hash,
+                        data,
+                    }))
+                }
+                _ => Ok(InertiaResponse::BlobNotFound),
+            }
+        }
+        InertiaRequest::BlobPush(blob) => {
+            store
+                .with_mut(|s| s.store_blob_verified(&blob.hash, &blob.data))
+                .await?;
+            info!(hash = %blob.hash, bytes = blob.data.len(), %peer, "stored pushed blob");
+            Ok(InertiaResponse::Ok)
         }
     }
 }
@@ -466,12 +579,14 @@ async fn handle_inbound_request(
 async fn handle_outbound_response(
     store: &StoreHandle,
     event_tx: &mpsc::UnboundedSender<P2pEvent>,
+    peer: PeerId,
     response: InertiaResponse,
 ) -> CoreResult<()> {
     match response {
         InertiaResponse::DeliveryAck(ack) => {
             let _ = event_tx.send(P2pEvent::DeliveryAcked {
                 content_id: ack.content_id.clone(),
+                peer_id: peer,
             });
             let content_id = ack.content_id.clone();
             store
@@ -510,6 +625,7 @@ async fn handle_outbound_response(
         InertiaResponse::Error(msg) => {
             warn!(error = %msg, "peer returned error");
         }
+        InertiaResponse::BlobData(_) | InertiaResponse::BlobNotFound => {}
     }
     Ok(())
 }
@@ -519,7 +635,7 @@ async fn process_incoming_envelope(
     identity: &Arc<RwLock<Identity>>,
     event_tx: &mpsc::UnboundedSender<P2pEvent>,
     envelope: &ContentEnvelope,
-) -> CoreResult<()> {
+) -> CoreResult<Option<String>> {
     if !crate::identity::Identity::verify_signature(
         &envelope.author_signing_pubkey,
         &envelope.signing_bytes(),
@@ -571,7 +687,7 @@ async fn process_incoming_envelope(
             store
                 .with_mut(|s| s.insert_post_comment(&comment))
                 .await?;
-            return Ok(());
+            return Ok(None);
         }
     };
 
@@ -619,7 +735,7 @@ async fn process_incoming_envelope(
     }
 
     let _ = event_tx.send(P2pEvent::MessageReceived { sender_id, body });
-    Ok(())
+    Ok(media_ref)
 }
 
 pub fn build_post_envelope(
