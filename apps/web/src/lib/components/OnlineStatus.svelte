@@ -15,9 +15,9 @@
       ? 'A verificar ligação…'
       : online
         ? 'Clica para desligar o API bridge'
-        : 'Clica para tentar ligar — se estiver parado, corre: cargo run -p inertia-api'
+        : 'API offline — use Start API in the banner, or click here to Retry'
   );
-  const label = $derived(loading ? 'API…' : online ? 'API' : 'API off');
+  const label = $derived(loading ? 'API' : online ? 'API' : 'Off');
 </script>
 
 <button
@@ -56,6 +56,7 @@
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
+    flex-shrink: 0;
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
   }

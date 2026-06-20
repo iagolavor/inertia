@@ -101,3 +101,7 @@ cd apps/web && npm run dev
 npm run api:stop
 # then start again via task or: npm run api
 ```
+
+**Windows (end users):** [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) — download `inertia-windows-x64.zip`, `run.cmd`, `update.cmd`. No npm scripts.
+
+**Releases:** push a `v*` tag ([scripts/release-tag.ps1](scripts/release-tag.ps1)); GitHub Actions builds the Windows zip. See [docs/RELEASE.md](docs/RELEASE.md).

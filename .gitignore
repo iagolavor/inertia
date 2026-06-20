@@ -6,5 +6,6 @@ node_modules
 build
 dist
 .env
+.inertia-version
 *.db
 .p2p-docker-peer.json

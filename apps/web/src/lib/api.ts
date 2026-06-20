@@ -1,3 +1,12 @@
+import {
+	ApiRequestError,
+	classifyFetchFailure,
+	classifyHttpFailure,
+	type ApiErrorInfo
+} from '$lib/api-errors';
+
+export type { ApiErrorInfo };
+
 const API_BASE = '/api';
 const REQUEST_TIMEOUT_MS = 8_000;
 const UPLOAD_TIMEOUT_MS = 60_000;
@@ -22,6 +31,35 @@ export interface Contact {
   multiaddrs?: string[];
 }
 
+export interface P2pActivityEvent {
+  at: string;
+  kind: string;
+  detail: string;
+}
+
+export interface P2pActivitySnapshot {
+  dial_in_progress: boolean;
+  last_activity_at: string | null;
+  events: P2pActivityEvent[];
+}
+
+export interface P2pLayers {
+  node: 'off' | 'running';
+  relay: 'not_configured' | 'standby' | 'unreachable' | 'connecting' | 'connected';
+  friends: 'offline' | 'connecting' | 'online';
+  sync: 'idle' | 'sending';
+  friends_online_count: number;
+  pending_outbox_count: number;
+}
+
+export interface P2pLayerLabels {
+  headline: string;
+  node: string;
+  relay: string;
+  friends: string;
+  sync: string;
+}
+
 export interface P2pStatus {
   running: boolean;
   peer_id: string | null;
@@ -31,6 +69,14 @@ export interface P2pStatus {
   relay_peer_id: string | null;
   relay_connected: boolean;
   relay_tcp_reachable: boolean | null;
+  pending_outbox_count: number;
+  dial_in_progress: boolean;
+  last_activity_at: string | null;
+  recent_activity: P2pActivityEvent[];
+  layers: P2pLayers;
+  labels: P2pLayerLabels;
+  /** off | error | warn | idle | online */
+  tone: string;
 }
 
 export interface InviteResponse {
@@ -164,10 +210,7 @@ async function fetchWithTimeout(
       headers: { 'Content-Type': 'application/json', ...init?.headers }
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('API request timed out — is inertia-api running?');
-    }
-    throw error;
+    throw new ApiRequestError(classifyFetchFailure(error));
   } finally {
     clearTimeout(timeout);
   }
@@ -181,14 +224,14 @@ async function request<T>(
   const res = await fetchWithTimeout(path, init, timeoutMs);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    const message = err.error ?? res.statusText ?? 'Request failed';
+    const raw = err.error ?? res.statusText ?? 'Request failed';
     if (res.status === 409) {
-      throw new Error('A profile already exists on this device');
+      throw new ApiRequestError({ kind: 'client', message: 'A profile already exists on this device' });
     }
     if (res.status === 413) {
-      throw new Error('Imagem demasiado grande para o servidor');
+      throw new ApiRequestError({ kind: 'client', message: 'Imagem demasiado grande para o servidor' });
     }
-    throw new Error(message);
+    throw new ApiRequestError(classifyHttpFailure(res.status, raw));
   }
   if (res.status === 204) return undefined as T;
   return res.json();
@@ -196,9 +239,16 @@ async function request<T>(
 
 export const api = {
   health: async () => {
-    const res = await fetchWithTimeout('/health');
-    if (!res.ok) throw new Error('API offline');
-    return res.text();
+    try {
+      const res = await fetchWithTimeout('/health');
+      if (!res.ok) {
+        throw new ApiRequestError(classifyHttpFailure(res.status, res.statusText));
+      }
+      return res.text();
+    } catch (error) {
+      if (error instanceof ApiRequestError) throw error;
+      throw new ApiRequestError(classifyFetchFailure(error));
+    }
   },
   getIdentity: () => request<Identity>('/identity'),
   initIdentity: (display_name: string) =>
@@ -244,6 +294,7 @@ export const api = {
   p2pAddresses: () =>
     request<{ peer_id: string | null; addresses: string[] }>('/p2p/addresses'),
   p2pStatus: () => request<P2pStatus>('/p2p/status'),
+  p2pActivity: () => request<P2pActivitySnapshot>('/p2p/activity'),
   retryOutbox: (content_id: string, recipient_id: string) =>
     request<void>('/outbox/retry', {
       method: 'POST',

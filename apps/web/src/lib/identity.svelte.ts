@@ -1,10 +1,14 @@
-import { api, type Identity, type P2pStatus } from '$lib/api';
+import { api, type ApiErrorInfo, type Identity, type P2pStatus } from '$lib/api';
+import { ApiRequestError } from '$lib/api-errors';
+import { API_DISCONNECTED_HINT, API_OFFLINE_HINT } from '$lib/dev-commands';
 import { clearDeviceProfile, readDeviceProfile, writeDeviceProfile } from '$lib/device-db';
 
 export const identityState = $state({
 	identity: null as Identity | null,
 	apiOnline: false,
 	loading: true,
+	apiError: null as ApiErrorInfo | null,
+	lastApiOkAt: null as string | null,
 	p2pInfo: null as { peer_id: string | null; addresses: string[] } | null,
 	p2pStatus: null as P2pStatus | null,
 	profileLocked: false
@@ -79,15 +83,24 @@ export async function refreshIdentity(options: { silent?: boolean } = {}) {
 		if (requestId !== refreshCounter) return;
 
 		identityState.apiOnline = true;
+		identityState.apiError = null;
+		identityState.lastApiOkAt = new Date().toISOString();
 		try {
 			await syncFromApi();
-		} catch {
+		} catch (error) {
 			if (requestId !== refreshCounter) return;
+			if (error instanceof ApiRequestError) {
+				identityState.apiError = { kind: error.kind, message: error.message };
+			}
 			await syncFromLocalDb();
 		}
-	} catch {
+	} catch (error) {
 		if (requestId !== refreshCounter) return;
 		identityState.apiOnline = false;
+		identityState.apiError =
+			error instanceof ApiRequestError
+				? { kind: error.kind, message: error.message }
+				: { kind: 'offline', message: API_OFFLINE_HINT };
 		await syncFromLocalDb();
 	} finally {
 		if (requestId === refreshCounter) {
@@ -123,6 +136,10 @@ export async function toggleApiBridge() {
 			// Server may close the connection before the response completes.
 		}
 		identityState.apiOnline = false;
+		identityState.apiError = {
+			kind: 'offline',
+			message: API_DISCONNECTED_HINT
+		};
 		identityState.p2pInfo = null;
 		identityState.p2pStatus = null;
 		await syncFromLocalDb();

@@ -2,8 +2,16 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { api, type Contact, type ConversationMessage } from '$lib/api';
+  import { ApiRequestError } from '$lib/api-errors';
   import Avatar from '$lib/components/Avatar.svelte';
   import FormattedText from '$lib/components/FormattedText.svelte';
+  import { identityState } from '$lib/identity.svelte';
+  import {
+    formatCacheAge,
+    readCachedConversation,
+    readCachedMessages,
+    writeCachedConversation
+  } from '$lib/local-cache';
   import { timeAgo } from '$lib/dmThreads';
 
   let contacts = $state<Contact[]>([]);
@@ -12,37 +20,67 @@
   let sending = $state(false);
   let messageBody = $state('');
   let error = $state('');
+  let showingCached = $state(false);
+  let cacheAge = $state<string | null>(null);
 
   const contactId = $derived(page.params.contactId);
 
   const contact = $derived(contacts.find((c) => c.id === contactId) ?? null);
 
+  async function hydrateFromCache() {
+    if (!contactId) return false;
+    const [msgCache, rosterCache] = await Promise.all([
+      readCachedConversation(contactId),
+      readCachedMessages()
+    ]);
+    if (rosterCache) contacts = rosterCache.contacts;
+    if (!msgCache) return false;
+    messages = msgCache.messages;
+    cacheAge = formatCacheAge(msgCache.saved_at);
+    showingCached = true;
+    return true;
+  }
+
   async function loadConversation() {
-    if (!contactId) return;
+    if (!contactId || !identityState.apiOnline) return;
     messages = await api.listConversationMessages(contactId);
+    await writeCachedConversation(contactId, messages);
+    showingCached = false;
+    cacheAge = null;
   }
 
   async function load() {
+    if (!contactId) return;
+
+    if (!identityState.apiOnline) {
+      loading = true;
+      error = '';
+      await hydrateFromCache();
+      loading = false;
+      return;
+    }
+
     loading = true;
     error = '';
     try {
       contacts = await api.listContacts();
-      if (contactId) {
-        await loadConversation();
-      }
+      await loadConversation();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to load conversation';
+      const hadCache = await hydrateFromCache();
+      if (!hadCache) {
+        error = e instanceof ApiRequestError ? e.message : 'Failed to load conversation';
+      }
     } finally {
       loading = false;
     }
   }
 
   onMount(() => {
-    void load();
+    void hydrateFromCache().then(() => load());
   });
 
   async function send() {
-    if (!contactId || !messageBody.trim() || sending) return;
+    if (!contactId || !messageBody.trim() || sending || !identityState.apiOnline) return;
     sending = true;
     error = '';
     try {
@@ -50,7 +88,7 @@
       messageBody = '';
       await loadConversation();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Send failed';
+      error = e instanceof ApiRequestError ? e.message : 'Send failed';
     } finally {
       sending = false;
     }
@@ -76,8 +114,15 @@
     <div class="chat-meta">
       <h1 class="chat-name">{contact.display_name}</h1>
       <span class="badge badge-{contact.connection_state}">{contact.connection_state}</span>
+      {#if showingCached && cacheAge}
+        <span class="cache-badge">saved · {cacheAge}</span>
+      {/if}
     </div>
   </header>
+
+  {#if !identityState.apiOnline}
+    <p class="offline-hint muted">Read-only — reconnect the API to send messages.</p>
+  {/if}
 
   <div class="chat-panel">
     {#if messages.length === 0}
@@ -104,11 +149,11 @@
   <form class="composer" onsubmit={(e) => { e.preventDefault(); void send(); }}>
     <input
       bind:value={messageBody}
-      placeholder="Message…"
-      disabled={sending}
+      placeholder={identityState.apiOnline ? 'Message…' : 'API offline — reconnect to send'}
+      disabled={sending || !identityState.apiOnline}
       autocomplete="off"
     />
-    <button type="submit" class="btn" disabled={sending || !messageBody.trim()}>
+    <button type="submit" class="btn" disabled={sending || !messageBody.trim() || !identityState.apiOnline}>
       {sending ? '…' : 'Send'}
     </button>
   </form>
@@ -149,6 +194,20 @@
     margin: 0;
     font-size: 1.15rem;
     font-weight: 700;
+  }
+
+  .cache-badge {
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .offline-hint {
+    margin: -0.5rem 0 0.75rem;
+    font-size: 0.875rem;
   }
 
   .chat-panel {
@@ -228,3 +287,4 @@
     padding: 0.65rem 1.1rem;
   }
 </style>
+

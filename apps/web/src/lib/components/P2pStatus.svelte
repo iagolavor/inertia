@@ -1,6 +1,7 @@
 <script lang="ts">
   import StatusDot from './StatusDot.svelte';
   import type { P2pStatus as P2pStatusInfo } from '$lib/api';
+  import { formatActivityLine, presencePulseActive } from '$lib/presence.svelte';
 
   interface Props {
     status: P2pStatusInfo | null;
@@ -10,81 +11,82 @@
 
   let { status, loading = false, compact = false }: Props = $props();
 
-  const relayPeerId = $derived(status?.relay_peer_id ?? null);
+  const tone = $derived(loading ? 'loading' : (status?.tone ?? 'off'));
 
-  const friendCount = $derived(
-    status?.connected_peer_ids.filter((id) => id !== relayPeerId).length ?? 0
+  const activityLines = $derived(
+    (status?.recent_activity ?? []).slice(0, 6).map(formatActivityLine)
   );
 
-  const running = $derived(Boolean(status?.running));
-  const relayConfigured = $derived(Boolean(status?.relay_configured));
-  const relayConnected = $derived(Boolean(status?.relay_connected));
-  const relayTcpOk = $derived(status?.relay_tcp_reachable === true);
-  const relayTcpFailed = $derived(status?.relay_tcp_reachable === false);
+  /** Header pill — always "P2P"; details live in the tooltip. */
+  const displayLabel = $derived(compact ? 'P2P' : (status?.labels.headline ?? 'P2P'));
 
-  const friendsOnline = $derived(running && friendCount > 0);
-  const relayHealthy = $derived(relayConfigured && relayConnected && relayTcpOk);
-  const relayWaiting = $derived(
-    running && relayConfigured && !relayConnected && relayTcpOk
-  );
-  const relayDown = $derived(relayConfigured && relayTcpFailed);
+  const tooltip = $derived.by(() => {
+    if (loading || !status) return 'Checking P2P connection…';
 
-  const online = $derived(friendsOnline || relayHealthy);
-  const idle = $derived(running && !friendsOnline && !relayDown && !relayHealthy);
+    const lines = [
+      status.labels.headline,
+      '',
+      status.labels.node,
+      status.labels.relay,
+      status.labels.friends,
+      status.labels.sync
+    ];
 
-  const title = $derived(
-    loading
-      ? 'Checking P2P…'
-      : !running
-        ? 'P2P not running — check Settings or restart the API'
-        : [
-            friendCount > 0 ? `Connected to ${friendCount} friend(s)` : null,
-            relayConfigured
-              ? relayConnected
-                ? 'Relay: libp2p connected'
-                : relayTcpOk
-                  ? 'Relay: port open, libp2p not connected yet'
-                  : relayTcpFailed
-                    ? 'Relay: TCP port unreachable — check VPS firewall'
-                    : 'Relay: checking…'
-              : 'No relay configured',
-            friendCount === 0 && !relayConfigured ? 'Waiting for friends or relay config' : null
-          ]
-            .filter(Boolean)
-            .join(' · ')
+    if (activityLines.length > 0) {
+      lines.push('', 'Recent activity:');
+      for (const line of activityLines) {
+        lines.push(`· ${line}`);
+      }
+    }
+
+    return lines.join('\n');
+  });
+
+  const dotOnline = $derived(
+    tone === 'online' || tone === 'idle' || tone === 'warn' || tone === 'loading'
   );
 
-  const label = $derived(
-    loading
-      ? 'P2P…'
-      : !running
-        ? 'P2P off'
-        : relayDown
-          ? 'Relay down'
-          : friendsOnline
-            ? `P2P ${friendCount}`
-            : relayHealthy
-              ? 'Relay OK'
-              : relayWaiting
-                ? 'Relay…'
-                : 'P2P idle'
+  const showPulse = $derived(
+    !loading && (presencePulseActive() || tone === 'warn')
   );
 </script>
 
 <div
   class="p2p-status"
   class:compact
-  class:is-online={online && !loading}
-  class:is-idle={idle && !loading && !relayWaiting}
-  class:is-warn={relayWaiting && !loading}
-  class:is-offline={(!running || relayDown) && !loading}
+  class:is-online={tone === 'online' && !loading}
+  class:is-idle={tone === 'idle' && !loading}
+  class:is-warn={(tone === 'warn' || showPulse) && !loading}
+  class:is-offline={(tone === 'off' || tone === 'error') && !loading}
   class:is-loading={loading}
-  {title}
-  aria-label={title}
+  class:is-pulse={showPulse}
+  title={tooltip}
+  aria-label={tooltip.replaceAll('\n', '. ')}
 >
-  <StatusDot online={online || idle || relayWaiting} {loading} size={compact ? 8 : 9} />
-  <span class="label">{label}</span>
+  <StatusDot
+    online={dotOnline}
+    {loading}
+    pulse={showPulse && !loading}
+    size={compact ? 8 : 9}
+  />
+  <span class="label">{displayLabel}</span>
 </div>
+
+{#if !compact && status && activityLines.length > 0 && status.running}
+  <ul class="status-layers" aria-label="Connection status">
+    <li><span class="layer-key">Node</span> {status.labels.node}</li>
+    <li><span class="layer-key">Relay</span> {status.labels.relay.replace(/^Relay: /, '')}</li>
+    <li><span class="layer-key">Friends</span> {status.labels.friends.replace(/^Friends: /, '')}</li>
+    <li><span class="layer-key">Outbox</span> {status.labels.sync.replace(/^Outbox: /, '')}</li>
+  </ul>
+  {#if activityLines.length > 0}
+    <ul class="activity-strip" aria-live="polite">
+      {#each activityLines as line}
+        <li>{line}</li>
+      {/each}
+    </ul>
+  {/if}
+{/if}
 
 <style>
   .p2p-status {
@@ -101,6 +103,22 @@
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
+    flex-shrink: 0;
+    transition: border-color 0.25s ease;
+  }
+
+  .p2p-status.is-pulse {
+    animation: border-pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes border-pulse {
+    0%,
+    100% {
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+    }
+    50% {
+      border-color: color-mix(in srgb, var(--accent) 70%, var(--border));
+    }
   }
 
   .p2p-status.compact {
@@ -142,5 +160,41 @@
 
   .is-offline .label {
     color: var(--danger);
+  }
+
+  .status-layers {
+    list-style: none;
+    margin: 0.35rem 0 0;
+    padding: 0;
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  .status-layers li {
+    margin-bottom: 0.15rem;
+  }
+
+  .layer-key {
+    display: inline-block;
+    min-width: 3.25rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .activity-strip {
+    list-style: none;
+    margin: 0.35rem 0 0;
+    padding: 0;
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.35;
+    max-width: 16rem;
+  }
+
+  .activity-strip li {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 </style>

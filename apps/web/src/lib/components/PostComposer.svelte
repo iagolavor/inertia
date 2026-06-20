@@ -9,7 +9,7 @@
 
   interface Props {
     disabled?: boolean;
-    onposted?: () => void;
+    onposted?: (result: { content_id: string; body: string; local_media_preview?: string }) => void;
   }
 
   let { disabled = false, onposted }: Props = $props();
@@ -75,14 +75,20 @@
     error = '';
 
     try {
+      let content_id: string;
       if (mediaBase64) {
-        await api.createPost(text, mediaBase64);
+        ({ content_id } = await api.createPost(text, mediaBase64));
       } else {
-        await api.createPost(text);
+        ({ content_id } = await api.createPost(text));
       }
       body = '';
+      const preview = mediaPreview;
       clearMedia();
-      onposted?.();
+      onposted?.({
+        content_id,
+        body: text,
+        local_media_preview: preview ?? undefined
+      });
     } catch (e) {
       error = e instanceof Error ? e.message : 'Falha ao publicar';
     } finally {

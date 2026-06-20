@@ -20,7 +20,7 @@ if (git rev-parse $tag 2>$null) {
 git tag -a $tag -m "Release $tag"
 git push origin $tag
 
-Write-Host "Creating GitHub release for $tag..."
-gh release create $tag --title $tag --generate-notes
-
-Write-Host "Done. Release: https://github.com/iagolavor/inertia/releases/tag/$tag"
+Write-Host "Tag $tag pushed."
+Write-Host "GitHub Actions builds inertia-windows-x64.zip and publishes the release."
+Write-Host "Track: https://github.com/iagolavor/inertia/actions"
+Write-Host "Release: https://github.com/iagolavor/inertia/releases/tag/$tag"

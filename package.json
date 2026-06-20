@@ -12,6 +12,7 @@
     "vps:ssh": "powershell -ExecutionPolicy Bypass -File scripts/vps-ssh.ps1",
     "web": "npm run dev --prefix apps/web",
     "web:build": "npm run build --prefix apps/web",
-    "web:preview": "npm run preview --prefix apps/web -- --host"
+    "web:preview": "npm run preview --prefix apps/web -- --host",
+    "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1"
   }
 }

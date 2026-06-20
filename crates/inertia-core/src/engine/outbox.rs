@@ -9,16 +9,29 @@ use crate::error::{CoreError, CoreResult};
 use crate::p2p::{P2pEvent, P2pNode};
 use crate::store_handle::StoreHandle;
 
+use super::activity::{self, ActivityLog};
+
 pub async fn run_p2p_event_loop(
     mut events: mpsc::UnboundedReceiver<P2pEvent>,
     store: StoreHandle,
     p2p: Arc<Mutex<Option<P2pNode>>>,
+    activity: Arc<Mutex<ActivityLog>>,
 ) {
     while let Some(event) = events.recv().await {
+        activity::log_p2p_event(&activity, &store, &event).await;
+
         if let P2pEvent::PeerConnected(peer_id) = event {
             info!(%peer_id, "peer connected — flushing pending outbox");
-            if let Err(e) = flush_outbox_for_peer(&store, &p2p, peer_id).await {
-                warn!(error = %e, "outbox flush on peer connect failed");
+            let flushed = flush_outbox_for_peer(&store, &p2p, peer_id).await;
+            match flushed {
+                Ok(count) if count > 0 => {
+                    activity
+                        .lock()
+                        .await
+                        .push("outbox_flush", format!("Sent {count} pending item(s)"));
+                }
+                Err(e) => warn!(error = %e, "outbox flush on peer connect failed"),
+                _ => {}
             }
             if let Err(e) = super::blobs::request_missing_blobs_for_peer(&store, &p2p, peer_id).await
             {
@@ -35,7 +48,7 @@ async fn flush_outbox_for_peer(
     store: &StoreHandle,
     p2p: &Arc<Mutex<Option<P2pNode>>>,
     peer_id: PeerId,
-) -> CoreResult<()> {
+) -> CoreResult<usize> {
     let peer_id_str = peer_id.to_string();
     let contacts = store.with(|s| s.list_contacts()).await?;
     let recipient_ids: Vec<String> = contacts
@@ -45,10 +58,11 @@ async fn flush_outbox_for_peer(
         .collect();
 
     if recipient_ids.is_empty() {
-        return Ok(());
+        return Ok(0);
     }
 
     let entries = store.with(|s| s.list_outbox()).await?;
+    let mut sent = 0usize;
     for entry in entries {
         if !recipient_ids.contains(&entry.recipient_id) {
             continue;
@@ -59,7 +73,7 @@ async fn flush_outbox_for_peer(
         ) {
             continue;
         }
-        if let Err(e) = deliver_outbox_entry(
+        if deliver_outbox_entry(
             store,
             p2p,
             &entry.content_id,
@@ -67,16 +81,18 @@ async fn flush_outbox_for_peer(
             false,
         )
         .await
+        .is_ok()
         {
+            sent += 1;
+        } else {
             warn!(
                 content_id = %entry.content_id,
                 recipient_id = %entry.recipient_id,
-                error = %e,
                 "auto outbox delivery failed"
             );
         }
     }
-    Ok(())
+    Ok(sent)
 }
 
 pub async fn deliver_outbox_entry(
