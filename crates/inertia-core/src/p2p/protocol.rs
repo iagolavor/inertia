@@ -41,11 +41,26 @@ pub struct DeliveryAck {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlobRequest {
+    pub hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlobData {
+    pub hash: String,
+    /// Raw image bytes (JPEG/PNG/WebP). Serialized as base64 in JSON.
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InertiaRequest {
     FriendRequest(FriendRequest),
     FriendAccept(FriendAccept),
     InviteRedemption(InviteRedemption),
     SendEnvelope(SendEnvelope),
+    BlobRequest(BlobRequest),
+    /// Sender pushes blob bytes after envelope delivery ack.
+    BlobPush(BlobData),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +68,8 @@ pub enum InertiaResponse {
     Ok,
     FriendAccept(FriendAccept),
     DeliveryAck(DeliveryAck),
+    BlobData(BlobData),
+    BlobNotFound,
     Error(String),
 }
 

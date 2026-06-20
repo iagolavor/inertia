@@ -1,4 +1,5 @@
 mod backup;
+mod blobs;
 mod contacts;
 mod feed;
 mod identity;

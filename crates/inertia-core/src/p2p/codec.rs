@@ -88,7 +88,7 @@ impl Codec for JsonCodec {
 }
 
 pub fn request_response_config() -> libp2p::request_response::Config {
-    libp2p::request_response::Config::default().with_request_timeout(Duration::from_secs(30))
+    libp2p::request_response::Config::default().with_request_timeout(Duration::from_secs(90))
 }
 
 pub fn protocol_stream() -> StreamProtocol {
