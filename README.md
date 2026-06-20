@@ -164,18 +164,11 @@ inertia/
 
 Works on **Windows**, **macOS**, and **Linux**. On Windows, open a new terminal after installing Rust/Node so `PATH` is updated.
 
-### Windows (first time)
+### Windows
 
-**End users (no dev tools):** download **`inertia-windows-x64.zip`** from [Releases](https://github.com/iagolavor/inertia/releases/latest), extract, double-click **`run-desktop.cmd`** → [http://127.0.0.1:4783](http://127.0.0.1:4783).
+**End users:** download **`inertia-windows-x64.zip`** from [Releases](https://github.com/iagolavor/inertia/releases/latest), extract, double-click **`run.cmd`**. See [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md).
 
-**Developers / build from source:** see **[docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md)**.
-
-```powershell
-npm run setup:windows -- -InstallDeps   # winget installs + build (one time)
-npm run run:windows                       # API + web in two windows → http://localhost:4173
-```
-
-Or double-click `scripts\setup-windows.cmd` and `scripts\run-windows.cmd`.
+**Developers:** same as below (Rust + Node, `npm run api` + `npm run web`).
 
 ---
 
@@ -243,14 +236,11 @@ Open TCP **9000** on the VPS firewall. Copy the relay peer id from the logs into
 | `npm run web:build` | Production static build |
 | `npm run web:preview` | Serve built web UI (**recommended for daily use**) |
 | `npm run web` | Vite dev server in `apps/web` (UI development only) |
-| `npm run setup:windows` | Windows first-time build; add `-- -InstallDeps` to install Node/Rust/Git via winget |
-| `npm run run:windows` | Start release API + web preview in two PowerShell windows |
-| `npm run update:windows` | Pull latest release (prebuilt zip when available; keeps `data/`) |
 | `npm run package:windows` | Build `dist/inertia-windows-x64.zip` locally (after release build) |
 
 Copy [`.env.example`](.env.example) to `.env` for VPS SSH defaults (gitignored).
 
-**Windows:** see [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) for script policy, winget installs, and double-click `.cmd` helpers.
+**Windows (end users):** [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) — prebuilt zip, `run.cmd`, `update.cmd`.
 
 ### VS Code / Cursor
 

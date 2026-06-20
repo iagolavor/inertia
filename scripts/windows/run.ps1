@@ -1,4 +1,4 @@
-# Start prebuilt Inertia (single process: API + static web on http://127.0.0.1:4783).
+# Start prebuilt Inertia (API + UI on http://127.0.0.1:4783).
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 Set-Location $root
@@ -6,7 +6,7 @@ Set-Location $root
 $api = Join-Path $root 'inertia-api.exe'
 if (-not (Test-Path $api)) {
     Write-Host 'inertia-api.exe not found in this folder.' -ForegroundColor Red
-    Write-Host 'Download the latest inertia-windows-x64.zip from GitHub Releases.'
+    Write-Host 'Download inertia-windows-x64.zip from GitHub Releases.'
     exit 1
 }
 
