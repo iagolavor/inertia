@@ -1,38 +1,81 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, type Contact, type InboxEntry } from '$lib/api';
+  import { ApiRequestError } from '$lib/api-errors';
   import DmThreadList from '$lib/components/DmThreadList.svelte';
   import { buildDmThreads } from '$lib/dmThreads';
+  import { identityState } from '$lib/identity.svelte';
+  import { formatCacheAge, readCachedMessages, writeCachedMessages } from '$lib/local-cache';
 
   let contacts = $state<Contact[]>([]);
   let inbox = $state<InboxEntry[]>([]);
   let loading = $state(true);
   let error = $state('');
+  let showingCached = $state(false);
+  let cacheAge = $state<string | null>(null);
+
+  async function hydrateFromCache() {
+    const cached = await readCachedMessages();
+    if (!cached) return false;
+    contacts = cached.contacts;
+    inbox = cached.inbox;
+    cacheAge = formatCacheAge(cached.saved_at);
+    showingCached = true;
+    return true;
+  }
 
   async function load() {
+    if (!identityState.identity) {
+      loading = false;
+      return;
+    }
+
+    if (!identityState.apiOnline) {
+      loading = true;
+      error = '';
+      await hydrateFromCache();
+      loading = false;
+      return;
+    }
+
     loading = true;
     error = '';
     try {
       [contacts, inbox] = await Promise.all([api.listContacts(), api.listInbox()]);
+      showingCached = false;
+      cacheAge = null;
+      await writeCachedMessages(contacts, inbox);
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to load messages';
+      const hadCache = await hydrateFromCache();
+      if (!hadCache) {
+        error = e instanceof ApiRequestError ? e.message : 'Failed to load messages';
+      }
     } finally {
       loading = false;
     }
   }
 
   onMount(() => {
-    void load();
+    void hydrateFromCache().then(() => load());
   });
 
   const threads = $derived(buildDmThreads(contacts, inbox));
 </script>
 
 <div class="page-head">
-  <h1 class="page-title">Messages</h1>
+  <h1 class="page-title">
+    Messages
+    {#if showingCached && cacheAge}
+      <span class="cache-badge">saved · {cacheAge}</span>
+    {/if}
+  </h1>
   <a class="head-action" href="/friends/add" aria-label="Add friend">+</a>
 </div>
 <p class="subtitle">Direct messages with your circle — encrypted and ephemeral.</p>
+
+{#if !identityState.apiOnline && identityState.identity}
+  <p class="offline-hint muted">Thread list may be outdated while the API is offline.</p>
+{/if}
 
 {#if error}
   <p class="error">{error}</p>
@@ -54,6 +97,19 @@
     font-size: 1.35rem;
     font-weight: 700;
     letter-spacing: -0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .cache-badge {
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
   }
 
   .head-action {
@@ -81,5 +137,10 @@
     color: var(--muted);
     margin: 0 0 1.25rem;
     font-size: 0.9rem;
+  }
+
+  .offline-hint {
+    margin: -0.5rem 0 1rem;
+    font-size: 0.875rem;
   }
 </style>

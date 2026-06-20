@@ -5,11 +5,15 @@
   interface Props {
     photos: ProfilePhoto[];
     disabled?: boolean;
+    /** Override blob URL resolution (e.g. offline cached previews). */
+    photoUrl?: (hash: string) => string;
     onuploaded?: () => void;
     onopenpost?: (contentId: string) => void;
   }
 
-  let { photos, disabled = false, onuploaded, onopenpost }: Props = $props();
+  let { photos, disabled = false, photoUrl, onuploaded, onopenpost }: Props = $props();
+
+  const urlFor = (hash: string) => (photoUrl ? photoUrl(hash) : blobUrl(hash));
 
   let uploading = $state(false);
   let error = $state('');
@@ -97,7 +101,7 @@
         disabled={!photo.content_id}
         aria-label={photo.caption ?? 'Open post'}
       >
-        <img src={blobUrl(photo.blob_hash)} alt={photo.caption ?? 'Profile photo'} loading="lazy" />
+        <img src={urlFor(photo.blob_hash)} alt={photo.caption ?? 'Profile photo'} loading="lazy" />
       </button>
     {/each}
   </div>
