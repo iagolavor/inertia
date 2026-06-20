@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Branches
 
-- **One concern per branch/PR** — name reflects the feature (`feature/relay-p2p-connection`), not vague prep labels.
+- **One concern per branch/PR** — branch prefix matches the work (`feature/*`, `docs/*`, `fix/*`, `refactor/*`), not vague prep names.
 - **Delete remote branches** after merge (or when abandoned). Do not leave stale remotes; offer to delete when work is merged or dropped.
 - **Do not push new commits to a branch after its PR merged** — open a new branch for follow-up work.
 
@@ -16,6 +16,25 @@ alwaysApply: true
 - **Encapsulated changes only** — each commit/PR should map to one coherent unit of work that fits the project spirit (local-first, P2P, minimal scope).
 - **No broad grab-bag PRs** — do not mix unrelated items (e.g. relay feature + git audit + placeholder cleanup) in one PR.
 - **Ask before committing** unless the user explicitly asked for a commit. Do not auto-commit audit reports, policy files, or large doc dumps without review.
+
+## GitHub PR labels
+
+When creating or updating PRs with `gh`, always apply **one primary label** (see [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md)):
+
+| Label | When |
+|-------|------|
+| `feature` | New capability or user-facing behavior (`feature/*`) |
+| `bugfix` | Fixes incorrect behavior (`fix/*`) |
+| `docs` | Documentation only (`docs/*`) |
+| `refactor` | Restructure without intended behavior change |
+| `release` | `development` → `master` stable cut |
+
+```bash
+gh pr create ... --label docs
+gh pr edit <number> --add-label docs   # if label was missed
+```
+
+Match branch prefix to label when possible (`docs/readme-refresh` → `docs`, not `feature`).
 
 ## Before acting
 
