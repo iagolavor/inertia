@@ -31,14 +31,30 @@ Keep names **short**, **lowercase**, **hyphen-separated**. No issue numbers requ
 
 ## Pull requests
 
-**Default base branch: `development`** — not `master`.
+**Default integration branch: `development`** — not `master`.
+
+While the project is **solo**, you can **push directly to `development`** (docs, typos, small fixes). Use feature branches + PRs when you want a review checkpoint or a larger change set — not required for every commit.
+
+**`master`** stays protected: stable cuts only via a **release PR** (`development` → `master`).
+
+### Optional: feature branch + PR
 
 1. Push your feature branch: `git push -u origin feature/my-feature`
 2. Open a PR: **base** `development` ← **compare** `feature/my-feature`
-3. Merge via PR (squash or merge commit — prefer **merge commit** to match `--no-ff` locally)
+3. Merge via PR (prefer **merge commit** to match `--no-ff` locally)
 4. Delete the feature branch after merge
 
-With GitHub CLI:
+### Direct to `development` (solo, small changes)
+
+```bash
+git checkout development
+git pull origin development
+# … edit …
+git commit -am "docs: fix README wording"
+git push origin development
+```
+
+With GitHub CLI (when you do use a PR):
 
 ```bash
 gh pr create --base development --head feature/my-feature \
@@ -87,7 +103,7 @@ gh pr create --base master --head development \
 | Branch | Policy |
 |--------|--------|
 | `master` | **Protected** — no direct pushes; changes land only via merged PR (release flow: `development` → `master`). |
-| `development` | Open for direct push while the project is solo; switch to PR-only when collaborators join. |
+| `development` | **Open** — direct push while solo; optional PRs for larger work |
 
 ## Day-to-day
 

@@ -31,6 +31,10 @@
     feedError = '';
     try {
       feed = await api.listFeed();
+      if (selectedPost) {
+        const updated = feed.find((p) => p.content_id === selectedPost!.content_id);
+        if (updated) selectedPost = updated;
+      }
     } catch (e) {
       feedError = e instanceof Error ? e.message : 'Falha ao carregar feed';
     } finally {
@@ -40,6 +44,14 @@
 
   onMount(() => {
     void loadFeed();
+
+    function onVisible() {
+      if (document.visibilityState === 'visible') {
+        void loadFeed();
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   });
 </script>
 

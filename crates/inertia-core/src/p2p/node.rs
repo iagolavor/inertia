@@ -261,7 +261,10 @@ impl P2pNode {
                 };
 
                 let Some(event) = event else {
-                    tokio::task::yield_now().await;
+                    // Release the swarm lock between polls so dial/status handlers are not
+                    // starved while idle. Short sleep keeps CPU low without holding the mutex
+                    // across a full swarm.next().await.
+                    tokio::time::sleep(Duration::from_millis(100)).await;
                     continue;
                 };
 
@@ -622,6 +625,7 @@ async fn process_incoming_envelope(
 pub fn build_post_envelope(
     identity: &Identity,
     recipient: &Contact,
+    content_id: &str,
     body: &str,
     media_ref: Option<&str>,
 ) -> CoreResult<ContentEnvelope> {
@@ -642,6 +646,7 @@ pub fn build_post_envelope(
         ciphertext,
         vec![],
     );
+    envelope.id = content_id.to_string();
     envelope.signature = identity.sign(&envelope.signing_bytes())?;
     Ok(envelope)
 }

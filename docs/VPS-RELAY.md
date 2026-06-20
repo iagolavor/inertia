@@ -92,33 +92,33 @@ Each person runs **inertia-api** locally and opens the **built web UI** in a bro
 | Rust | [rustup.rs](https://rustup.rs) | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
 | Node 20+ | [nodejs.org](https://nodejs.org) | `sudo apt install nodejs npm` or nvm |
 
-**Terminal 1 — API** (keep running)
+**Terminal 1 — API** (keep running; release build, low memory)
 
 ```powershell
 # Windows (repo root)
-npm run api
+npm run api:release
 ```
 
 ```bash
 # Linux (repo root)
-cargo run -p inertia-api
+cargo run --release -p inertia-api
 ```
 
 **Terminal 2 — web UI**
 
-Dev mode (you, while hacking):
-
-```bash
-npm run web
-# open http://localhost:5173
-```
-
-Production-style static build (recommended for brother test):
+Recommended (daily use / brother test — static build, low memory):
 
 ```bash
 npm run web:build
 npm run web:preview
 # default http://localhost:4173 — use --host so LAN devices can connect
+```
+
+Dev mode (only while editing the UI — Vite holds ~200 MB RAM):
+
+```bash
+npm run web
+# open http://localhost:5173
 ```
 
 On Windows, `web:preview` binds `0.0.0.0` via `--host`. Note your LAN IP (e.g. `192.168.1.10`) and the preview port.

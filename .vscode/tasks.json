@@ -48,6 +48,67 @@
       }
     },
     {
+      "label": "inertia-api:release",
+      "type": "shell",
+      "command": "powershell -ExecutionPolicy Bypass -File scripts/stop-api.ps1; cargo run --release -p inertia-api",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "RUST_LOG": "info"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false,
+        "group": "inertia-servers"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "inertia-api",
+        "pattern": {
+          "regexp": "."
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "inertia-api listening"
+        }
+      }
+    },
+    {
+      "label": "web:preview",
+      "type": "shell",
+      "command": "npm run web:preview",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false,
+        "group": "inertia-servers"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": {
+          "regexp": "."
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Local:\\s+http"
+        }
+      }
+    },
+    {
       "label": "web",
       "type": "shell",
       "command": "npm run dev",
@@ -75,6 +136,12 @@
           "endsPattern": "Local:\\s+http"
         }
       }
+    },
+    {
+      "label": "run",
+      "dependsOn": ["inertia-api:release", "web:preview"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
     },
     {
       "label": "dev",

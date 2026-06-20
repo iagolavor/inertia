@@ -3,8 +3,6 @@
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png" />
     <img src="docs/logo-light.png" alt="Inertia" width="200" />
   </picture>
-  <br />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg" alt="AGPL-3.0-or-later" /></a>
 </p>
 
 **A local-first, P2P, ephemeral social network**
@@ -176,27 +174,30 @@ git clone https://github.com/iagolavor/inertia.git
 cd inertia
 ```
 
-### 2. Start the local API
+### 2. Run Inertia (recommended — low memory)
+
+Use the **release API** and **built static UI**, not Vite dev mode. On a typical machine this is ~25 MB for the API plus a small static file server, instead of ~400 MB+ with `npm run api` + `npm run web`.
+
+**Terminal 1 — API** (repo root):
 
 ```bash
-# From the repo root
-npm run api
-# or: cargo run -p inertia-api
+npm run api:release
 ```
 
-The API listens on `http://127.0.0.1:4783`. Data is stored in `./data` (gitignored).
-
-### 3. Install and run the frontend
+**Terminal 2 — web UI** (repo root; install once, build once, then serve):
 
 ```bash
-cd apps/web
-npm install
-npm run dev
+cd apps/web && npm install
+cd ../..
+npm run web:build
+npm run web:preview
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Open [http://localhost:4173](http://localhost:4173). The API listens on `http://127.0.0.1:4783`. Data is stored in `./data` (gitignored).
 
-### 4. First-time setup
+> **Note:** Large `node.exe` entries in Task Manager are usually your **editor** (TypeScript language server), not Inertia. The API itself is `inertia-api.exe` (~12 MB release).
+
+### 3. First-time setup
 
 1. Create your profile (display name) on the **Profile** tab.
 2. **Settings → Connection** — set your **relay multiaddr** (full `/ip4/…/tcp/9000/p2p/…` string from [VPS-RELAY.md](docs/VPS-RELAY.md)). Header should show **Relay OK**.
@@ -219,24 +220,39 @@ Open TCP **9000** on the VPS firewall. Copy the relay peer id from the logs into
 
 | Command | Description |
 |---------|-------------|
-| `npm run api` | Start `inertia-api` |
+| `npm run api:release` | Start optimized `inertia-api` (**recommended for daily use**) |
+| `npm run api` | Start debug `inertia-api` (faster rebuilds while hacking Rust) |
 | `npm run api:stop` | Kill process on port 4783 (Windows) |
-| `npm run api:restart` | Restart the API |
+| `npm run api:restart` | Restart the API (debug) |
 | `npm run relay` | Run `inertia-relay` locally (dev) |
 | `npm run vps:ssh` | SSH to VPS (`INERTIA_VPS_HOST` in `.env`) |
 | `npm run web:build` | Production static build |
-| `npm run web:preview` | Serve built web UI (LAN-friendly) |
-| `npm run web` | Run `npm run dev` in `apps/web` |
+| `npm run web:preview` | Serve built web UI (**recommended for daily use**) |
+| `npm run web` | Vite dev server in `apps/web` (UI development only) |
 
 Copy [`.env.example`](.env.example) to `.env` for VPS SSH defaults (gitignored).
 
 ### VS Code / Cursor
 
-The **inertia-api** task in [`.vscode/tasks.json`](.vscode/tasks.json) stops any running instance before starting. Use **dev** to run API + web in parallel.
+- **`run`** — release API + static web preview (low memory; run `npm run web:build` first if `build/` is missing).
+- **`dev`** — debug API + Vite dev server (use only while editing code).
+
+The **inertia-api** task stops any running instance before starting. Use **api:stop** if port 4783 is stuck.
 
 ---
 
 ## Development
+
+When editing Rust or Svelte, use the fast-rebuild dev servers (higher RAM — Vite dev alone is ~200 MB):
+
+```bash
+# Terminal 1 — API (debug, faster compile)
+npm run api
+
+# Terminal 2 — frontend (HMR)
+cd apps/web && npm install && npm run dev
+# open http://localhost:5173
+```
 
 ```bash
 # Core tests

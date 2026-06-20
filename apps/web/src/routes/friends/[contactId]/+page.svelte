@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { api, type Contact, type InboxEntry } from '$lib/api';
+  import { api, type Contact, type ConversationMessage } from '$lib/api';
   import Avatar from '$lib/components/Avatar.svelte';
   import FormattedText from '$lib/components/FormattedText.svelte';
   import { timeAgo } from '$lib/dmThreads';
 
   let contacts = $state<Contact[]>([]);
-  let inbox = $state<InboxEntry[]>([]);
+  let messages = $state<ConversationMessage[]>([]);
   let loading = $state(true);
   let sending = $state(false);
   let messageBody = $state('');
@@ -17,24 +17,19 @@
 
   const contact = $derived(contacts.find((c) => c.id === contactId) ?? null);
 
-  const messages = $derived(
-    inbox
-      .filter(
-        (entry) =>
-          entry.content_type === 'message' &&
-          (entry.sender_id === contactId ||
-            entry.sender_id === contact?.signing_pubkey)
-      )
-      .sort(
-        (a, b) => new Date(a.received_at).getTime() - new Date(b.received_at).getTime()
-      )
-  );
+  async function loadConversation() {
+    if (!contactId) return;
+    messages = await api.listConversationMessages(contactId);
+  }
 
   async function load() {
     loading = true;
     error = '';
     try {
-      [contacts, inbox] = await Promise.all([api.listContacts(), api.listInbox()]);
+      contacts = await api.listContacts();
+      if (contactId) {
+        await loadConversation();
+      }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load conversation';
     } finally {
@@ -53,12 +48,19 @@
     try {
       await api.sendMessage(contactId, messageBody.trim());
       messageBody = '';
-      inbox = await api.listInbox();
+      await loadConversation();
     } catch (e) {
       error = e instanceof Error ? e.message : 'Send failed';
     } finally {
       sending = false;
     }
+  }
+
+  function deliveryLabel(status: ConversationMessage['delivery_status']): string | null {
+    if (!status || status === 'delivered') return null;
+    if (status === 'pending') return 'Sending…';
+    if (status === 'failed') return 'Not delivered';
+    return status;
   }
 </script>
 
@@ -83,9 +85,16 @@
     {:else}
       <ul class="message-list">
         {#each messages as msg (msg.content_id)}
-          <li class="message-bubble">
-            <FormattedText text={msg.body} />
-            <span class="message-time">{timeAgo(msg.received_at)}</span>
+          <li class="message-row" class:own={msg.is_own}>
+            <div class="message-bubble">
+              <FormattedText text={msg.body} />
+              <span class="message-time">
+                {timeAgo(msg.at)}
+                {#if deliveryLabel(msg.delivery_status)}
+                  · {deliveryLabel(msg.delivery_status)}
+                {/if}
+              </span>
+            </div>
           </li>
         {/each}
       </ul>
@@ -167,12 +176,27 @@
     gap: 0.65rem;
   }
 
+  .message-row {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .message-row.own {
+    justify-content: flex-end;
+  }
+
   .message-bubble {
     max-width: 85%;
     padding: 0.65rem 0.85rem;
     border-radius: 14px 14px 14px 4px;
     background: color-mix(in srgb, var(--accent) 12%, var(--bg));
     border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  }
+
+  .message-row.own .message-bubble {
+    border-radius: 14px 14px 4px 14px;
+    background: color-mix(in srgb, var(--accent) 28%, var(--bg));
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
   }
 
   .message-time {

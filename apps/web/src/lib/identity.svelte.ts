@@ -11,6 +11,8 @@ export const identityState = $state({
 });
 
 let refreshCounter = 0;
+let lastP2pStatusAt = 0;
+const P2P_STATUS_MIN_INTERVAL_MS = 15_000;
 
 async function syncFromApi() {
 	const identity = await api.getIdentity();
@@ -28,7 +30,11 @@ async function syncFromApi() {
 			} else {
 				identityState.p2pInfo = await api.startP2p();
 			}
-			identityState.p2pStatus = await api.p2pStatus();
+			const now = Date.now();
+			if (now - lastP2pStatusAt >= P2P_STATUS_MIN_INTERVAL_MS) {
+				identityState.p2pStatus = await api.p2pStatus();
+				lastP2pStatusAt = now;
+			}
 		} catch {
 			identityState.p2pInfo = null;
 			identityState.p2pStatus = null;
@@ -65,6 +71,7 @@ export async function refreshIdentity(options: { silent?: boolean } = {}) {
 
 	if (!silent) {
 		identityState.loading = true;
+		lastP2pStatusAt = 0;
 	}
 
 	try {

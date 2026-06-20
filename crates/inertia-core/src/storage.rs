@@ -359,6 +359,26 @@ impl Store {
         self.ensure_post_comments_table()?;
         self.ensure_profile_photo_content_id_column()?;
         self.ensure_contact_multiaddrs_column()?;
+        self.ensure_sent_messages_table()?;
+        Ok(())
+    }
+
+    fn ensure_sent_messages_table(&self) -> CoreResult<()> {
+        self.conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS sent_messages (
+                content_id TEXT NOT NULL,
+                recipient_id TEXT NOT NULL,
+                body TEXT NOT NULL,
+                sent_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                status TEXT NOT NULL,
+                PRIMARY KEY (content_id, recipient_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_sent_messages_recipient
+                ON sent_messages(recipient_id);
+            ",
+        )?;
         Ok(())
     }
 
@@ -713,6 +733,10 @@ impl Store {
             "UPDATE outbox SET status = ?1 WHERE content_id = ?2 AND recipient_id = ?3",
             params![status_str(status), content_id, recipient_id],
         )?;
+        self.conn.execute(
+            "UPDATE sent_messages SET status = ?1 WHERE content_id = ?2 AND recipient_id = ?3",
+            params![status_str(status), content_id, recipient_id],
+        )?;
         Ok(())
     }
 
@@ -742,6 +766,89 @@ impl Store {
             ],
         )?;
         Ok(())
+    }
+
+    pub fn insert_sent_message(
+        &self,
+        content_id: &str,
+        recipient_id: &str,
+        body: &str,
+        sent_at: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
+        status: DeliveryStatus,
+    ) -> CoreResult<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO sent_messages
+             (content_id, recipient_id, body, sent_at, expires_at, status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                content_id,
+                recipient_id,
+                body,
+                sent_at.to_rfc3339(),
+                expires_at.to_rfc3339(),
+                status_str(status),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_sent_messages_for_recipient(
+        &self,
+        recipient_id: &str,
+    ) -> CoreResult<Vec<SentMessage>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT content_id, recipient_id, body, sent_at, expires_at, status
+             FROM sent_messages WHERE recipient_id = ?1 ORDER BY sent_at ASC",
+        )?;
+        let rows = stmt.query_map(params![recipient_id], |row| {
+            let status: String = row.get("status")?;
+            Ok(SentMessage {
+                content_id: row.get("content_id")?,
+                recipient_id: row.get("recipient_id")?,
+                body: row.get("body")?,
+                sent_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("sent_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                expires_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("expires_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                status: parse_status(&status),
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(CoreError::from)
+    }
+
+    pub fn list_inbox_messages_from_sender(&self, sender_id: &str) -> CoreResult<Vec<InboxEntry>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT content_id, sender_id, received_at, expires_at, read_at, body, media_ref, content_type
+             FROM inbox
+             WHERE sender_id = ?1 AND content_type = 'message'
+             ORDER BY received_at ASC",
+        )?;
+        let rows = stmt.query_map(params![sender_id], |row| {
+            let content_type: String = row.get("content_type")?;
+            Ok(InboxEntry {
+                content_id: row.get("content_id")?,
+                sender_id: row.get("sender_id")?,
+                received_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("received_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                expires_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("expires_at")?)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                read_at: row
+                    .get::<_, Option<String>>("read_at")?
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                    .map(|dt| dt.with_timezone(&Utc)),
+                body: row.get("body")?,
+                media_ref: row.get("media_ref")?,
+                content_type: parse_content_type(&content_type),
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(CoreError::from)
     }
 
     pub fn list_inbox(&self) -> CoreResult<Vec<InboxEntry>> {
@@ -1201,11 +1308,16 @@ impl Store {
             "DELETE FROM issued_invites WHERE expires_at < ?1 AND consumed_at IS NULL",
             params![now],
         )?;
+        let sent_messages = self.conn.execute(
+            "DELETE FROM sent_messages WHERE expires_at < ?1",
+            params![now],
+        )?;
         Ok(PurgeReport {
             outbox,
             inbox,
             local_posts,
             invites,
+            sent_messages,
         })
     }
 
@@ -1269,12 +1381,23 @@ impl Store {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SentMessage {
+    pub content_id: String,
+    pub recipient_id: String,
+    pub body: String,
+    pub sent_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub status: DeliveryStatus,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct PurgeReport {
     pub outbox: usize,
     pub inbox: usize,
     pub local_posts: usize,
     pub invites: usize,
+    pub sent_messages: usize,
 }
 
 #[cfg(test)]
