@@ -45,7 +45,7 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 1. Add `@capacitor/core` + platform packages under `apps/web` (or `apps/mobile` wrapper).
 2. Point Capacitor `webDir` at SvelteKit `build/` output.
 3. Replace dev proxy: use `CapacitorHttp` or absolute URL to local API when packaged.
-4. **Run `inertia-api` on device** — hardest part: bundle Rust as a sidecar, JNI/FFI, or foreground service. Desktop runs `cargo run -p inertia-api`; mobile needs a native integration plan.
+4. **Run `inertia-api` on device** — hardest part: bundle Rust as a sidecar, JNI/FFI, or foreground service. Desktop runs `npm run api:release` (or `cargo run --release -p inertia-api`); mobile needs a native integration plan.
 5. Optional: `@capacitor/camera`, `@capacitor/filesystem` for profile photos instead of `<input type="file">`.
 
 ### What not to do before Capacitor
@@ -58,10 +58,21 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 
 **Git:** integration branch is `development`; feature branches use `feature/<name>`; **PRs target `development` by default**. See [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md).
 
-**Recommended — visible API logs in Cursor**
+### Recommended — daily use (low memory)
 
-1. `Terminal` → `Run Task…` → **`inertia-api`** — dedicated terminal tab, always shown  
-2. Or run **`dev`** to start API + web in two dedicated tabs  
+Release API (~12 MB) + static web preview. Avoid Vite dev unless you are editing the UI.
+
+```powershell
+# Terminal 1 — API
+npm run api:release
+
+# Terminal 2 — web (build once, then serve)
+npm run web:build
+npm run web:preview
+# http://localhost:4173
+```
+
+**Cursor tasks:** `run` (release API + preview). Run `web:build` first if `apps/web/build/` is missing.
 
 **Separate OS window (outside Cursor)**
 
@@ -69,13 +80,18 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 npm run api:window
 ```
 
-**Manual**
+### Development — editing code (higher memory)
+
+Fast rebuilds; Vite dev holds ~200 MB for HMR and file watching.
+
+1. `Terminal` → `Run Task…` → **`dev`** — debug API + Vite in two tabs  
+2. Or manually:
 
 ```bash
-# Terminal 1 — API (keep this tab visible)
+# Terminal 1 — API (debug)
 cargo run -p inertia-api
 
-# Terminal 2 — web
+# Terminal 2 — web (Vite dev)
 cd apps/web && npm run dev
 ```
 

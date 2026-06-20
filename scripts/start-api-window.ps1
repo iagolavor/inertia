@@ -3,5 +3,5 @@ $root = Split-Path -Parent $PSScriptRoot
 Start-Process powershell -ArgumentList @(
   '-NoExit',
   '-Command',
-  "Set-Location '$root'; `$env:RUST_LOG='info'; cargo run -p inertia-api"
+  "Set-Location '$root'; `$env:RUST_LOG='info'; cargo run --release -p inertia-api"
 )

@@ -7,7 +7,7 @@ See also [GIT-WORKFLOW.md](./GIT-WORKFLOW.md) for branch rules.
 ## 1. Prepare
 
 - Merge all intended work into `development` first (feature PRs).
-- Smoke-test locally (`npm run api`, `npm run web`, or your usual checklist).
+- Smoke-test locally (`npm run api:release`, `npm run web:build`, `npm run web:preview`, or your usual checklist).
 - Ensure `development` is ahead of `master`:
 
 ```bash
