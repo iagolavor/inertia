@@ -4,6 +4,7 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "api": "cargo run -p inertia-api",
+    "api:release": "cargo run --release -p inertia-api",
     "api:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-api.ps1",
     "api:restart": "powershell -ExecutionPolicy Bypass -File scripts/stop-api.ps1; cargo run -p inertia-api",
     "api:window": "powershell -ExecutionPolicy Bypass -File scripts/start-api-window.ps1",
