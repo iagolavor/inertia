@@ -32,6 +32,9 @@ async fn two_local_peers_connect_over_tcp() {
         .await
         .expect("identity b");
 
+    engine_a.ensure_p2p_started().await.expect("p2p a");
+    engine_b.ensure_p2p_started().await.expect("p2p b");
+
     let peer_a = engine_a.peer_id().await.expect("peer a");
     let peer_b = engine_b.peer_id().await.expect("peer b");
 
