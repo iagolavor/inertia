@@ -22,10 +22,19 @@ export const themeState = $state({
 	mode: 'dark' as Theme
 });
 
+function syncThemeColor() {
+	if (typeof document === 'undefined') return;
+	const meta = document.querySelector('meta[name="theme-color"]');
+	if (!meta) return;
+	const bg = getComputedStyle(document.documentElement).backgroundColor;
+	if (bg) meta.setAttribute('content', bg);
+}
+
 function applyAppearance(palette: Palette, mode: Theme) {
 	if (typeof document === 'undefined') return;
 	document.documentElement.setAttribute('data-palette', palette);
 	document.documentElement.setAttribute('data-theme', mode);
+	syncThemeColor();
 }
 
 function persistAppearance(palette: Palette, mode: Theme) {
