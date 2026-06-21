@@ -1,4 +1,4 @@
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{CoreError, CoreResult};
 use crate::identity::Identity;
@@ -27,6 +27,13 @@ impl Engine {
             .await?;
         *self.identity.write().await = identity.clone();
         info!(display_name = %identity.display_name, "identity initialized");
+        match self.ensure_p2p_started().await {
+            Ok(peer_id) => info!(%peer_id, "auto-started P2P after identity init"),
+            Err(e) => warn!(
+                error = %e,
+                "auto-start P2P after identity init failed; retry via POST /p2p/start or the web app"
+            ),
+        }
         Ok(identity)
     }
 
