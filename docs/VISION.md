@@ -355,7 +355,7 @@ blobs/         (content-addressed media files)
 | 3 | SvelteKit UI + local API | Done |
 | 4 | Invite flow, feed, profile, settings, backup | Done |
 | 4b | **VPS relay** (`inertia-relay`), relay client, invite v2 with embedded relay | Done |
-| 5 | Capacitor mobile shell | Next |
+| 5 | Capacitor mobile shell | **In progress** — Android Stage B in v0.10; iOS + polish remain |
 | 6 | Thumbnails, orphan blob GC | Planned |
 | 7 | **Community relays** — public relay list, optional PIX join fee in invite v3, host health hints | Planned |
 

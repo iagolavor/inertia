@@ -114,6 +114,38 @@ API must listen on `0.0.0.0:4783`.
 
 Both stages use `http://127.0.0.1:4783` on-device (Stage B) or via reverse (Stage A). `usesCleartextTraffic="true"` is set in the manifest. Tighten before wide public release (see [SECURITY-TODO.md](./SECURITY-TODO.md)).
 
+## Status (v0.10 — 2026-06)
+
+**Stage B is the stable test path.** A physical arm64 phone can run Inertia fully offline from the APK: local API, local SQLite, P2P via relay, and cross-device invite accept (paste payload — do not tap SMS links).
+
+### Verified working
+
+- [x] Cross-compile `inertia-api` for **arm64-v8a** only (`scripts/build-android-api.ps1`)
+- [x] Package API + web into APK (`scripts/package-android.ps1`); assets gitignored until built
+- [x] Foreground service + splash health gate + WebView on `http://127.0.0.1:4783/`
+- [x] Separate phone profile / DB from desktop
+- [x] P2P relay connect; invite create (PC) → paste accept (phone)
+- [x] In-app invite handling (`inertia://`, `InertiaWebViewClient` — no Chrome handoff)
+- [x] Accept waits for relay + inviter libp2p session before redemption
+
+### Known rough edges
+
+- [ ] Header **P2pStatus** uses hover tooltips — unusable on touch; needs tap panel
+- [ ] **Invite preview** shows red offline dot on inviter avatar (`ProfileHeader` default) — misleading
+- [ ] **Stage A** (`adb reverse` + PC API) — supported but not re-smoked recently
+- [ ] **arm64 only** — no x86 emulator ABI in `android:api:build`
+- [ ] **Relay OK** required for accept (TCP reachable ≠ libp2p connected); inviter must stay online
+
+### Resume checklist (next session)
+
+1. `git checkout development && git pull`
+2. Rebuild if UI or Rust changed: `npm run android:stage-b` (not bare `npx cap sync` from repo root — use `npm run android:sync`)
+3. Install from Android Studio or `npm run android:run`
+4. PC inviter: `npm run api:release`, relay connected, **Copy for phone** (payload only)
+5. Phone: **⋯ → Aceitar convite** → paste → Preview → Accept
+
+Pick up polish from the **Resume next** list in [AGENTS.md](../AGENTS.md) (P2pStatus panel, invite avatar dot, Stage A smoke).
+
 ## Not yet implemented
 
 - Play Store / release signing in CI

@@ -165,7 +165,7 @@ inertia/
 |-------|--------|
 | 0–3 | Core, P2P, UI (**done**) |
 | 4 | Invites, feed, profile, backup, relay (**done**) |
-| 5 | Mobile shell (Capacitor) |
+| 5 | Mobile shell — **Android Stage B alpha** (v0.10); see [docs/CAPACITOR.md](docs/CAPACITOR.md) |
 | 6 | Thumbnails, orphan blob GC |
 
 Details in [docs/VISION.md](docs/VISION.md).
