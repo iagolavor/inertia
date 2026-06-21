@@ -182,6 +182,10 @@ If you skip **Invite link base URL**, generated links use the `inertia://invite/
 |----------|---------|---------|
 | `INERTIA_RELAY_ADDR` | `0.0.0.0:9000` | Relay listen host:port |
 | `INERTIA_RELAY_DATA_DIR` | `./relay-data` | Relay identity persistence |
+| `INERTIA_RELAY_MAX_RESERVATIONS` | `64` | Global reservation cap |
+| `INERTIA_RELAY_MAX_RESERVATIONS_PER_PEER` | `4` | Per-peer reservation cap |
+| `INERTIA_RELAY_MAX_CIRCUITS` | `32` | Global active circuit cap |
+| `INERTIA_RELAY_MAX_CIRCUITS_PER_PEER` | `4` | Per-peer circuit cap |
 | `RUST_LOG` | `inertia_relay=info` | Log verbosity |
 
 **Client (each device)** — see also Settings → Connection

@@ -56,6 +56,7 @@ async fn get_post(
                 StatusCode::NOT_FOUND,
                 Json(ApiError {
                     error: "post not found".into(),
+                    code: None,
                 }),
             )
         })

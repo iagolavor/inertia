@@ -14,6 +14,7 @@ pub fn base64_decode(input: &str) -> Result<Vec<u8>, (StatusCode, Json<ApiError>
                 StatusCode::BAD_REQUEST,
                 Json(ApiError {
                     error: format!("invalid base64: {e}"),
+                    code: None,
                 }),
             )
         })
@@ -41,6 +42,7 @@ pub fn blob_too_large_err() -> (StatusCode, Json<ApiError>) {
                 "image exceeds {} MB limit",
                 MAX_BLOB_BYTES / (1024 * 1024)
             ),
+            code: None,
         }),
     )
 }

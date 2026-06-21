@@ -225,13 +225,14 @@ async function request<T>(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const raw = err.error ?? res.statusText ?? 'Request failed';
+    const code = typeof err.code === 'string' ? err.code : undefined;
     if (res.status === 409) {
       throw new ApiRequestError({ kind: 'client', message: 'A profile already exists on this device' });
     }
     if (res.status === 413) {
       throw new ApiRequestError({ kind: 'client', message: 'Imagem demasiado grande para o servidor' });
     }
-    throw new ApiRequestError(classifyHttpFailure(res.status, raw));
+    throw new ApiRequestError(classifyHttpFailure(res.status, raw, code));
   }
   if (res.status === 204) return undefined as T;
   return res.json();
