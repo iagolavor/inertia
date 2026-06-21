@@ -57,7 +57,7 @@ These gaps block *any* real-world test, relay or not.
 
 | #   | Task                                                                          | Area                                | Notes                                          |
 | --- | ----------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------- |
-| 0.1 | Auto-start P2P when identity exists (API boot + UI refresh fallback)          | `inertia-api`, `identity.svelte.ts` | Today P2P only starts on first `initIdentity`. |
+| 0.1 | Auto-start P2P when identity exists (API boot + UI refresh fallback)          | `engine/mod.rs`, `identity.svelte.ts` | `Engine::open` calls `ensure_p2p_started`; UI falls back via `/p2p/start`. |
 | 0.2 | Fixed P2P listen port (config / settings, default e.g. `4784`)                | core + settings UI                  | Random ports + firewall = pain.                |
 | 0.3 | Persist `multiaddrs` per contact in SQLite                                    | `storage.rs`, `Contact`             | Needed to redial after restart.                |
 | 0.4 | On P2P start: dial relay (if configured) then dial all contacts               | `engine.rs`, `p2p/node.rs`          |                                                |
