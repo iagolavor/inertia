@@ -141,15 +141,11 @@
     />
   </section>
 
-  <div class="card feed-list">
-    <div class="feed-list-header">
-      <span class="feed-list-label">
-        Posts
-        {#if showingCached && cacheAge}
-          <span class="cache-badge">saved · {cacheAge}</span>
-        {/if}
-      </span>
-    </div>
+  {#if showingCached && cacheAge}
+    <p class="cache-hint muted">Saved · {cacheAge}</p>
+  {/if}
+
+  <div class="feed-list">
     {#if feedLoading && feed.length === 0}
       <p class="empty">A carregar feed…</p>
     {:else if feedError}
@@ -216,35 +212,14 @@
     margin-bottom: 1.25rem;
   }
 
-  .feed-list {
-    padding-top: 0.5rem;
-  }
-
-  .feed-list-header {
-    padding: 0 0.25rem 0.65rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .feed-list-label {
+  .cache-hint {
+    margin: 0 0 0.75rem;
     font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
   }
 
-  .cache-badge {
-    font-size: 0.68rem;
-    font-weight: 500;
-    text-transform: none;
-    letter-spacing: 0;
-    padding: 0.12rem 0.4rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    color: var(--muted);
+  .feed-list {
+    display: flex;
+    flex-direction: column;
   }
 
   .list {

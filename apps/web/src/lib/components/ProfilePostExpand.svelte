@@ -471,6 +471,7 @@
 		padding: 0.55rem 0.65rem;
 		border-top: 1px solid var(--border);
 		background: color-mix(in srgb, var(--bg) 50%, var(--surface));
+		flex-shrink: 0;
 	}
 
 	.comment-composer input {
