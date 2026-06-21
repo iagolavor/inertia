@@ -1,3 +1,5 @@
+mod config;
+
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -32,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
     info!(%local_peer_id, data_dir = %data_dir.display(), "starting inertia-relay");
 
     let behaviour = RelayBehaviour {
-        relay: relay::Behaviour::new(local_peer_id, relay::Config::default()),
+        relay: relay::Behaviour::new(local_peer_id, config::relay_config()),
         ping: ping::Behaviour::new(ping::Config::new()),
         identify: identify::Behaviour::new(identify::Config::new(
             "/inertia/relay/1.0.0".into(),
@@ -79,6 +81,24 @@ async fn main() -> anyhow::Result<()> {
                 },
             )) => {
                 info!(%src_peer_id, %dst_peer_id, "relay circuit established");
+            }
+            libp2p::swarm::SwarmEvent::Behaviour(RelayBehaviourEvent::Relay(
+                relay::Event::ReservationReqDenied { src_peer_id },
+            )) => {
+                warn!(%src_peer_id, "relay reservation denied (limit or rate cap)");
+            }
+            libp2p::swarm::SwarmEvent::Behaviour(RelayBehaviourEvent::Relay(
+                relay::Event::CircuitReqDenied {
+                    src_peer_id,
+                    dst_peer_id,
+                    ..
+                },
+            )) => {
+                warn!(
+                    %src_peer_id,
+                    %dst_peer_id,
+                    "relay circuit denied (limit or rate cap)"
+                );
             }
             libp2p::swarm::SwarmEvent::Behaviour(RelayBehaviourEvent::Relay(event)) => {
                 info!(?event, "relay event");

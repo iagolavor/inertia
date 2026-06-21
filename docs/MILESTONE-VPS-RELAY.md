@@ -142,10 +142,10 @@ Photo posts sync over P2P after the text envelope is delivered (blob push on ack
 
 | #   | Task                                                                         | Area                 | Notes                                                  |
 | --- | ---------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------ |
-| 5.1 | Relay: connection limits / reservation caps (basic abuse guard)              | relay                |                                                        |
-| 5.2 | Integration test: two in-process peers via memory transport or local relay   | `inertia-core` tests |                                                        |
-| 5.3 | Clear errors: “relay unreachable”, “inviter offline”, “P2P not started”      | API + UI             |                                                        |
-| 5.4 | Update `VISION.md` phased table: insert **Phase 4b — VPS relay** or renumber | docs                 | Relay is optional infra, not a central account server. |
+| 5.1 | Relay: connection limits / reservation caps (basic abuse guard)              | `inertia-relay`      | `config.rs` + env caps; logs denied reservations/circuits |
+| 5.2 | Integration test: two in-process peers via memory transport or local relay   | `inertia-core` tests | `tests/two_peer_local.rs` — loopback TCP dial          |
+| 5.3 | Clear errors: “relay unreachable”, “inviter offline”, “P2P not started”      | API + UI             | `user_error.rs` codes + `ApiError.code` in clients   |
+| 5.4 | Update `VISION.md` phased table: insert **Phase 4b — VPS relay** or renumber | docs                 | Done — 4b marked complete; Phase 6 scoped to GC/thumbs |
 
 
 ---
@@ -185,8 +185,8 @@ INERTIA_P2P_LISTEN_PORT=4784
 
 ## Suggested implementation order
 
-Phases 0–4 and the brother test are **complete**. Next focus:
+Phases 0–4 and the brother test are **complete**. Phase 5 hardening is **complete**. Next focus:
 
-1. **Phase 5** (hardening) — relay limits, integration tests, clearer errors
-2. **Capacitor** (VISION Phase 5) — mobile shell
-3. **Phase 6** (VISION) — thumbnails, orphan blob GC
+1. **Capacitor** (VISION Phase 5) — mobile shell
+2. **Phase 6** (VISION) — thumbnails, orphan blob GC
+3. **Phase 7** — community relays (optional)

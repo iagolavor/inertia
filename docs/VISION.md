@@ -347,14 +347,16 @@ blobs/         (content-addressed media files)
 
 ## Phased Delivery
 
-| Phase | Scope |
-|-------|-------|
-| 0 | Vision and backbone alignment |
-| 1 | Rust core: identity, storage, expiry |
-| 2 | libp2p messaging, outbox |
-| 3 | SvelteKit UI + local API |
-| 4 | Invite flow, feed, profile, settings, backup |
-| 4b | **VPS relay** (`inertia-relay`), relay client, invite v2 with embedded relay |
-| 5 | Capacitor mobile shell |
-| 6 | P2P blob sync, thumbnails, orphan blob GC |
-| 7 | **Community relays** — public relay list, optional PIX join fee in invite v3, host health hints |
+| Phase | Scope | Status |
+|-------|--------|--------|
+| 0 | Vision and backbone alignment | Done |
+| 1 | Rust core: identity, storage, expiry | Done |
+| 2 | libp2p messaging, outbox | Done |
+| 3 | SvelteKit UI + local API | Done |
+| 4 | Invite flow, feed, profile, settings, backup | Done |
+| 4b | **VPS relay** (`inertia-relay`), relay client, invite v2 with embedded relay | Done |
+| 5 | Capacitor mobile shell | Next |
+| 6 | Thumbnails, orphan blob GC | Planned |
+| 7 | **Community relays** — public relay list, optional PIX join fee in invite v3, host health hints | Planned |
+
+P2P blob sync for photo posts ships in Phase 4; Phase 6 covers thumbnails and orphan blob GC only.
