@@ -12,6 +12,8 @@
 	interface Props {
 		photos: ProfilePhoto[];
 		disabled?: boolean;
+		readonly?: boolean;
+		emptyLabel?: string;
 		photoUrl?: (hash: string) => string;
 		authorId?: string;
 		authorName?: string;
@@ -26,6 +28,8 @@
 	let {
 		photos,
 		disabled = false,
+		readonly = false,
+		emptyLabel = 'No posts yet — add your first photo.',
 		photoUrl,
 		authorId = '',
 		authorName = '',
@@ -59,7 +63,7 @@
 	);
 
 	export function openPhotoPicker() {
-		if (uploading || disabled) return;
+		if (uploading || disabled || readonly) return;
 		fileInput?.click();
 	}
 
@@ -121,7 +125,7 @@
 
 <div class="photo-section">
 	{#if photos.length === 0 && !selectedContentId}
-		<p class="empty-grid muted">No posts yet — add your first photo.</p>
+		<p class="empty-grid muted">{emptyLabel}</p>
 	{/if}
 
 	<div class="photo-grid" class:has-selection={selectedContentId != null}>
@@ -166,7 +170,7 @@
 	{/if}
 </div>
 
-{#if captionOpen && pendingPreviewUrl}
+{#if captionOpen && pendingPreviewUrl && !readonly}
 	<div class="caption-backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && cancelCaption()}>
 		<div class="caption-modal" role="dialog" aria-modal="true" aria-labelledby="caption-title">
 			<h2 id="caption-title">New post</h2>

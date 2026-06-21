@@ -4,7 +4,8 @@
   import { api, type Contact, type ConversationMessage } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
   import Avatar from '$lib/components/Avatar.svelte';
-  import FormattedText from '$lib/components/FormattedText.svelte';
+	import FriendSectionTabs from '$lib/components/FriendSectionTabs.svelte';
+	import FormattedText from '$lib/components/FormattedText.svelte';
   import { identityState } from '$lib/identity.svelte';
   import {
     formatCacheAge,
@@ -120,6 +121,8 @@
     </div>
   </header>
 
+  <FriendSectionTabs contactId={contact.id} active="messages" />
+
   {#if !identityState.apiOnline}
     <p class="offline-hint muted">Read-only — reconnect the API to send messages.</p>
   {/if}
@@ -180,7 +183,7 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
   }
 
   .chat-meta {
@@ -206,7 +209,7 @@
   }
 
   .offline-hint {
-    margin: -0.5rem 0 0.75rem;
+    margin: 0.65rem 0 0.75rem;
     font-size: 0.875rem;
   }
 
@@ -287,4 +290,4 @@
     padding: 0.65rem 1.1rem;
   }
 </style>
-
+
