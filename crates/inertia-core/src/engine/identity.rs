@@ -65,6 +65,24 @@ impl Engine {
         Ok(identity.clone())
     }
 
+    pub async fn set_avatar(&self, data: &[u8]) -> CoreResult<Identity> {
+        {
+            let current = self.identity.read().await;
+            if !current.is_initialized() {
+                return Err(CoreError::IdentityNotInitialized);
+            }
+        }
+
+        let blob_hash = self.store_blob(data).await?;
+        self.store
+            .with_mut(|store| store.update_identity_avatar(&blob_hash))
+            .await?;
+
+        let mut identity = self.identity.write().await;
+        identity.avatar_blob_hash = Some(blob_hash);
+        Ok(identity.clone())
+    }
+
     pub async fn identity_snapshot(&self) -> Identity {
         self.identity.read().await.clone()
     }

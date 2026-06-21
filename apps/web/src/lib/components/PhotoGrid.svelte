@@ -115,6 +115,22 @@
 		onselect?.(photo.content_id);
 	}
 
+	let expandEl = $state<HTMLElement | null>(null);
+
+	$effect(() => {
+		if (!selectedContentId || !expandEl) return;
+		queueMicrotask(() => {
+			expandEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		});
+	});
+
+	const displayCells = $derived.by(() => {
+		if (selectedContentId == null) return gridCells;
+		const expand = gridCells.find((cell) => cell.kind === 'expand');
+		if (!expand) return gridCells;
+		return [expand, ...gridCells.filter((cell) => cell.kind !== 'expand')];
+	});
+
 	function cellKey(cell: (typeof gridCells)[number]): string {
 		if (cell.kind === 'expand') {
 			return `expand-${cell.photo?.id ?? `idx-${cell.photoIndex}`}`;
@@ -129,9 +145,9 @@
 	{/if}
 
 	<div class="photo-grid" class:has-selection={selectedContentId != null}>
-		{#each gridCells as cell (cellKey(cell))}
+		{#each displayCells as cell (cellKey(cell))}
 			{#if cell.kind === 'expand'}
-				<div class="expand-cell" style={gridCellStyle(cell)}>
+				<div class="expand-cell" bind:this={expandEl} style={gridCellStyle(cell)}>
 					<ProfilePostExpand
 						post={selectedPost}
 						loading={selectedPostLoading}

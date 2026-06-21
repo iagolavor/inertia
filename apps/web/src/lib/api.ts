@@ -17,6 +17,7 @@ export interface Identity {
   phone_hash: string | null;
   display_name: string;
   bio?: string;
+  avatar_blob_hash?: string | null;
 }
 
 export interface Contact {
@@ -262,6 +263,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ display_name, bio: bio ?? '' })
     }),
+  uploadAvatar: (data_base64: string) =>
+    request<Identity>(
+      '/identity/avatar',
+      {
+        method: 'POST',
+        body: JSON.stringify({ data_base64 })
+      },
+      UPLOAD_TIMEOUT_MS
+    ),
   createInvite: (web_origin?: string) =>
     request<InviteResponse>('/invite', {
       method: 'POST',

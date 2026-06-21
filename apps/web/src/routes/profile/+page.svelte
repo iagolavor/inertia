@@ -194,9 +194,9 @@
 
 
   const avatarUrl = $derived(
-
-    photos.length > 0 ? photoUrl(photos[0].blob_hash) : null
-
+    identityState.identity?.avatar_blob_hash
+      ? photoUrl(identityState.identity.avatar_blob_hash)
+      : null
   );
 
   const bio = $derived(identityState.identity?.bio ?? '');
@@ -255,7 +255,7 @@
 
 
 
-  async function uploadProfilePhoto(file: File) {
+  async function uploadAvatar(file: File) {
 
     if (!identityState.apiOnline) return;
 
@@ -267,13 +267,13 @@
 
       const dataBase64 = await prepareImageForUpload(file);
 
-      await api.uploadProfilePhoto(dataBase64);
+      const identity = await api.uploadAvatar(dataBase64);
 
-      await reloadPhotos();
+      await setIdentity(identity);
 
     } catch (e) {
 
-      editError = e instanceof Error ? e.message : 'Failed to upload photo';
+      editError = e instanceof Error ? e.message : 'Failed to upload profile photo';
 
     } finally {
 
@@ -480,7 +480,7 @@
 
       onsave={saveProfile}
 
-      onphoto={uploadProfilePhoto}
+      onphoto={uploadAvatar}
 
     />
 

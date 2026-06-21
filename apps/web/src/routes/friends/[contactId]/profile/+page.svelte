@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { api, blobUrl, type Contact, type FeedItem } from '$lib/api';
+	import { api, type Contact, type FeedItem } from '$lib/api';
 	import { ApiRequestError } from '$lib/api-errors';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FriendSectionTabs from '$lib/components/FriendSectionTabs.svelte';
@@ -25,7 +25,6 @@
 	const photos = $derived(
 		contact ? feedPostsToProfilePhotos(feed, contact.signing_pubkey) : []
 	);
-	const avatarUrl = $derived(photos.length > 0 ? blobUrl(photos[photos.length - 1].blob_hash) : null);
 
 	async function hydrateFromCache() {
 		if (!contactId) return false;
@@ -120,7 +119,7 @@
 {:else}
 	<section class="profile-header">
 		<div class="avatar-wrap">
-			<Avatar seed={contact.signing_pubkey} alt={contact.display_name} src={avatarUrl} size={72} />
+			<Avatar seed={contact.signing_pubkey} alt={contact.display_name} size={72} />
 		</div>
 
 		<div class="profile-info">

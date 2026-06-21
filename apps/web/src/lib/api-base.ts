@@ -6,12 +6,16 @@ function trimBase(url: string): string {
 
 /** HTTP origin + `/api` prefix for inertia-api. Web dev uses the Vite proxy (`/api`). */
 export function getApiBase(): string {
-	const fromEnv = import.meta.env.VITE_INERTIA_API_BASE;
-	if (typeof fromEnv === 'string' && fromEnv.trim()) {
-		return trimBase(fromEnv.trim());
-	}
 	if (Capacitor.isNativePlatform()) {
-		// Stage A: API on dev PC — `adb reverse tcp:4783 tcp:4783` or set VITE_INERTIA_API_BASE to your LAN IP at build time.
+		const fromEnv = import.meta.env.VITE_INERTIA_API_BASE;
+		if (typeof fromEnv === 'string' && fromEnv.trim()) {
+			const base = trimBase(fromEnv.trim());
+			// 10.0.2.2 is emulator-only and breaks physical devices if baked in at build time.
+			// USB Stage A uses adb reverse → 127.0.0.1 on both emulator and phone.
+			if (!base.includes('10.0.2.2')) {
+				return base;
+			}
+		}
 		return 'http://127.0.0.1:4783/api';
 	}
 	return '/api';
