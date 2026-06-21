@@ -25,7 +25,7 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 |-------|--------|-------|
 | 0–2 | Done | Rust core, P2P, storage |
 | 3–4 | **Current** | SvelteKit web UI, invite flow, feed, profile, settings, backup |
-| 5 | Next | **Capacitor** mobile shell |
+| 5 | **In progress** | **Capacitor Android** — Stage B shell shipped in v0.10; polish + iOS remain |
 | 6 | Planned | P2P blob sync, thumbnails, orphan file GC |
 
 **Yes — we are building the web app first.** That is intentional. The Svelte app is the shared UI for web and mobile.
@@ -40,15 +40,32 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 - `ssr = false`, `prerender = true` (client-only app)
 - All data via `apps/web/src/lib/api.ts` → `/api` (no server-side Svelte data fetching)
 
-### Phase 5 work (not started)
+### Capacitor Android (v0.10 — Stage B alpha)
 
-1. Add `@capacitor/core` + platform packages under `apps/web` (or `apps/mobile` wrapper).
-2. Point Capacitor `webDir` at SvelteKit `build/` output.
-3. Replace dev proxy: use `CapacitorHttp` or absolute URL to local API when packaged.
-4. **Run `inertia-api` on device** — hardest part: bundle Rust as a sidecar, JNI/FFI, or foreground service. Desktop runs `npm run api:release` (or `cargo run --release -p inertia-api`); mobile needs a native integration plan.
-5. Optional: `@capacitor/camera`, `@capacitor/filesystem` for profile photos instead of `<input type="file">`.
+**Shipped in v0.10.0** — see [docs/CAPACITOR.md](docs/CAPACITOR.md) for build commands and resume checklist.
 
-### What not to do before Capacitor
+| Mode | Status |
+|------|--------|
+| **Stage B** (API + UI on phone) | Working — `npm run android:stage-b`, separate device identity/DB, P2P + invite accept tested PC ↔ phone |
+| **Stage A** (UI on phone, API on PC) | Supported — `adb reverse`, `npm run android:sync`; less exercised after Stage B |
+
+**Done**
+
+- `@capacitor/core` + Android project under `apps/web/android`
+- `webDir` → SvelteKit `build/`; native shell uses absolute `http://127.0.0.1:4783/api` ([api-base.ts](apps/web/src/lib/api-base.ts))
+- Bundled `inertia-api` on device: NDK arm64 cross-compile, `jniLibs` + `InertiaRuntime` / foreground `InertiaApiService`
+- Splash → health wait → WebView at `127.0.0.1:4783`; invite deep links stay in-app (`InertiaWebViewClient`, `inertia://invite/…`)
+- Invite accept: relay apply + dial waits, paste normalization ([invite-input.ts](apps/web/src/lib/invite-input.ts))
+
+**Resume next** (mobile polish — branch from `development` as `feature/android-*`)
+
+1. **P2pStatus on touch** — replace hover `title` tooltip with tap-to-expand panel in header
+2. **Invite preview UX** — remove or fix misleading red offline dot on `ProfileHeader` (not inviter presence)
+3. **Stage A smoke** — confirm `android:reverse` loop still works after Stage B changes
+4. **Release** — Play signing, optional APK in CI (Windows zip only today)
+5. **Optional** — `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
+
+### What not to do on mobile
 
 - Avoid SSR-only SvelteKit features.
 - Avoid APIs that assume Node.js on the server.
@@ -100,6 +117,20 @@ cd apps/web && npm run dev
 ```powershell
 npm run api:stop
 # then start again via task or: npm run api
+```
+
+### Android quick commands
+
+```powershell
+# Stage B — self-contained phone build (default for real-device testing)
+npm run android:stage-b
+npm run android:run
+
+# Stage A — UI on phone, API on PC
+npm run api:release
+npm run android:sync
+npm run android:reverse
+npm run android:run
 ```
 
 **Windows (end users):** [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) — download `inertia-windows-x64.zip`, `run.cmd`, `update.cmd`. No npm scripts.

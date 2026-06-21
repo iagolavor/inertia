@@ -231,7 +231,7 @@ mod origin_tests {
     }
 
     #[test]
-    fn allows_phone_stage_b_origin() {
+    fn allows_on_device_api_origin() {
         assert!(!is_local_dev_origin("http://127.0.0.1:4783"));
     }
 }

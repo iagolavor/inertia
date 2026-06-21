@@ -179,14 +179,16 @@ INERTIA_P2P_LISTEN_PORT=4784
 - Public relay federation or paid multi-tenant relay
 - Replacing E2E encryption with server-side storage
 - LAN mDNS discovery (defer)
-- Capacitor / phone-native API bundle
 
 ---
 
 ## Suggested implementation order
 
-Phases 0–4 and the brother test are **complete**. Phase 5 hardening is **complete**. Next focus:
+Phases 0–4 and the brother test are **complete**. VPS relay hardening is **complete**. **Android Stage B** (Capacitor + bundled API) shipped in **v0.10.0** — see [CAPACITOR.md](./CAPACITOR.md) for build/resume checklist.
 
-1. **Capacitor** (VISION Phase 5) — mobile shell
+Next focus:
+
+1. **Android polish** — P2pStatus tap panel, invite preview UX, Stage A regression, Play signing
 2. **Phase 6** (VISION) — thumbnails, orphan blob GC
 3. **Phase 7** — community relays (optional)
+4. **iOS** Capacitor shell (not started)
