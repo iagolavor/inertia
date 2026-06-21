@@ -10,8 +10,6 @@
 
   import ProfileEditModal from '$lib/components/ProfileEditModal.svelte';
 
-  import PostDetailModal from '$lib/components/PostDetailModal.svelte';
-
   import { identityState, refreshIdentity, setIdentity, startP2pInBackground } from '$lib/identity.svelte';
 
   import {
@@ -49,9 +47,13 @@
 
   let editError = $state('');
 
+  let selectedContentId = $state<string | null>(null);
+
   let selectedPost = $state<FeedItem | null>(null);
 
-  let detailOpen = $state(false);
+  let selectedPostLoading = $state(false);
+
+  let photoGrid = $state<{ openPhotoPicker: () => void } | null>(null);
 
 
 
@@ -283,42 +285,40 @@
 
 
 
-  async function openPostById(contentId: string) {
+  async function selectPost(contentId: string | null) {
+    selectedContentId = contentId;
+    if (!contentId) {
+      selectedPost = null;
+      selectedPostLoading = false;
+      return;
+    }
 
     if (!identityState.apiOnline) return;
 
+    selectedPostLoading = true;
+    selectedPost = null;
+    error = '';
+
     try {
-
       selectedPost = await api.getPost(contentId);
-
-      detailOpen = true;
-
     } catch (e) {
-
       error = e instanceof Error ? e.message : 'Failed to open post';
-
+      selectedContentId = null;
+    } finally {
+      selectedPostLoading = false;
     }
-
   }
 
 
 
   async function onCommentAdded() {
-
     if (selectedPost && identityState.apiOnline) {
-
       try {
-
         selectedPost = await api.getPost(selectedPost.content_id);
-
       } catch {
-
         // ignore refresh errors
-
       }
-
     }
-
   }
 
 </script>
@@ -425,22 +425,33 @@
 
     </div>
 
+    {#if identityState.apiOnline}
+      <button
+        type="button"
+        class="btn-add-photo"
+        onclick={() => photoGrid?.openPhotoPicker()}
+      >
+        Add photo
+      </button>
+    {/if}
+
   </div>
 
 
 
   <PhotoGrid
-
+    bind:this={photoGrid}
     {photos}
-
     photoUrl={photoUrl}
-
     disabled={!identityState.apiOnline}
-
+    authorId={identityState.identity.signing_pubkey}
+    authorName={identityState.identity.display_name}
+    selectedContentId={selectedContentId}
+    {selectedPost}
+    selectedPostLoading={selectedPostLoading}
     onuploaded={reloadPhotos}
-
-    onopenpost={openPostById}
-
+    onselect={selectPost}
+    oncomment={onCommentAdded}
   />
 
 
@@ -470,22 +481,6 @@
       onsave={saveProfile}
 
       onphoto={uploadProfilePhoto}
-
-    />
-
-
-
-    <PostDetailModal
-
-      open={detailOpen}
-
-      post={selectedPost}
-
-      disabled={!identityState.apiOnline}
-
-      onclose={() => (detailOpen = false)}
-
-      oncomment={onCommentAdded}
 
     />
 
@@ -699,9 +694,49 @@
 
     display: flex;
 
+    align-items: center;
+
+    gap: 0.75rem;
+
     border-top: 1px solid var(--border);
 
     margin-bottom: 0;
+
+  }
+
+
+
+  .btn-add-photo {
+
+    margin-left: auto;
+
+    padding: 0.35rem 0.75rem;
+
+    border: 1px solid var(--border);
+
+    border-radius: 8px;
+
+    background: var(--surface);
+
+    color: var(--text);
+
+    font: inherit;
+
+    font-size: 0.78rem;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    white-space: nowrap;
+
+  }
+
+
+
+  .btn-add-photo:hover {
+
+    background: color-mix(in srgb, var(--border) 25%, var(--surface));
 
   }
 
