@@ -14,15 +14,15 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    public static final String EXTRA_STAGE_B = "stage_b";
+    public static final String EXTRA_BUNDLED_API = "bundled_api";
     public static final String EXTRA_INVITE_URL = "invite_url";
 
-    private boolean stageB;
+    private boolean bundledApi;
     private String inviteLoadUrl;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        stageB = resolveStageB(getIntent());
+        bundledApi = resolveBundledApi(getIntent());
         captureInviteUrl(getIntent());
         super.onCreate(savedInstanceState);
 
@@ -41,25 +41,25 @@ public class MainActivity extends BridgeActivity {
         getBridge().getWebView().setBackgroundColor(Color.parseColor("#08090c"));
         getBridge().setWebViewClient(new InertiaWebViewClient(getBridge()));
 
-        if (stageB) {
-            ensureStageBApi();
-            ensureStageBWebUrl();
+        if (bundledApi) {
+            ensureApiServiceRunning();
+            ensureBundledWebUrl();
         }
     }
 
-    private void ensureStageBWebUrl() {
+    private void ensureBundledWebUrl() {
         WebView webView = getBridge().getWebView();
         String target = inviteLoadUrl != null ? inviteLoadUrl : InertiaRuntime.getUiUrl();
         inviteLoadUrl = null;
         String current = webView.getUrl();
 
-        if (shouldLoadStageBUrl(current, target)) {
+        if (shouldLoadBundledWebUrl(current, target)) {
             webView.loadUrl(target);
         }
     }
 
     /** Only replace Capacitor localhost shell or first load — do not clobber in-app navigation. */
-    private boolean shouldLoadStageBUrl(String current, String target) {
+    private boolean shouldLoadBundledWebUrl(String current, String target) {
         if (current == null || current.isEmpty() || "about:blank".equals(current)) {
             return true;
         }
@@ -90,22 +90,22 @@ public class MainActivity extends BridgeActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        stageB = resolveStageB(intent);
+        bundledApi = resolveBundledApi(intent);
         captureInviteUrl(intent);
-        if (stageB) {
-            ensureStageBApi();
-            ensureStageBWebUrl();
+        if (bundledApi) {
+            ensureApiServiceRunning();
+            ensureBundledWebUrl();
         }
     }
 
-    private boolean resolveStageB(Intent intent) {
-        if (intent != null && intent.hasExtra(EXTRA_STAGE_B)) {
-            return intent.getBooleanExtra(EXTRA_STAGE_B, false);
+    private boolean resolveBundledApi(Intent intent) {
+        if (intent != null && intent.hasExtra(EXTRA_BUNDLED_API)) {
+            return intent.getBooleanExtra(EXTRA_BUNDLED_API, false);
         }
         return InertiaRuntime.hasBundledApi(this);
     }
 
-    private void ensureStageBApi() {
+    private void ensureApiServiceRunning() {
         Intent service = new Intent(this, InertiaApiService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(service);

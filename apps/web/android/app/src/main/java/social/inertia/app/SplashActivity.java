@@ -5,7 +5,7 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 
-/** Boots bundled API (Stage B) or passes through to MainActivity (Stage A dev). */
+/** Boots bundled on-device API or passes through to MainActivity (dev shell + PC API). */
 public class SplashActivity extends Activity {
     private static final long HEALTH_TIMEOUT_MS = 45_000L;
     private String pendingInviteUrl;
@@ -20,8 +20,8 @@ public class SplashActivity extends Activity {
     }
 
     private void bootAndOpenMain() {
-        boolean stageB = InertiaRuntime.hasBundledApi(this);
-        if (stageB) {
+        boolean bundledApi = InertiaRuntime.hasBundledApi(this);
+        if (bundledApi) {
             runOnUiThread(() -> {
                 Intent service = new Intent(this, InertiaApiService.class);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -39,7 +39,7 @@ public class SplashActivity extends Activity {
 
         runOnUiThread(() -> {
             Intent main = new Intent(this, MainActivity.class);
-            main.putExtra(MainActivity.EXTRA_STAGE_B, stageB);
+            main.putExtra(MainActivity.EXTRA_BUNDLED_API, bundledApi);
             if (pendingInviteUrl != null) {
                 main.putExtra(MainActivity.EXTRA_INVITE_URL, pendingInviteUrl);
             }
