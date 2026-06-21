@@ -77,13 +77,18 @@
 
 <style>
   .post-card {
-    border-bottom: 1px solid var(--border);
-    padding: 1rem 0;
+    background: var(--post-bg, transparent);
+    border: var(--post-border, none);
+    border-radius: var(--post-radius, 0);
+    padding: var(--post-padding, 1rem 0);
+    margin-bottom: var(--post-margin-bottom, 0);
+    border-bottom: var(--post-border-bottom, 1px solid var(--border));
   }
 
   .post-card:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
+    border-bottom: var(--post-border-bottom-last, none);
+    padding-bottom: var(--post-padding-last, 0);
+    margin-bottom: 0;
   }
 
   .post-header {
@@ -133,7 +138,7 @@
     width: 100%;
     max-height: 420px;
     object-fit: cover;
-    border-radius: 8px;
+    border-radius: var(--radius-lg, 8px);
     display: block;
     background: var(--bg);
   }
@@ -146,7 +151,7 @@
     border: none;
     background: none;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: var(--radius-lg, 8px);
     overflow: hidden;
   }
 

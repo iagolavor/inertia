@@ -23,6 +23,21 @@
   let textareaEl = $state<HTMLTextAreaElement | null>(null);
 
   const canSend = $derived(!posting && !disabled && (body.trim().length > 0 || mediaBase64 !== null));
+  const hasDraft = $derived(body.trim().length > 0 || mediaPreview !== null || posting);
+
+  let composerFocused = $state(false);
+  const toolbarVisible = $derived(composerFocused || hasDraft);
+
+  function onComposerFocusIn() {
+    composerFocused = true;
+  }
+
+  function onComposerFocusOut(e: FocusEvent) {
+    const root = e.currentTarget as HTMLElement;
+    if (!root.contains(e.relatedTarget as Node | null)) {
+      composerFocused = false;
+    }
+  }
 
   function applyFormat(format: InlineFormat) {
     if (!textareaEl || posting || disabled) return;
@@ -126,12 +141,17 @@
 </script>
 
 <div class="composer" class:disabled>
-  <div class="composer-box">
+  <div
+    class="composer-box"
+    class:has-draft={hasDraft}
+    onfocusin={onComposerFocusIn}
+    onfocusout={onComposerFocusOut}
+  >
     <textarea
       bind:this={textareaEl}
       bind:value={body}
-      placeholder="Write here"
-      rows="2"
+      placeholder="Share something…"
+      rows="1"
       disabled={posting || disabled}
       onkeydown={onKeydown}
     ></textarea>
@@ -151,7 +171,7 @@
       </div>
     {/if}
 
-    <div class="composer-toolbar">
+    <div class="composer-toolbar" aria-hidden={!toolbarVisible}>
       <div class="toolbar-start" role="toolbar" aria-label="Text formatting">
         <button
           type="button"
@@ -312,9 +332,9 @@
   }
 
   .composer-box {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--bg);
+    border: var(--compose-border, 1px solid var(--border));
+    border-radius: var(--radius-md, 8px);
+    background: var(--compose-bg, var(--surface));
     overflow: hidden;
     transition: border-color 0.15s;
   }
@@ -326,14 +346,15 @@
   .composer textarea {
     display: block;
     width: 100%;
-    min-height: 3.25rem;
+    min-height: 2.35rem;
     max-height: 12rem;
-    padding: 0.85rem 1rem 0.5rem;
+    padding: 0.45rem 0.75rem;
     border: none;
+    border-radius: 0;
     background: transparent;
     color: var(--text);
     resize: vertical;
-    line-height: 1.45;
+    line-height: 1.4;
   }
 
   .composer textarea:focus {
@@ -348,16 +369,35 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.25rem 0.5rem 0.35rem;
-    border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+    gap: 0.4rem;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    padding: 0 0.65rem;
+    border-top: 0 solid transparent;
+    pointer-events: none;
+    transition:
+      max-height 0.2s ease,
+      opacity 0.15s ease,
+      padding 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .composer-box:focus-within .composer-toolbar,
+  .composer-box.has-draft .composer-toolbar {
+    max-height: 2.5rem;
+    opacity: 1;
+    padding: 0.3rem 0.65rem 0.45rem;
+    border-top-color: var(--border);
+    border-top-width: 1px;
+    pointer-events: auto;
   }
 
   .toolbar-start {
     display: flex;
     align-items: center;
-    gap: 0.15rem;
+    gap: 0.1rem;
+    flex: 1;
     min-width: 0;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -372,14 +412,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 1.85rem;
-    height: 1.85rem;
-    padding: 0 0.35rem;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.2rem;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     background: transparent;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    line-height: 1;
     cursor: pointer;
   }
 
@@ -397,8 +438,8 @@
   }
 
   .format-btn svg {
-    width: 1rem;
-    height: 1rem;
+    width: 0.9rem;
+    height: 0.9rem;
   }
 
   .format-btn:hover:not(:disabled) {
@@ -413,16 +454,16 @@
 
   .format-sep {
     width: 1px;
-    height: 1.1rem;
-    margin: 0 0.15rem;
+    height: 0.85rem;
+    margin: 0 0.1rem;
     background: var(--border);
   }
 
   .preview-wrap {
     position: relative;
-    margin: 0 1rem 0.5rem;
+    margin: 0 0.75rem 0.5rem;
     display: inline-block;
-    max-width: calc(100% - 2rem);
+    max-width: calc(100% - 1.5rem);
   }
 
   .preview {
@@ -461,15 +502,16 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 6px;
     color: var(--accent);
-    width: 2.35rem;
-    height: 2.35rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
   }
 
   .send-btn svg {
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1rem;
+    height: 1rem;
   }
 
   .send-btn:not(:disabled) {

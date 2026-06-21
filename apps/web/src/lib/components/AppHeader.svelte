@@ -131,8 +131,8 @@
     top: 0;
     z-index: 30;
     border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(10px);
+    background: var(--header-bg, color-mix(in srgb, var(--bg) 88%, transparent));
+    backdrop-filter: var(--header-backdrop, blur(10px));
   }
 
   .header-inner {
@@ -180,7 +180,7 @@
   .primary-tabs {
     display: inline-flex;
     align-items: center;
-    padding: 0.15rem;
+    padding: 0.2rem;
     border-radius: 9px;
     border: 1px solid var(--border);
     background: var(--surface);
@@ -195,10 +195,14 @@
   }
 
   .primary-tabs a {
-    padding: 0.35rem 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.75rem;
     border-radius: 7px;
     font-size: 0.8125rem;
     font-weight: 600;
+    line-height: 1;
     color: var(--muted);
     text-decoration: none;
     white-space: nowrap;
@@ -215,7 +219,6 @@
   .primary-tabs a.active {
     background: var(--bg);
     color: var(--text);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   .header-end {
@@ -293,7 +296,7 @@
     }
 
     .primary-tabs a {
-      padding: 0.35rem 0.65rem;
+      padding: 0.3rem 0.65rem;
     }
   }
 </style>

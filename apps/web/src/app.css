@@ -1,42 +1,149 @@
-:root,
-[data-theme='dark'] {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --border: #2a2f3d;
-  --text: #e8eaed;
-  --muted: #9aa0a6;
-  --accent: #6c9eff;
-  --accent-dim: #4a7ad9;
-  --danger: #ff6b6b;
-  --success: #51cf66;
-  --warning: #fcc419;
-  --badge-success-bg: #1b4332;
-  --badge-offline-bg: #2a2f3d;
-  --badge-pending-bg: #3d3200;
-  --badge-failed-bg: #4a1515;
+/* Structural defaults — colors come from palette + mode selectors below */
+:root {
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --card-bg: var(--surface);
+  --compose-border: 1px solid var(--border);
+  --compose-bg: var(--surface);
+  --header-bg: color-mix(in srgb, var(--bg) 88%, transparent);
+  --header-backdrop: blur(10px);
+  --status-dot-glow: none;
+  --post-bg: transparent;
+  --post-border: none;
+  --post-radius: 0;
+  --post-padding: 1rem 0;
+  --post-margin-bottom: 0;
+  --post-border-bottom: 1px solid var(--border);
+  --post-border-bottom-last: none;
+  --post-padding-last: 0;
+}
+
+/* Midnight Classic (dark) */
+[data-palette='midnight'][data-theme='dark'] {
+  --bg: #08090c;
+  --surface: #12141a;
+  --border: #1f2128;
+  --text: #f0f0f0;
+  --muted: #888888;
+  --accent: #8ab4f8;
+  --accent-dim: #6c9eff;
+  --danger: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --badge-success-bg: #142819;
+  --badge-offline-bg: #1a1d24;
+  --badge-pending-bg: #2a2410;
+  --badge-failed-bg: #2a1515;
   --logo-ring: #fb923c;
-  --logo-link: #a3a3a3;
+  --logo-link: #9aa0a6;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --compose-border: 1px solid var(--border);
+  --compose-bg: var(--surface);
+  --header-bg: color-mix(in srgb, var(--bg) 92%, transparent);
+  --header-backdrop: blur(10px);
+  --status-dot-glow: 0 0 8px rgba(74, 222, 128, 0.45);
   color-scheme: dark;
 }
 
-[data-theme='light'] {
-  --bg: #fafafa;
-  --surface: #f5f5f5;
-  --border: #e5e5e5;
-  --text: #171717;
-  --muted: #737373;
-  --accent: #3b6fd9;
-  --accent-dim: #2f5eb8;
-  --danger: #e03131;
-  --success: #2f9e44;
-  --warning: #e67700;
-  --badge-success-bg: #d3f9d8;
-  --badge-offline-bg: #f0f0f0;
-  --badge-pending-bg: #fff3bf;
-  --badge-failed-bg: #ffe3e3;
-  --logo-ring: #ea580c;
-  --logo-link: #525252;
+/* Midnight Mist (light) */
+[data-palette='midnight'][data-theme='light'] {
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --border: #e4e4e7;
+  --text: #18181b;
+  --muted: #71717a;
+  --accent: #2563eb;
+  --accent-dim: #1d4ed8;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+  --badge-success-bg: #dcfce7;
+  --badge-offline-bg: #f4f4f5;
+  --badge-pending-bg: #fef9c3;
+  --badge-failed-bg: #fee2e2;
+  --logo-ring: #52525b;
+  --logo-link: #71717a;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --compose-border: 1px solid var(--border);
+  --compose-bg: var(--surface);
+  --header-bg: color-mix(in srgb, var(--bg) 90%, transparent);
+  --header-backdrop: blur(10px);
+  --status-dot-glow: none;
   color-scheme: light;
+}
+
+/* Sandstone Driftwood (light) */
+[data-palette='sandstone'][data-theme='light'] {
+  --bg: #eceae6;
+  --surface: #fafaf9;
+  --border: #d6d3d1;
+  --text: #44403c;
+  --muted: #78716c;
+  --accent: #57534e;
+  --accent-dim: #44403c;
+  --danger: #b91c1c;
+  --success: #57634e;
+  --warning: #b45309;
+  --badge-success-bg: #e7ece4;
+  --badge-offline-bg: #f5f5f4;
+  --badge-pending-bg: #fef3c7;
+  --badge-failed-bg: #fee2e2;
+  --logo-ring: #78716c;
+  --logo-link: #78716c;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --compose-border: 1px solid var(--border);
+  --compose-bg: var(--surface);
+  --header-bg: var(--surface);
+  --header-backdrop: none;
+  --status-dot-glow: none;
+  color-scheme: light;
+}
+
+/* Sandstone Night (dark) — matches S5 exploration tokens */
+[data-palette='sandstone'][data-theme='dark'] {
+  --bg: #1c1917;
+  --surface: #292524;
+  --border: #44403c;
+  --text: #e7e5e4;
+  --muted: #a8a29e;
+  --accent: #57534e;
+  --accent-dim: #44403c;
+  --danger: #fca5a5;
+  --success: #86efac;
+  --warning: #fcd34d;
+  --badge-success-bg: #1a2e1f;
+  --badge-offline-bg: #292524;
+  --badge-pending-bg: #3d3200;
+  --badge-failed-bg: #4a1515;
+  --logo-ring: #d6d3d1;
+  --logo-link: #a8a29e;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --card-bg: var(--bg);
+  --compose-border: 2px dashed #57534e;
+  --compose-bg: #292524;
+  --header-bg: #292524;
+  --header-backdrop: none;
+  --status-dot-glow: 0 0 8px rgba(134, 239, 172, 0.25);
+  --post-bg: #292524;
+  --post-border: 1px solid #44403c;
+  --post-radius: 14px;
+  --post-padding: 0.85rem;
+  --post-margin-bottom: 0.65rem;
+  --post-border-bottom: none;
+  color-scheme: dark;
+}
+
+[data-palette='sandstone'][data-theme='dark'] .card.settings-section {
+  background: var(--surface);
 }
 
 :root {
@@ -44,6 +151,10 @@
   color: var(--text);
   background: var(--bg);
   line-height: 1.5;
+}
+
+html {
+  scrollbar-gutter: stable;
 }
 
 * {
@@ -81,9 +192,9 @@ textarea {
 }
 
 .card {
-  background: var(--surface);
+  background: var(--card-bg, var(--surface));
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
   margin-bottom: 1rem;
 }
@@ -112,7 +223,7 @@ textarea {
   gap: 0.5rem;
   padding: 0.6rem 1.2rem;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--accent);
   color: #fff;
   font-weight: 600;
@@ -148,7 +259,7 @@ textarea {
 .field textarea {
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--bg);
   color: var(--text);
 }

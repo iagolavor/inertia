@@ -9,7 +9,7 @@
 
 <section class="card settings-section">
   <h2 class="section-title">Appearance</h2>
-  <p class="section-desc">Theme for this device.</p>
+  <p class="section-desc">Pick a style (Sandstone or Midnight), then light or dark mode.</p>
   <ThemeToggle />
 </section>
 
