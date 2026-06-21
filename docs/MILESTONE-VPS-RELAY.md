@@ -36,17 +36,17 @@ Each person keeps **local-first** data (SQLite + blobs on their device). The VPS
 
 ## Success criteria (definition of “stable”)
 
-- [ ] Both sides: create profile → P2P starts automatically on API boot (no manual `POST /p2p/start`).
-- [ ] Inviter generates invite → link contains **relay-routable** multiaddr(s), not `0.0.0.0`.
-- [ ] Accepter opens invite → safety code → **Accept** succeeds with inviter online.
-- [ ] Either side posts text → other side sees it on Feed within one reconnect cycle (no manual Outbox retry in the happy path).
-- [ ] Either side sends DM → other side sees it in Messages.
-- [ ] API restart on one side → after both are back online, delivery resumes without re-inviting.
-- [ ] VPS runs one binary + one open TCP port; no user data persisted on the server.
+- [x] Both sides: create profile → P2P starts automatically on API boot (no manual `POST /p2p/start`).
+- [x] Inviter generates invite → link contains **relay-routable** multiaddr(s), not `0.0.0.0`.
+- [x] Accepter opens invite → safety code → **Accept** succeeds with inviter online.
+- [x] Either side posts text → other side sees it on Feed within one reconnect cycle (no manual Outbox retry in the happy path).
+- [x] Either side sends DM → other side sees it in Messages.
+- [x] API restart on one side → after both are back online, delivery resumes without re-inviting.
+- [x] VPS runs one binary + one open TCP port; no user data persisted on the server.
 
 **Stretch (same milestone if time allows):**
 
-- [ ] Photo posts deliver image bytes, not just hash placeholders.
+- [x] Photo posts deliver image bytes, not just hash placeholders.
 
 ---
 
@@ -54,27 +54,31 @@ Each person keeps **local-first** data (SQLite + blobs on their device). The VPS
 
 These gaps block *any* real-world test, relay or not.
 
-| # | Task | Area | Notes |
-|---|------|------|-------|
-| 0.1 | Auto-start P2P when identity exists (API boot + UI refresh fallback) | `inertia-api`, `identity.svelte.ts` | Today P2P only starts on first `initIdentity`. |
-| 0.2 | Fixed P2P listen port (config / settings, default e.g. `4784`) | core + settings UI | Random ports + firewall = pain. |
-| 0.3 | Persist `multiaddrs` per contact in SQLite | `storage.rs`, `Contact` | Needed to redial after restart. |
-| 0.4 | On P2P start: dial relay (if configured) then dial all contacts | `engine.rs`, `p2p/node.rs` | |
-| 0.5 | Auto-retry outbox when `PeerConnected` fires | `p2p/node.rs` or `engine.rs` | Documented missing in P2P-EXPERIMENT.md. |
-| 0.6 | Separate UI status: **API** vs **P2P** vs per-friend connection | `OnlineStatus`, settings | Header “online” today = HTTP only. |
-| 0.7 | Settings: connection panel (peer id, listen port, relay addr, copy multiaddr) | `settings/+page.svelte` | Replaces raw env vars for test setup. |
+
+| #   | Task                                                                          | Area                                | Notes                                          |
+| --- | ----------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------- |
+| 0.1 | Auto-start P2P when identity exists (API boot + UI refresh fallback)          | `inertia-api`, `identity.svelte.ts` | Today P2P only starts on first `initIdentity`. |
+| 0.2 | Fixed P2P listen port (config / settings, default e.g. `4784`)                | core + settings UI                  | Random ports + firewall = pain.                |
+| 0.3 | Persist `multiaddrs` per contact in SQLite                                    | `storage.rs`, `Contact`             | Needed to redial after restart.                |
+| 0.4 | On P2P start: dial relay (if configured) then dial all contacts               | `engine.rs`, `p2p/node.rs`          |                                                |
+| 0.5 | Auto-retry outbox when `PeerConnected` fires                                  | `p2p/node.rs` or `engine.rs`        | Implemented in `engine/outbox.rs`.             |
+| 0.6 | Separate UI status: **API** vs **P2P** vs per-friend connection               | `OnlineStatus`, settings            | Header “online” today = HTTP only.             |
+| 0.7 | Settings: connection panel (peer id, listen port, relay addr, copy multiaddr) | `settings/+page.svelte`             | Replaces raw env vars for test setup.          |
+
 
 ---
 
 ## Phase 1 — VPS relay binary
 
-| # | Task | Area | Notes |
-|---|------|------|-------|
-| 1.1 | New crate `inertia-relay` — libp2p relay listener on `0.0.0.0:<port>` | `crates/inertia-relay` | Add `relay` (+ `autonat` if useful) to libp2p features. |
-| 1.2 | Relay identity persisted to disk (stable peer id across restarts) | relay | Clients pin a known relay peer id in config. |
-| 1.3 | `docker compose` + `Dockerfile` for VPS deploy | `docker/` | Single service, one published port. |
-| 1.4 | VPS ops doc: firewall (`ufw allow <port>/tcp`), systemd or compose restart | `docs/VPS-RELAY.md` | Ubuntu 22.04+ assumed. |
-| 1.5 | Health/log: `tracing` lines for relay reservations, not payload content | relay | |
+
+| #   | Task                                                                       | Area                   | Notes                                                   |
+| --- | -------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------- |
+| 1.1 | New crate `inertia-relay` — libp2p relay listener on `0.0.0.0:<port>`      | `crates/inertia-relay` | Add `relay` (+ `autonat` if useful) to libp2p features. |
+| 1.2 | Relay identity persisted to disk (stable peer id across restarts)          | relay                  | Clients pin a known relay peer id in config.            |
+| 1.3 | `docker compose` + `Dockerfile` for VPS deploy                             | `docker/`              | Single service, one published port.                     |
+| 1.4 | VPS ops doc: firewall (`ufw allow <port>/tcp`), systemd or compose restart | `docs/VPS-RELAY.md`    | Ubuntu 22.04+ assumed.                                  |
+| 1.5 | Health/log: `tracing` lines for relay reservations, not payload content    | relay                  |                                                         |
+
 
 **VPS does not run:** `inertia-api`, SQLite, invite signing, or the web UI.
 
@@ -82,25 +86,29 @@ These gaps block *any* real-world test, relay or not.
 
 ## Phase 2 — Clients use the relay
 
-| # | Task | Area | Notes |
-|---|------|------|-------|
-| 2.1 | Config: `INERTIA_RELAY` / settings field — relay multiaddr `/ip4/<vps>/tcp/<port>/p2p/<relay_peer_id>` | core + UI | |
-| 2.2 | Enable libp2p **dcutr** (hole punching) + **relay client** behaviour on `P2pNode` | `p2p/node.rs` | Try direct path when possible; fall back to circuit via VPS. |
-| 2.3 | On P2P start: listen on relay; obtain circuit address for this peer | `p2p/node.rs` | |
-| 2.4 | Embed circuit (or relay + local) addresses in invites via `p2p_invite_addresses` | `engine.rs` | Replace useless `0.0.0.0` listeners. |
-| 2.5 | Accept flow: dial invite multiaddrs (relay paths included) before redemption | already partial | Verify timeout UX when relay down. |
-| 2.6 | Store inviter/accepter observed addresses on successful friend handshake | storage | Feeds 0.3 redial list. |
+
+| #   | Task                                                                                                   | Area            | Notes                                                        |
+| --- | ------------------------------------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------ |
+| 2.1 | Config: `INERTIA_RELAY` / settings field — relay multiaddr `/ip4/<vps>/tcp/<port>/p2p/<relay_peer_id>` | core + UI       |                                                              |
+| 2.2 | Enable libp2p **dcutr** (hole punching) + **relay client** behaviour on `P2pNode`                      | `p2p/node.rs`   | Try direct path when possible; fall back to circuit via VPS. |
+| 2.3 | On P2P start: listen on relay; obtain circuit address for this peer                                    | `p2p/node.rs`   |                                                              |
+| 2.4 | Embed circuit (or relay + local) addresses in invites via `p2p_invite_addresses`                       | `engine.rs`     | Replace useless `0.0.0.0` listeners.                         |
+| 2.5 | Accept flow: dial invite multiaddrs (relay paths included) before redemption                           | already partial | Verify timeout UX when relay down.                           |
+| 2.6 | Store inviter/accepter observed addresses on successful friend handshake                               | storage         | Feeds 0.3 redial list.                                       |
+
 
 ---
 
 ## Phase 3 — Brother test playbook
 
-| # | Task | Area | Notes |
-|---|------|------|-------|
-| 3.1 | Written test script: deploy relay → both install → both set relay URL → invite → post → DM → restart test | `docs/VPS-RELAY.md` | |
-| 3.2 | Prebuilt web `adapter-static` option (brother may not run `npm run dev`) | `apps/web` | `npm run build` + serve `build/` or tiny static server. |
-| 3.3 | Windows + Linux build notes for `inertia-api` | README or VPS-RELAY | You on Windows; brother’s OS may differ. |
-| 3.4 | Invite link uses HTTPS origin you control **or** `inertia://` deep link + copy payload | invites | For remote open without localhost in URL. |
+
+| #   | Task                                                                                                      | Area                | Notes                                                   |
+| --- | --------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------- |
+| 3.1 | Written test script: deploy relay → both install → both set relay URL → invite → post → DM → restart test | `docs/VPS-RELAY.md` |                                                         |
+| 3.2 | Prebuilt web `adapter-static` option (brother may not run `npm run dev`)                                  | `apps/web`          | `npm run build` + serve `build/` or tiny static server. |
+| 3.3 | Windows + Linux build notes for `inertia-api`                                                             | README or VPS-RELAY | You on Windows; brother’s OS may differ.                |
+| 3.4 | Invite link uses HTTPS origin you control **or** `inertia://` deep link + copy payload                    | invites             | For remote open without localhost in URL.               |
+
 
 **Suggested test order**
 
@@ -109,7 +117,7 @@ These gaps block *any* real-world test, relay or not.
 3. Brother: same relay config, create profile.
 4. You: Friends → Generate invite → send link (Signal/iMessage/etc.).
 5. Brother: open `/invite`, verify safety code, Accept.
-6. Brother: post “hello”; you: Feed reload.
+6. Brother: post “hello”; you: Feed updates automatically (polls while the tab is open).
 7. You: DM; brother: Messages.
 8. Kill your API, restart, repeat post — should recover without new invite.
 
@@ -117,24 +125,28 @@ These gaps block *any* real-world test, relay or not.
 
 ## Phase 4 — Media (stretch)
 
-| # | Task | Area | Notes |
-|---|------|------|-------|
-| 4.1 | P2P blob request/response for `media_ref` hashes | `p2p/protocol.rs`, core | Phase 6 in VISION; needed for photo posts. |
-| 4.2 | Sender pushes blob after envelope ACK (or inline chunking) | engine | |
-| 4.3 | Recipient writes `blobs/` and renders in Feed | existing blob API | |
 
-Until 4.x lands, milestone test plan should assume **text-only posts** for stability sign-off.
+| #   | Task                                                       | Area                    | Notes                                      |
+| --- | ---------------------------------------------------------- | ----------------------- | ------------------------------------------ |
+| 4.1 | P2P blob request/response for `media_ref` hashes           | `p2p/protocol.rs`, core | Phase 6 in VISION; needed for photo posts. |
+| 4.2 | Sender pushes blob after envelope ACK (or inline chunking) | engine                  |                                            |
+| 4.3 | Recipient writes `blobs/` and renders in Feed              | existing blob API       |                                            |
+
+
+Photo posts sync over P2P after the text envelope is delivered (blob push on ack, pull on reconnect). Validated in the two-user relay test (stretch criteria).
 
 ---
 
 ## Phase 5 — Hardening before calling it “stable”
 
-| # | Task | Area | Notes |
-|---|------|------|-------|
-| 5.1 | Relay: connection limits / reservation caps (basic abuse guard) | relay | |
-| 5.2 | Integration test: two in-process peers via memory transport or local relay | `inertia-core` tests | |
-| 5.3 | Clear errors: “relay unreachable”, “inviter offline”, “P2P not started” | API + UI | |
-| 5.4 | Update `VISION.md` phased table: insert **Phase 4b — VPS relay** or renumber | docs | Relay is optional infra, not a central account server. |
+
+| #   | Task                                                                         | Area                 | Notes                                                  |
+| --- | ---------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------ |
+| 5.1 | Relay: connection limits / reservation caps (basic abuse guard)              | relay                |                                                        |
+| 5.2 | Integration test: two in-process peers via memory transport or local relay   | `inertia-core` tests |                                                        |
+| 5.3 | Clear errors: “relay unreachable”, “inviter offline”, “P2P not started”      | API + UI             |                                                        |
+| 5.4 | Update `VISION.md` phased table: insert **Phase 4b — VPS relay** or renumber | docs                 | Relay is optional infra, not a central account server. |
+
 
 ---
 
@@ -173,11 +185,8 @@ INERTIA_P2P_LISTEN_PORT=4784
 
 ## Suggested implementation order
 
-1. **Phase 0** (client reliability) — ~1 week of focused work  
-2. **Phase 1** (relay binary + VPS deploy) — ~2–3 days  
-3. **Phase 2** (wire clients to relay) — ~1 week  
-4. **Phase 3** (brother test) — 1 session; file bugs  
-5. **Phase 4** (blobs) if text path is solid  
-6. **Phase 5** (hardening)
+Phases 0–4 and the brother test are **complete**. Next focus:
 
-**First PR to open:** 0.1 + 0.2 + 0.5 — auto P2P, fixed port, outbox retry on connect. Unblocks local testing before you pay for VPS time.
+1. **Phase 5** (hardening) — relay limits, integration tests, clearer errors
+2. **Capacitor** (VISION Phase 5) — mobile shell
+3. **Phase 6** (VISION) — thumbnails, orphan blob GC

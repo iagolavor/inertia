@@ -143,7 +143,7 @@ Optional per device:
 3. **You:** Friends → Generate invite → send link (Signal/iMessage/etc.).
 4. **Brother:** open link in his browser (must hit *his* local web UI via the base URL you configured).
 5. **Brother:** verify safety code, Accept.
-6. **Brother:** post text; **you:** Feed reload.
+6. **Brother:** post text; **you:** Feed updates automatically (polls while the tab is open).
 7. **You:** DM; **brother:** Messages.
 8. Restart one API; confirm delivery resumes without a new invite.
 
