@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { page } from '$app/state';
   import { api, type Contact, type InvitePreview } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
+  import { normalizeInviteInput } from '$lib/invite-input';
   import ProfileHeader from '$lib/components/ProfileHeader.svelte';
+  import { identityState } from '$lib/identity.svelte';
 
   let inviteInput = $state('');
   let preview = $state<InvitePreview | null>(null);
@@ -11,13 +13,27 @@
   let accepting = $state(false);
   let error = $state('');
 
-  onMount(() => {
-    const params = new URLSearchParams(window.location.search);
+  const relayWarning = $derived(
+    identityState.p2pStatus?.relay_configured === true &&
+      identityState.p2pStatus?.relay_connected !== true
+  );
+
+  function readInviteFromUrl() {
+    const params = page.url.searchParams;
     const d = params.get('d');
-    const hash = window.location.hash.slice(1);
-    if (d) inviteInput = decodeURIComponent(d);
-    else if (hash) inviteInput = hash;
-    if (inviteInput) void loadPreview();
+    const hash = page.url.hash.slice(1);
+    if (d) return normalizeInviteInput(decodeURIComponent(d));
+    if (hash) return normalizeInviteInput(hash);
+    return '';
+  }
+
+  $effect(() => {
+    page.url.hash;
+    page.url.search;
+    const fromUrl = readInviteFromUrl();
+    if (!fromUrl) return;
+    inviteInput = fromUrl;
+    void loadPreview();
   });
 
   async function loadPreview() {
@@ -27,7 +43,7 @@
     preview = null;
     accepted = null;
     try {
-      preview = await api.previewInvite(inviteInput.trim());
+      preview = await api.previewInvite(normalizeInviteInput(inviteInput));
     } catch (e) {
       error = e instanceof ApiRequestError ? e.message : e instanceof Error ? e.message : 'Invalid or expired invite';
     } finally {
@@ -40,7 +56,7 @@
     accepting = true;
     error = '';
     try {
-      accepted = await api.acceptInvite(inviteInput.trim());
+      accepted = await api.acceptInvite(normalizeInviteInput(inviteInput));
       preview = null;
     } catch (e) {
       error = e instanceof ApiRequestError ? e.message : e instanceof Error ? e.message : 'Failed to accept invite';
@@ -82,8 +98,19 @@
       <p style="color: var(--muted); font-size: 0.8rem; margin: 0.75rem 0 0;">
         This invite includes the shared relay network — accepting will configure it on this device if needed.
       </p>
-      <button class="btn" style="margin-top: 1rem;" onclick={accept} disabled={accepting}>
-        {accepting ? 'Accepting...' : 'Accept'}
+      {#if relayWarning}
+        <p class="relay-warn">
+          Relay is configured but not connected yet — wait for <strong>Relay OK</strong> in the header, or try Accept
+          anyway (this can take up to a minute).
+        </p>
+      {/if}
+      <button
+        class="btn"
+        style="margin-top: 1rem;"
+        onclick={accept}
+        disabled={accepting}
+      >
+        {accepting ? 'Connecting…' : 'Accept'}
       </button>
     </ProfileHeader>
   </div>
@@ -99,3 +126,11 @@
     </ProfileHeader>
   </div>
 {/if}
+
+<style>
+  .relay-warn {
+    color: var(--warning);
+    font-size: 0.8rem;
+    margin: 0.75rem 0 0;
+  }
+</style>

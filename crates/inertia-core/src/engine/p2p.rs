@@ -99,6 +99,32 @@ impl Engine {
         Ok(())
     }
 
+    /// Redial the configured relay when libp2p is up but the relay session dropped.
+    pub async fn ensure_relay_connected(&self) -> CoreResult<()> {
+        let relay = match self.effective_relay().await {
+            Some(addr) if !addr.trim().is_empty() => addr,
+            _ => return Ok(()),
+        };
+        let relay_peer_id = peer_id_from_multiaddr_str(&relay);
+        let guard = self.p2p.lock().await;
+        let Some(p2p) = guard.as_ref() else {
+            return Ok(());
+        };
+        let connected = p2p.connected_peer_ids().await;
+        drop(guard);
+
+        if relay_peer_id
+            .as_ref()
+            .is_some_and(|id| connected.iter().any(|peer| peer == id))
+        {
+            return Ok(());
+        }
+
+        self.dial_peer(&relay).await?;
+        info!("redialing relay (session not connected)");
+        Ok(())
+    }
+
     pub async fn peer_id(&self) -> Option<String> {
         self.p2p.lock().await.as_ref().map(|n| n.peer_id_string())
     }
@@ -252,6 +278,40 @@ impl Engine {
             .parse::<Multiaddr>()
             .map_err(|e| CoreError::P2p(e.to_string()))?;
         p2p.dial(addr).await
+    }
+
+    /// Poll until a peer id appears in the connected set or timeout.
+    pub(super) async fn wait_for_peer_connected(
+        &self,
+        peer_id: &str,
+        timeout: Duration,
+        role: &str,
+    ) -> CoreResult<()> {
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            let connected = {
+                let guard = self.p2p.lock().await;
+                match guard.as_ref() {
+                    Some(p2p) => p2p.connected_peer_ids().await,
+                    None => return Err(CoreError::P2p("p2p not started".into())),
+                }
+            };
+            if connected.iter().any(|peer| peer == peer_id) {
+                return Ok(());
+            }
+            if tokio::time::Instant::now() >= deadline {
+                let message = match role {
+                    "relay" => {
+                        "could not connect to the relay network — wait until the header shows Relay OK, then try again"
+                    }
+                    _ => {
+                        "could not reach the inviter — they must stay online with Relay OK while you accept"
+                    }
+                };
+                return Err(CoreError::Invite(message.into()));
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
     }
 
     pub async fn send_friend_request(&self, contact_id: &str, multiaddr: &str) -> CoreResult<()> {

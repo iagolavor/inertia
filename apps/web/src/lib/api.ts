@@ -9,6 +9,7 @@ import { getApiBase } from '$lib/api-base';
 export type { ApiErrorInfo };
 
 const REQUEST_TIMEOUT_MS = 8_000;
+const ACCEPT_INVITE_TIMEOUT_MS = 60_000;
 const UPLOAD_TIMEOUT_MS = 60_000;
 
 export interface Identity {
@@ -196,6 +197,9 @@ export interface OutboxEntry {
   content_type: 'message' | 'post';
 }
 
+const API_HTML_RESPONSE_HINT =
+	'Got the app shell instead of the API — reinstall from Android Studio after npm run android:stage-b, or force-stop and reopen the app.';
+
 async function fetchWithTimeout(
   path: string,
   init?: RequestInit,
@@ -217,6 +221,18 @@ async function fetchWithTimeout(
   }
 }
 
+async function readJsonBody<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (text.trimStart().startsWith('<')) {
+    throw new ApiRequestError({ kind: 'offline', message: API_HTML_RESPONSE_HINT });
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new ApiRequestError({ kind: 'server', message: 'Invalid JSON from API' });
+  }
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit,
@@ -224,7 +240,9 @@ async function request<T>(
 ): Promise<T> {
   const res = await fetchWithTimeout(path, init, timeoutMs);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
+    const err = await readJsonBody<{ error?: string; code?: string }>(res).catch(() => ({
+      error: res.statusText
+    }));
     const raw = err.error ?? res.statusText ?? 'Request failed';
     const code = typeof err.code === 'string' ? err.code : undefined;
     if (res.status === 409) {
@@ -233,10 +251,17 @@ async function request<T>(
     if (res.status === 413) {
       throw new ApiRequestError({ kind: 'client', message: 'Imagem demasiado grande para o servidor' });
     }
+    if (res.status === 405) {
+      throw new ApiRequestError({
+        kind: 'offline',
+        message:
+          'API route not found (405) — rebuild the app (npm run android:stage-b) or paste only the invite code after # in the link'
+      });
+    }
     throw new ApiRequestError(classifyHttpFailure(res.status, raw, code));
   }
   if (res.status === 204) return undefined as T;
-  return res.json();
+  return readJsonBody<T>(res);
 }
 
 export const api = {
@@ -246,7 +271,11 @@ export const api = {
       if (!res.ok) {
         throw new ApiRequestError(classifyHttpFailure(res.status, res.statusText));
       }
-      return res.text();
+      const body = (await res.text()).trim();
+      if (body !== 'ok') {
+        throw new ApiRequestError({ kind: 'offline', message: API_HTML_RESPONSE_HINT });
+      }
+      return body;
     } catch (error) {
       if (error instanceof ApiRequestError) throw error;
       throw new ApiRequestError(classifyFetchFailure(error));
@@ -272,10 +301,10 @@ export const api = {
       },
       UPLOAD_TIMEOUT_MS
     ),
-  createInvite: (web_origin?: string) =>
+  createInvite: () =>
     request<InviteResponse>('/invite', {
       method: 'POST',
-      body: JSON.stringify({ web_origin: web_origin ?? window.location.origin })
+      body: JSON.stringify({})
     }),
   previewInvite: (invite: string) =>
     request<InvitePreview>('/invite/preview', {
@@ -283,10 +312,14 @@ export const api = {
       body: JSON.stringify({ invite })
     }),
   acceptInvite: (invite: string) =>
-    request<Contact>('/invite/accept', {
-      method: 'POST',
-      body: JSON.stringify({ invite })
-    }),
+    request<Contact>(
+      '/invite/accept',
+      {
+        method: 'POST',
+        body: JSON.stringify({ invite })
+      },
+      ACCEPT_INVITE_TIMEOUT_MS
+    ),
   listContacts: () => request<Contact[]>('/contacts'),
   listConversationMessages: (contactId: string) =>
     request<ConversationMessage[]>(`/contacts/${encodeURIComponent(contactId)}/messages`),

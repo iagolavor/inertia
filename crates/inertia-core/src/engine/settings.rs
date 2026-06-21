@@ -1,4 +1,4 @@
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::CoreResult;
 use crate::storage::{AppSettings, ArchivedFeedItem};
@@ -51,6 +51,8 @@ impl Engine {
             }
         }
 
+        let relay_updated = relay_multiaddr.is_some();
+
         self.store
             .with_mut(|store| {
                 store.update_connection_settings(
@@ -61,7 +63,15 @@ impl Engine {
                 )?;
                 store.get_settings()
             })
-            .await
+            .await?;
+
+        if relay_updated && self.p2p.lock().await.is_some() {
+            if let Err(e) = self.redial_known_peers().await {
+                warn!(error = %e, "redial after relay settings change failed");
+            }
+        }
+
+        self.get_settings().await
     }
 
     pub(super) async fn resolve_listen_port(&self) -> u16 {

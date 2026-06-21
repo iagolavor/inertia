@@ -4,4 +4,8 @@
     <string name="title_activity_main">Inertia</string>
     <string name="package_name">social.inertia.app</string>
     <string name="custom_url_scheme">social.inertia.app</string>
+    <string name="splash_starting">Starting…</string>
+    <string name="notification_channel_name">Inertia</string>
+    <string name="notification_channel_desc">Local API and P2P sync</string>
+    <string name="notification_api_running">Running on this device</string>
 </resources>
