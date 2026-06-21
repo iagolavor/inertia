@@ -153,6 +153,10 @@
   line-height: 1.5;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 * {
   box-sizing: border-box;
 }

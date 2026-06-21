@@ -167,9 +167,22 @@
   }
 
   .actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
+  }
+
+  .actions .btn {
+    justify-content: center;
+    width: 100%;
+    padding-inline: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  @media (max-width: 420px) {
+    .actions {
+      grid-template-columns: 1fr;
+    }
   }
 
   .file-input {
