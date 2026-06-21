@@ -65,7 +65,7 @@ impl P2pNode {
             .map_err(|e| CoreError::P2p(e.to_string()))?
             .with_behaviour(|key, relay_client| build_behaviour(key, relay_client))
             .map_err(|e| CoreError::P2p(e.to_string()))?
-            .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
+            .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(300)))
             .build();
 
         swarm
@@ -334,6 +334,9 @@ impl P2pNode {
                         info!(%peer_id, "peer disconnected");
                         let _ = event_tx.send(P2pEvent::PeerDisconnected(peer_id));
                         update_contact_state(&store, &peer_id, ConnectionState::Offline).await;
+                    }
+                    libp2p::swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                        warn!(?peer_id, error = %error, "outgoing connection failed");
                     }
                     libp2p::swarm::SwarmEvent::Behaviour(
                         InertiaBehaviourEvent::RequestResponse(Event::Message {

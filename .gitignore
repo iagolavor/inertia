@@ -5,6 +5,9 @@ node_modules
 .svelte-kit
 build
 dist
+apps/web/android/app/src/main/assets/inertia/*
+!apps/web/android/app/src/main/assets/inertia/.gitkeep
+apps/web/android/app/src/main/jniLibs/**/*.so
 apps/web/android/.gradle
 apps/web/android/app/build
 apps/web/android/build

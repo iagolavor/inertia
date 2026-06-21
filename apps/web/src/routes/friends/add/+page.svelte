@@ -23,10 +23,7 @@
   let error = $state('');
 
   let copied = $state(false);
-
-
-
-  let pasteInvite = $state('');
+  let copiedPayload = $state(false);
 
 
 
@@ -86,6 +83,13 @@
 
 
 
+  async function copyPayload() {
+    if (!invite) return;
+    await navigator.clipboard.writeText(invite.payload);
+    copiedPayload = true;
+    setTimeout(() => (copiedPayload = false), 2000);
+  }
+
   async function copyLink() {
 
     if (!invite) return;
@@ -112,22 +116,6 @@
 
 
 
-  function goToAccept() {
-
-    if (!pasteInvite.trim()) {
-
-      error = 'Paste an invite link or code first';
-
-      return;
-
-    }
-
-    const encoded = encodeURIComponent(pasteInvite.trim());
-
-    window.location.href = `/invite?d=${encoded}`;
-
-  }
-
 </script>
 
 
@@ -145,6 +133,7 @@
   <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem;">
     Each link works <strong>once</strong> and expires in <strong>15 minutes</strong>. Stay online with the app open while your friend accepts.
     Send via SMS, iMessage, or show the QR in person.
+    On another phone: tap <strong>Copy for phone</strong>, open Inertia → <strong>Aceitar convite</strong>, paste, Preview. Do not tap the link in Messages.
   </p>
 
   {#if error}<p class="error">{error}</p>{/if}
@@ -175,15 +164,13 @@
 
       </p>
 
-      <p style="color: var(--muted); font-size: 0.8rem; word-break: break-all; margin: 0;">
-
-        {invite.link}
-
-      </p>
+      <p class="invite-code">{invite.link}</p>
 
       <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
 
         <button class="btn btn-secondary" onclick={copyLink}>{copied ? 'Copied!' : 'Copy link'}</button>
+
+        <button class="btn btn-secondary" onclick={copyPayload}>{copiedPayload ? 'Copied!' : 'Copy for phone (paste only)'}</button>
 
         <button class="btn btn-secondary" onclick={shareViaSms}>Share via SMS</button>
 
@@ -209,20 +196,11 @@
   <h3>Accept an invite</h3>
 
   <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem;">
-
-    Paste a link someone sent you, or <a href="/invite">open the accept page</a>.
-
+    Use <strong>⋯ → Aceitar convite</strong> in the header — paste the invite code, Preview, then Accept.
+    On another phone: tap <strong>Copy for phone</strong> above, then paste there (do not tap the link in Messages).
   </p>
 
-  <div class="field">
-
-    <label for="paste">Invite link</label>
-
-    <textarea id="paste" bind:value={pasteInvite} rows="3" placeholder="inertia://invite/... or http://localhost:5173/invite#..."></textarea>
-
-  </div>
-
-  <button class="btn btn-secondary" onclick={goToAccept}>Review invite</button>
+  <a class="btn btn-secondary" href="/invite">Open accept invite page</a>
 
 </div>
 
@@ -277,6 +255,17 @@
 {/if}
 
 <style>
+  .invite-code {
+    color: var(--muted);
+    font-size: 0.8rem;
+    word-break: break-all;
+    margin: 0;
+    font-family: monospace;
+    user-select: text;
+    -webkit-user-select: text;
+    pointer-events: none;
+  }
+
   .contact-row {
     display: flex;
     align-items: center;

@@ -58,7 +58,8 @@
         p2p_announce: p2pAnnounce,
         web_origin: webOrigin
       });
-      message = 'Saved. Restart the API for listen port changes to take effect.';
+      message =
+        'Saved. Relay reconnects automatically; restart the API for listen port changes.';
       await refreshIdentity({ silent: true });
       await refreshShareMultiaddr();
     } catch (e) {

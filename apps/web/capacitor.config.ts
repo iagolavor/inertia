@@ -6,7 +6,9 @@ const config: CapacitorConfig = {
 	webDir: 'build',
 	server: {
 		// HTTP app origin so Stage A can call http://127.0.0.1:4783 (with adb reverse or 10.0.2.2).
-		androidScheme: 'http'
+		androidScheme: 'http',
+		// Stage B WebView loads the device API — without this Capacitor opens Chrome for 127.0.0.1.
+		allowNavigation: ['127.0.0.1', 'localhost']
 	}
 };
 

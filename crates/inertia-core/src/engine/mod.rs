@@ -115,6 +115,24 @@ pub async fn probe_relay_tcp(multiaddr: &str) -> bool {
     p2p::relay_tcp_reachable(multiaddr).await
 }
 
+/// Periodically redial the relay when TCP is up but the libp2p session dropped.
+pub fn spawn_relay_maintenance(engine: Arc<Mutex<Engine>>) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(25));
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            let result = {
+                let eng = engine.lock().await;
+                eng.ensure_relay_connected().await
+            };
+            if let Err(e) = result {
+                warn!(error = %e, "relay maintenance redial failed");
+            }
+        }
+    });
+}
+
 pub(crate) fn p2p_listen_port_from_env() -> Option<u16> {
     std::env::var("INERTIA_P2P_LISTEN_PORT")
         .ok()
