@@ -90,7 +90,6 @@ In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`**
 | VPS relay deploy | [docs/VPS-RELAY.md](docs/VPS-RELAY.md) |
 | Releases & tagging | [docs/RELEASE.md](docs/RELEASE.md) |
 | Git workflow | [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md) |
-| P2P Docker experiment | [docs/P2P-EXPERIMENT.md](docs/P2P-EXPERIMENT.md) |
 
 ---
 
@@ -164,9 +163,9 @@ inertia/
 | Phase | Focus |
 |-------|--------|
 | 0–3 | Core, P2P, UI (**done**) |
-| 4 | Invites, feed, profile, backup, relay (**in progress**) |
+| 4 | Invites, feed, profile, backup, relay (**done**) |
 | 5 | Mobile shell (Capacitor) |
-| 6 | P2P blob sync, thumbnails |
+| 6 | Thumbnails, orphan blob GC |
 
 Details in [docs/VISION.md](docs/VISION.md).
 

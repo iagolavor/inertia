@@ -17,6 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::{mpsc, Mutex, RwLock};
+use tracing::{info, warn};
 
 use crate::content::DeliveryStatus;
 use crate::error::CoreResult;
@@ -81,7 +82,13 @@ impl Engine {
         };
 
         if engine.identity.read().await.is_initialized() {
-            engine.ensure_p2p_started().await?;
+            match engine.ensure_p2p_started().await {
+                Ok(peer_id) => info!(%peer_id, "auto-started P2P on API boot"),
+                Err(e) => warn!(
+                    error = %e,
+                    "auto-start P2P on API boot failed; retry via POST /p2p/start or the web app"
+                ),
+            }
         }
 
         Ok(engine)
