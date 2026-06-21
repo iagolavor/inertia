@@ -18,31 +18,56 @@ let refreshCounter = 0;
 let lastP2pStatusAt = 0;
 const P2P_STATUS_MIN_INTERVAL_MS = 15_000;
 
+/** Start libp2p when the UI is open — avoids Windows Firewall prompts on headless API boot. */
+async function ensureP2pRunning() {
+	if (!identityState.identity?.display_name) return;
+
+	try {
+		const status = await api.p2pStatus();
+		if (status.running && status.peer_id) {
+			identityState.p2pInfo = {
+				peer_id: status.peer_id,
+				addresses: status.listen_addresses
+			};
+			identityState.p2pStatus = status;
+			lastP2pStatusAt = Date.now();
+			return;
+		}
+
+		const started = await api.startP2p();
+		identityState.p2pInfo = started;
+		identityState.p2pStatus = await api.p2pStatus();
+		lastP2pStatusAt = Date.now();
+	} catch {
+		identityState.p2pInfo = null;
+		identityState.p2pStatus = null;
+	}
+}
+
+async function refreshP2pStatusIfDue() {
+	const now = Date.now();
+	if (now - lastP2pStatusAt < P2P_STATUS_MIN_INTERVAL_MS) return;
+	if (!identityState.identity?.display_name || !identityState.p2pInfo?.peer_id) return;
+
+	try {
+		identityState.p2pStatus = await api.p2pStatus();
+		lastP2pStatusAt = now;
+		if (!identityState.p2pStatus.running) {
+			await ensureP2pRunning();
+		}
+	} catch {
+		identityState.p2pStatus = null;
+	}
+}
+
 async function syncFromApi() {
 	const identity = await api.getIdentity();
 	if (identity.display_name) {
 		identityState.identity = identity;
 		identityState.profileLocked = true;
 		await writeDeviceProfile(identity).catch(() => {});
-		try {
-			const info = await Promise.race([
-				api.p2pAddresses(),
-				new Promise<null>((resolve) => setTimeout(() => resolve(null), 3_000))
-			]);
-			if (info?.peer_id) {
-				identityState.p2pInfo = info;
-			} else {
-				identityState.p2pInfo = await api.startP2p();
-			}
-			const now = Date.now();
-			if (now - lastP2pStatusAt >= P2P_STATUS_MIN_INTERVAL_MS) {
-				identityState.p2pStatus = await api.p2pStatus();
-				lastP2pStatusAt = now;
-			}
-		} catch {
-			identityState.p2pInfo = null;
-			identityState.p2pStatus = null;
-		}
+		await ensureP2pRunning();
+		await refreshP2pStatusIfDue();
 		return;
 	}
 
@@ -148,12 +173,7 @@ export async function toggleApiBridge() {
 	}
 }
 
+/** Explicit P2P start (e.g. right after profile creation). */
 export async function startP2pInBackground() {
-	try {
-		identityState.p2pInfo = await api.startP2p();
-		identityState.p2pStatus = await api.p2pStatus();
-	} catch {
-		identityState.p2pInfo = null;
-		identityState.p2pStatus = null;
-	}
+	await ensureP2pRunning();
 }

@@ -23,17 +23,6 @@ pub async fn run() -> anyhow::Result<()> {
         .unwrap_or_else(|_| PathBuf::from("./data"));
 
     let engine = Arc::new(Mutex::new(Engine::open(&data_dir).await?));
-    {
-        let eng = engine.lock().await;
-        if eng.identity_snapshot().await.is_initialized() {
-            match eng.peer_id().await {
-                Some(peer_id) => info!(%peer_id, "P2P ready for existing profile"),
-                None => tracing::warn!(
-                    "profile exists but P2P is not running; clients can call POST /p2p/start"
-                ),
-            }
-        }
-    }
     let shutdown = Arc::new(Notify::new());
     let state = AppState {
         engine,

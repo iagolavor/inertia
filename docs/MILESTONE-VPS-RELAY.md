@@ -36,7 +36,7 @@ Each person keeps **local-first** data (SQLite + blobs on their device). The VPS
 
 ## Success criteria (definition of “stable”)
 
-- [x] Both sides: create profile → P2P starts automatically on API boot (no manual `POST /p2p/start`).
+- [x] Both sides: create profile → P2P starts when the web app opens (no manual Outbox retry in the happy path).
 - [x] Inviter generates invite → link contains **relay-routable** multiaddr(s), not `0.0.0.0`.
 - [x] Accepter opens invite → safety code → **Accept** succeeds with inviter online.
 - [x] Either side posts text → other side sees it on Feed within one reconnect cycle (no manual Outbox retry in the happy path).
@@ -57,7 +57,7 @@ These gaps block *any* real-world test, relay or not.
 
 | #   | Task                                                                          | Area                                | Notes                                          |
 | --- | ----------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------- |
-| 0.1 | Auto-start P2P when identity exists (API boot + UI refresh fallback)          | `engine/mod.rs`, `identity.svelte.ts` | `Engine::open` calls `ensure_p2p_started`; UI falls back via `/p2p/start`. |
+| 0.1 | Auto-start P2P when identity exists (UI-driven, not API boot)                 | `identity.svelte.ts`                | `ensureP2pRunning` on refresh; avoids firewall prompts on headless API. |
 | 0.2 | Fixed P2P listen port (config / settings, default e.g. `4784`)                | core + settings UI                  | Random ports + firewall = pain.                |
 | 0.3 | Persist `multiaddrs` per contact in SQLite                                    | `storage.rs`, `Contact`             | Needed to redial after restart.                |
 | 0.4 | On P2P start: dial relay (if configured) then dial all contacts               | `engine.rs`, `p2p/node.rs`          |                                                |
