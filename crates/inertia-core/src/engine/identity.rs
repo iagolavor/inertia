@@ -27,7 +27,6 @@ impl Engine {
             .await?;
         *self.identity.write().await = identity.clone();
         info!(display_name = %identity.display_name, "identity initialized");
-        self.ensure_p2p_started().await?;
         Ok(identity)
     }
 
