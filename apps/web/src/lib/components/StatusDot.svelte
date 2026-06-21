@@ -42,6 +42,7 @@
 
   .dot.online {
     background: var(--success);
+    box-shadow: var(--status-dot-glow, none);
   }
 
   .dot.offline {
