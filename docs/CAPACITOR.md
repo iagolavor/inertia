@@ -81,11 +81,23 @@ Alternative: build with `$env:VITE_INERTIA_API_BASE = "http://10.0.2.2:4783/api"
 
 ### USB + adb reverse (physical device)
 
+From repo root (works without `adb` on PATH):
+
+```powershell
+npm run android:reverse
+# or with a specific device serial:
+npm run android:reverse -- RQCX302579V
+```
+
+Or call adb directly if `platform-tools` is on PATH:
+
 ```bash
 adb reverse tcp:4783 tcp:4783
 ```
 
-Rebuild/sync only when UI changes; reverse survives until unplug.
+Default SDK location: `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe`
+
+Rebuild/sync only when UI changes; **reverse is cleared when USB disconnects** — re-run after replugging the cable.
 
 ### Wi‑Fi (LAN)
 

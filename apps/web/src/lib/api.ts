@@ -8,7 +8,6 @@ import { getApiBase } from '$lib/api-base';
 
 export type { ApiErrorInfo };
 
-const API_BASE = getApiBase();
 const REQUEST_TIMEOUT_MS = 8_000;
 const UPLOAD_TIMEOUT_MS = 60_000;
 
@@ -183,7 +182,7 @@ export interface PublishPhotoResult {
 }
 
 export function blobUrl(hash: string): string {
-  return `${API_BASE}/blobs/${hash}`;
+  return `${getApiBase()}/blobs/${hash}`;
 }
 
 export interface OutboxEntry {
@@ -205,7 +204,7 @@ async function fetchWithTimeout(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(`${API_BASE}${path}`, {
+    return await fetch(`${getApiBase()}${path}`, {
       ...init,
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json', ...init?.headers }
