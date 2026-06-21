@@ -194,9 +194,9 @@
 
 
   const avatarUrl = $derived(
-
-    photos.length > 0 ? photoUrl(photos[0].blob_hash) : null
-
+    identityState.identity?.avatar_blob_hash
+      ? photoUrl(identityState.identity.avatar_blob_hash)
+      : null
   );
 
   const bio = $derived(identityState.identity?.bio ?? '');
@@ -255,7 +255,7 @@
 
 
 
-  async function uploadProfilePhoto(file: File) {
+  async function uploadAvatar(file: File) {
 
     if (!identityState.apiOnline) return;
 
@@ -267,13 +267,13 @@
 
       const dataBase64 = await prepareImageForUpload(file);
 
-      await api.uploadProfilePhoto(dataBase64);
+      const identity = await api.uploadAvatar(dataBase64);
 
-      await reloadPhotos();
+      await setIdentity(identity);
 
     } catch (e) {
 
-      editError = e instanceof Error ? e.message : 'Failed to upload photo';
+      editError = e instanceof Error ? e.message : 'Failed to upload profile photo';
 
     } finally {
 
@@ -480,7 +480,7 @@
 
       onsave={saveProfile}
 
-      onphoto={uploadProfilePhoto}
+      onphoto={uploadAvatar}
 
     />
 
@@ -550,7 +550,11 @@
 
     gap: 1rem;
 
-    margin-bottom: 1rem;
+    margin-bottom: 1.15rem;
+
+    padding-bottom: 1.15rem;
+
+    border-bottom: 1px solid var(--border);
 
   }
 
@@ -696,19 +700,21 @@
 
     align-items: center;
 
+    justify-content: space-between;
+
     gap: 0.75rem;
 
-    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
 
-    margin-bottom: 0;
+    margin-bottom: 1rem;
+
+    padding-bottom: 0.5rem;
 
   }
 
 
 
   .btn-add-photo {
-
-    margin-left: auto;
 
     padding: 0.35rem 0.75rem;
 
@@ -730,6 +736,8 @@
 
     white-space: nowrap;
 
+    flex-shrink: 0;
+
   }
 
 
@@ -744,17 +752,15 @@
 
   .grid-tab {
 
-    flex: 1;
-
-    display: flex;
+    display: inline-flex;
 
     align-items: center;
 
-    justify-content: center;
+    justify-content: flex-start;
 
     gap: 0.4rem;
 
-    padding: 0.65rem 0.5rem;
+    padding: 0.65rem 0;
 
     font-size: 0.72rem;
 
@@ -766,9 +772,9 @@
 
     color: var(--muted);
 
-    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
 
-    margin-top: -1px;
+    margin-bottom: -1px;
 
   }
 
@@ -788,7 +794,7 @@
 
     color: var(--text);
 
-    border-top-color: var(--text);
+    border-bottom-color: var(--text);
 
   }
 

@@ -42,18 +42,33 @@
   });
 </script>
 
-<AppHeader />
+<div class="app-shell">
+  <AppHeader />
 
-<div class="banner-wrap">
-  <ApiStatusBanner />
+  <div class="banner-wrap">
+    <ApiStatusBanner />
+  </div>
+
+  <main class="container">
+    {@render children()}
+  </main>
 </div>
 
-<main class="container">
-  {@render children()}
-</main>
-
 <style>
+  .app-shell {
+    min-height: 100%;
+    min-height: 100dvh;
+    background: var(--bg);
+  }
+
   .banner-wrap {
-    padding: 0 1.5rem;
+    padding: 0 max(1.5rem, var(--safe-right)) 0 max(1.5rem, var(--safe-left));
+  }
+
+  @media (max-width: 640px) {
+    .banner-wrap {
+      padding-left: max(1rem, var(--safe-left));
+      padding-right: max(1rem, var(--safe-right));
+    }
   }
 </style>

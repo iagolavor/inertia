@@ -1,4 +1,4 @@
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{CoreError, CoreResult};
 use crate::identity::Identity;
@@ -27,6 +27,13 @@ impl Engine {
             .await?;
         *self.identity.write().await = identity.clone();
         info!(display_name = %identity.display_name, "identity initialized");
+        match self.ensure_p2p_started().await {
+            Ok(peer_id) => info!(%peer_id, "auto-started P2P after identity init"),
+            Err(e) => warn!(
+                error = %e,
+                "auto-start P2P after identity init failed; retry via POST /p2p/start or the web app"
+            ),
+        }
         Ok(identity)
     }
 
@@ -55,6 +62,24 @@ impl Engine {
         let mut identity = self.identity.write().await;
         identity.display_name = display_name.trim().to_string();
         identity.bio = bio.trim().to_string();
+        Ok(identity.clone())
+    }
+
+    pub async fn set_avatar(&self, data: &[u8]) -> CoreResult<Identity> {
+        {
+            let current = self.identity.read().await;
+            if !current.is_initialized() {
+                return Err(CoreError::IdentityNotInitialized);
+            }
+        }
+
+        let blob_hash = self.store_blob(data).await?;
+        self.store
+            .with_mut(|store| store.update_identity_avatar(&blob_hash))
+            .await?;
+
+        let mut identity = self.identity.write().await;
+        identity.avatar_blob_hash = Some(blob_hash);
         Ok(identity.clone())
     }
 

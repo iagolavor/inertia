@@ -18,7 +18,7 @@ let refreshCounter = 0;
 let lastP2pStatusAt = 0;
 const P2P_STATUS_MIN_INTERVAL_MS = 15_000;
 
-/** Start libp2p when the UI is open — avoids Windows Firewall prompts on headless API boot. */
+/** Sync P2P state from the API; start only if boot auto-start failed or P2P stopped. */
 async function ensureP2pRunning() {
 	if (!identityState.identity?.display_name) return;
 

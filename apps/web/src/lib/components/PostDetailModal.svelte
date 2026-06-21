@@ -184,13 +184,16 @@
   .modal {
     width: 100%;
     max-width: 480px;
-    max-height: 92vh;
+    max-height: calc(92dvh - var(--safe-top));
     display: flex;
     flex-direction: column;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 16px 16px 0 0;
     overflow: hidden;
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
   }
 
   @media (min-width: 520px) {
@@ -201,7 +204,7 @@
 
     .modal {
       border-radius: 14px;
-      max-height: 88vh;
+      max-height: calc(88dvh - var(--safe-top));
     }
   }
 
@@ -360,6 +363,7 @@
     padding: 0.75rem;
     border-top: 1px solid var(--border);
     background: color-mix(in srgb, var(--bg) 50%, var(--surface));
+    flex-shrink: 0;
   }
 
   .comment-composer input {

@@ -6,7 +6,8 @@
     suggestedWebCommand,
     webUiMode
   } from '$lib/dev-commands';
-  import { refreshIdentity } from '$lib/identity.svelte';
+  import { identityState, refreshIdentity } from '$lib/identity.svelte';
+  import { Capacitor } from '@capacitor/core';
 
   interface Props {
     /** Smaller buttons for the header banner. */
@@ -43,6 +44,11 @@
     retrying = true;
     try {
       await refreshIdentity({ silent: true });
+      if (!identityState.apiOnline && Capacitor.isNativePlatform()) {
+        flash(
+          'Still offline — run: adb reverse tcp:4783 tcp:4783 (API must be running on your PC), then Retry.'
+        );
+      }
     } finally {
       retrying = false;
     }
