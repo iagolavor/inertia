@@ -149,14 +149,6 @@
           <span class="cache-badge">saved · {cacheAge}</span>
         {/if}
       </span>
-      <button
-        type="button"
-        class="btn btn-secondary btn-sm"
-        onclick={() => loadFeed()}
-        disabled={feedLoading || !identityState.apiOnline}
-      >
-        {feedLoading ? 'Loading…' : 'Reload'}
-      </button>
     </div>
     {#if feedLoading && feed.length === 0}
       <p class="empty">A carregar feed…</p>
@@ -229,10 +221,6 @@
   }
 
   .feed-list-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
     padding: 0 0.25rem 0.65rem;
     margin-bottom: 0.25rem;
   }
@@ -257,11 +245,6 @@
     border-radius: 999px;
     border: 1px solid var(--border);
     color: var(--muted);
-  }
-
-  .btn-sm {
-    padding: 0.35rem 0.75rem;
-    font-size: 0.8rem;
   }
 
   .list {
