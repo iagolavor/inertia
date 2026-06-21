@@ -134,12 +134,12 @@
     </p>
   {/if}
 
-  <div class="card feed-composer">
+  <section class="feed-composer">
     <PostComposer
       disabled={!identityState.apiOnline}
       onposted={onPosted}
     />
-  </div>
+  </section>
 
   <div class="card feed-list">
     <div class="feed-list-header">
@@ -221,7 +221,7 @@
   }
 
   .feed-composer {
-    padding: 0.85rem;
+    margin-bottom: 1.25rem;
   }
 
   .feed-list {

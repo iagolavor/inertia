@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inertia — UI Style Explorations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --page-bg: #e8e6e1;
+      --page-text: #1a1a1a;
+      --page-muted: #666;
+      --page-border: #ccc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Instrument Sans', system-ui, sans-serif;
+      background: var(--page-bg);
+      color: var(--page-text);
+      line-height: 1.5;
+    }
+
+    .page-header {
+      padding: 2.5rem 1.5rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .page-header h1 {
+      font-size: 1.75rem;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.5rem;
+      font-weight: 700;
+    }
+
+    .page-header p {
+      margin: 0;
+      max-width: 62ch;
+      color: var(--page-muted);
+      font-size: 0.95rem;
+    }
+
+    .page-header p strong { color: var(--page-text); }
+
+    .toc {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 1.25rem;
+    }
+
+    .toc a {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--page-text);
+      background: #fff;
+      border: 1px solid var(--page-border);
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+    }
+
+    .toc a:hover { border-color: #888; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1.5rem;
+      padding: 0 1.5rem 4rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .exploration {
+      background: #fff;
+      border: 1px solid var(--page-border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .exploration-meta {
+      padding: 1rem 1.15rem;
+      border-bottom: 1px solid var(--page-border);
+    }
+
+    .exploration-meta .num {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--page-muted);
+    }
+
+    .exploration-meta h2 {
+      margin: 0.2rem 0 0.35rem;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+
+    .exploration-meta p {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--page-muted);
+      line-height: 1.45;
+    }
+
+    .exploration-meta .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.55rem;
+    }
+
+    .tag {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      background: #f0f0f0;
+      color: #555;
+    }
+
+    .tag.align { background: #e8f5e9; color: #2e7d32; }
+    .tag.push { background: #fff3e0; color: #e65100; }
+
+    .phone-wrap {
+      padding: 1.25rem;
+      display: flex;
+      justify-content: center;
+      background: #f5f4f2;
+    }
+
+    /* Shared mockup primitives */
+    .phone {
+      width: 100%;
+      max-width: 300px;
+      min-height: 420px;
+      border-radius: var(--phone-radius, 16px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+      box-shadow: var(--phone-shadow, 0 8px 32px rgba(0,0,0,0.12));
+    }
+
+    .mock-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .mock-logo {
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      font-size: 1rem;
+    }
+
+    .mock-nav {
+      display: flex;
+      gap: 0.65rem;
+      font-size: 0.72rem;
+    }
+
+    .mock-nav span { opacity: 0.45; }
+    .mock-nav .active { opacity: 1; font-weight: 600; }
+
+    .mock-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.68rem;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .mock-body {
+      flex: 1;
+      padding: 0.75rem 1rem 1rem;
+      overflow: hidden;
+    }
+
+    .mock-compose {
+      padding: 0.55rem 0.75rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.78rem;
+      border-radius: var(--compose-radius, 10px);
+    }
+
+    .mock-post {
+      border-radius: var(--post-radius, 10px);
+      overflow: hidden;
+      margin-bottom: 0.65rem;
+    }
+
+    .mock-post-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 0.65rem 0.35rem;
+    }
+
+    .mock-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #94a3b8, #64748b);
+    }
+
+    .mock-author { font-weight: 600; font-size: 0.78rem; }
+    .mock-time { font-size: 0.68rem; opacity: 0.55; }
+
+    .mock-expiry {
+      margin-left: auto;
+      font-size: 0.62rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .mock-photo {
+      aspect-ratio: 4/3;
+      background: linear-gradient(145deg, #cbd5e1 0%, #94a3b8 40%, #64748b 100%);
+      position: relative;
+    }
+
+    .mock-photo::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.15), transparent 50%);
+    }
+
+    .mock-text {
+      padding: 0.55rem 0.65rem 0.65rem;
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+
+    .mock-post.sm .mock-photo { aspect-ratio: 16/9; }
+
+    .mock-profile {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0 0.75rem;
+      border-top: 1px solid;
+      margin-top: auto;
+    }
+
+    .mock-profile .mock-avatar { width: 40px; height: 40px; }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-top: 0.5rem;
+    }
+
+    .photo-grid div {
+      aspect-ratio: 1;
+      background: linear-gradient(135deg, #d4d4d8, #a1a1aa);
+    }
+
+    /* ─── 1. Baseline (current app tokens) ─── */
+    #s-baseline .phone {
+      --phone-radius: 12px;
+      background: #0f1117;
+      color: #e8eaed;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    #s-baseline .mock-header { background: #1a1d27; border-bottom: 1px solid #2a2f3d; }
+    #s-baseline .mock-logo { color: #e8eaed; }
+    #s-baseline .mock-logo span { color: #fb923c; }
+    #s-baseline .dot { background: #51cf66; }
+    #s-baseline .mock-compose {
+      background: #1a1d27;
+      border: 1px solid #2a2f3d;
+      color: #9aa0a6;
+    }
+    #s-baseline .mock-post { background: #1a1d27; border: 1px solid #2a2f3d; }
+    #s-baseline .mock-expiry { background: #2a2f3d; color: #9aa0a6; }
+    #s-baseline .mock-profile { border-color: #2a2f3d; }
+
+    /* ─── 2. Warm Editorial ─── */
+    #s-editorial .phone {
+      --phone-radius: 4px;
+      --phone-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      background: #faf8f5;
+      color: #2c2419;
+      font-family: 'Literata', Georgia, serif;
+    }
+    #s-editorial .mock-header {
+      background: #faf8f5;
+      border-bottom: 1px solid #e8e0d4;
+      padding-top: 1rem;
+    }
+    #s-editorial .mock-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+      font-style: italic;
+    }
+    #s-editorial .mock-nav { font-family: 'DM Sans', sans-serif; font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    #s-editorial .mock-status { font-family: 'DM Sans', sans-serif; color: #6b5c4a; }
+    #s-editorial .dot { background: #5a7a5a; }
+    #s-editorial .mock-compose {
+      font-family: 'DM Sans', sans-serif;
+      background: transparent;
+      border: 1px solid #d4c9b8;
+      border-radius: 2px;
+      color: #9a8b78;
+    }
+    #s-editorial .mock-post {
+      background: #fff;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      border-bottom: 1px solid #e8e0d4;
+    }
+    #s-editorial .mock-post-meta { padding-left: 0; }
+    #s-editorial .mock-author { font-family: 'DM Sans', sans-serif; font-weight: 500; }
+    #s-editorial .mock-expiry {
+      font-family: 'DM Sans', sans-serif;
+      background: transparent;
+      color: #9a8b78;
+      border: 1px solid #d4c9b8;
+    }
+    #s-editorial .mock-text { padding-left: 0; font-size: 0.85rem; }
+
+    /* ─── 3. Midnight Quiet ─── */
+    #s-midnight .phone {
+      background: #08090c;
+      color: #f0f0f0;
+      font-family: 'DM Sans', sans-serif;
+      --phone-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 20px 50px rgba(0,0,0,0.5);
+    }
+    #s-midnight .mock-header { background: transparent; padding-bottom: 0.5rem; }
+    #s-midnight .mock-logo { font-weight: 600; letter-spacing: 0.02em; }
+    #s-midnight .mock-nav { color: #666; }
+    #s-midnight .dot { background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,0.5); }
+    #s-midnight .mock-status { color: #888; }
+    #s-midnight .mock-compose {
+      background: rgba(255,255,255,0.04);
+      border: none;
+      color: #555;
+      border-radius: 20px;
+    }
+    #s-midnight .mock-post {
+      background: transparent;
+      border: none;
+    }
+    #s-midnight .mock-photo { border-radius: 12px; }
+    #s-midnight .mock-post-meta { padding-left: 0; padding-right: 0; }
+    #s-midnight .mock-expiry { background: rgba(255,255,255,0.06); color: #777; border-radius: 20px; }
+    #s-midnight .mock-text { padding-left: 0; color: #ccc; }
+
+    /* ─── 4. Sandstone (local, tactile) ─── */
+    #s-sandstone .phone {
+      background: #f0ebe3;
+      color: #3d3832;
+      font-family: 'Instrument Sans', sans-serif;
+      --phone-radius: 20px;
+    }
+    #s-sandstone .mock-header {
+      background: #e8e0d5;
+      border-bottom: none;
+      border-radius: 0 0 16px 16px;
+    }
+    #s-sandstone .mock-logo { color: #5c4f42; }
+    #s-sandstone .dot { background: #6b8f71; }
+    #s-sandstone .mock-status { color: #7a6f62; }
+    #s-sandstone .mock-compose {
+      background: #faf7f2;
+      border: 2px dashed #c4b8a8;
+      color: #9a8f82;
+      border-radius: 14px;
+    }
+    #s-sandstone .mock-post {
+      background: #faf7f2;
+      border: 1px solid #ddd5c8;
+      border-radius: 14px;
+    }
+    #s-sandstone .mock-expiry { background: #e8dfd2; color: #7a6f62; }
+    #s-sandstone .mock-profile { border-color: #ddd5c8; }
+    #s-sandstone .photo-grid div { border-radius: 6px; }
+
+    /* ─── 5. Polaroid Circle ─── */
+    #s-polaroid .phone {
+      background: #1c1c1e;
+      color: #f5f5f7;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    #s-polaroid .mock-header { background: #1c1c1e; border-bottom: 1px solid #333; }
+    #s-polaroid .mock-logo { font-weight: 600; }
+    #s-polaroid .dot { background: #30d158; }
+    #s-polaroid .mock-compose {
+      background: #2c2c2e;
+      border: none;
+      color: #8e8e93;
+      border-radius: 10px;
+    }
+    #s-polaroid .mock-post {
+      background: #fff;
+      color: #1c1c1e;
+      padding: 8px 8px 14px;
+      border-radius: 2px;
+      transform: rotate(-0.5deg);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    #s-polaroid .mock-post + .mock-post {
+      transform: rotate(0.8deg);
+      margin-top: -0.25rem;
+    }
+    #s-polaroid .mock-post-meta { padding: 4px 2px 6px; }
+    #s-polaroid .mock-photo { border-radius: 0; }
+    #s-polaroid .mock-expiry {
+      background: #f0f0f0;
+      color: #666;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.58rem;
+    }
+    #s-polaroid .mock-text { font-size: 0.75rem; color: #333; padding-top: 4px; }
+    #s-polaroid .mock-post.sm {
+      background: #2c2c2e;
+      color: #f5f5f7;
+      transform: rotate(0.3deg);
+      padding: 0.65rem;
+      box-shadow: none;
+    }
+    #s-polaroid .mock-post.sm .mock-text { color: #ccc; padding: 0.4rem 0 0; }
+    #s-polaroid .mock-post.sm .mock-expiry { background: #3a3a3c; color: #aaa; }
+
+    /* ─── 6. Swiss Grid ─── */
+    #s-swiss .phone {
+      background: #fff;
+      color: #000;
+      font-family: 'Space Grotesk', sans-serif;
+      --phone-radius: 0;
+      --phone-shadow: 0 0 0 2px #000;
+    }
+    #s-swiss .mock-header {
+      border-bottom: 2px solid #000;
+      padding: 0.65rem 1rem;
+    }
+    #s-swiss .mock-logo { text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.12em; }
+    #s-swiss .mock-nav { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.62rem; }
+    #s-swiss .mock-status { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.6rem; font-weight: 600; }
+    #s-swiss .dot { background: #000; border-radius: 0; width: 8px; height: 8px; }
+    #s-swiss .mock-compose {
+      border: 2px solid #000;
+      border-radius: 0;
+      background: #fff;
+      color: #888;
+    }
+    #s-swiss .mock-post {
+      border: 2px solid #000;
+      border-radius: 0;
+    }
+    #s-swiss .mock-photo { border-radius: 0; }
+    #s-swiss .mock-expiry {
+      background: #000;
+      color: #fff;
+      border-radius: 0;
+      font-size: 0.58rem;
+      letter-spacing: 0.04em;
+    }
+    #s-swiss .mock-text { font-size: 0.78rem; }
+
+    /* ─── 7. Fading Moments (ephemerality) ─── */
+    #s-fading .phone {
+      background: linear-gradient(180deg, #1a1625 0%, #0d0b12 100%);
+      color: #e2dfe8;
+      font-family: 'Syne', sans-serif;
+    }
+    #s-fading .mock-header {
+      background: transparent;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    #s-fading .mock-logo {
+      background: linear-gradient(90deg, #c4b5fd, #f9a8d4, #fcd34d);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    #s-fading .dot { background: #a78bfa; }
+    #s-fading .mock-status { color: #9ca3af; font-family: 'DM Sans', sans-serif; font-size: 0.65rem; }
+    #s-fading .mock-compose {
+      background: rgba(167,139,250,0.08);
+      border: 1px solid rgba(167,139,250,0.2);
+      color: #6b7280;
+      font-family: 'DM Sans', sans-serif;
+      border-radius: 12px;
+    }
+    #s-fading .mock-post {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      position: relative;
+    }
+    #s-fading .mock-post::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      background: linear-gradient(135deg, transparent 60%, rgba(249,168,212,0.08));
+      pointer-events: none;
+    }
+    #s-fading .mock-photo {
+      mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+    }
+    #s-fading .mock-expiry {
+      background: linear-gradient(90deg, rgba(167,139,250,0.2), rgba(249,168,212,0.2));
+      color: #c4b5fd;
+      font-family: 'DM Sans', sans-serif;
+      border-radius: 20px;
+    }
+    #s-fading .mock-text { font-family: 'DM Sans', sans-serif; font-weight: 400; font-size: 0.78rem; color: #d1d5db; }
+    #s-fading .mock-author { font-family: 'Syne', sans-serif; }
+
+    /* ─── 8. Letterpress (async correspondence) ─── */
+    #s-letter .phone {
+      background: #f7f3eb;
+      color: #2a2520;
+      font-family: 'Literata', Georgia, serif;
+      --phone-radius: 8px;
+    }
+    #s-letter .mock-header {
+      background: #ebe4d6;
+      border-bottom: 2px solid #c9bfb0;
+    }
+    #s-letter .mock-logo {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    #s-letter .mock-nav { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; }
+    #s-letter .mock-status { font-family: 'IBM Plex Mono', monospace; color: #6b6358; }
+    #s-letter .dot { background: #4a6741; }
+    #s-letter .mock-compose {
+      font-family: 'IBM Plex Mono', monospace;
+      background: #fffef9;
+      border: 1px solid #c9bfb0;
+      border-radius: 4px;
+      color: #9a9085;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+    }
+    #s-letter .mock-post {
+      background: #fffef9;
+      border: 1px solid #d4cbb8;
+      border-radius: 4px;
+      box-shadow: 2px 3px 0 #c9bfb0;
+    }
+    #s-letter .mock-post-meta { border-bottom: 1px dashed #d4cbb8; padding-bottom: 0.45rem; }
+    #s-letter .mock-author { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; }
+    #s-letter .mock-time { font-family: 'IBM Plex Mono', monospace; }
+    #s-letter .mock-expiry {
+      font-family: 'IBM Plex Mono', monospace;
+      background: #ebe4d6;
+      color: #6b6358;
+      font-size: 0.58rem;
+    }
+    #s-letter .mock-text { font-size: 0.82rem; }
+    #s-letter .mock-post.sm {
+      box-shadow: 1px 2px 0 #c9bfb0;
+      opacity: 0.85;
+    }
+    #s-letter .mock-post.sm .mock-text::before {
+      content: '↳ ';
+      color: #9a9085;
+    }
+
+    /* ─── 9. Forest Edge (small-scale, organic) ─── */
+    #s-forest .phone {
+      background: #f4f7f4;
+      color: #1a2e1a;
+      font-family: 'Instrument Sans', sans-serif;
+      --phone-radius: 18px;
+    }
+    #s-forest .mock-header {
+      background: #2d4a2d;
+      color: #e8f0e8;
+      border-radius: 0 0 20px 20px;
+      padding: 0.85rem 1rem;
+    }
+    #s-forest .mock-nav { color: rgba(255,255,255,0.5); }
+    #s-forest .mock-nav .active { color: #fff; }
+    #s-forest .mock-status { color: rgba(255,255,255,0.7); }
+    #s-forest .dot { background: #86efac; }
+    #s-forest .mock-compose {
+      background: #fff;
+      border: 1px solid #c5d9c5;
+      color: #6b8f6b;
+      border-radius: 12px;
+    }
+    #s-forest .mock-post {
+      background: #fff;
+      border: 1px solid #d4e4d4;
+      border-radius: 12px;
+    }
+    #s-forest .mock-photo {
+      background: linear-gradient(145deg, #a7c4a0, #5a7a52, #3d5c38);
+    }
+    #s-forest .mock-expiry { background: #e8f5e8; color: #3d6b3d; }
+    #s-forest .mock-profile { border-color: #d4e4d4; }
+    #s-forest .photo-grid div {
+      background: linear-gradient(135deg, #b8d4b0, #7a9a72);
+      border-radius: 8px;
+    }
+
+    /* ─── 10. Signal Honest (transparency-first) ─── */
+    #s-signal .phone {
+      background: #fafafa;
+      color: #171717;
+      font-family: 'Instrument Sans', sans-serif;
+      --phone-radius: 10px;
+    }
+    #s-signal .mock-header {
+      background: #fff;
+      border-bottom: 1px solid #e5e5e5;
+      flex-wrap: wrap;
+    }
+    #s-signal .status-bar {
+      width: 100%;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.62rem;
+      margin-top: 0.35rem;
+      flex-wrap: wrap;
+    }
+    #s-signal .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.45rem;
+      border-radius: 4px;
+      font-weight: 600;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    #s-signal .pill.api { background: #dbeafe; color: #1d4ed8; }
+    #s-signal .pill.p2p { background: #d1fae5; color: #047857; }
+    #s-signal .pill.exp { background: #fef3c7; color: #b45309; }
+    #s-signal .dot { background: #22c55e; }
+    #s-signal .mock-compose {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      color: #a3a3a3;
+      border-radius: 8px;
+    }
+    #s-signal .mock-post {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+    }
+    #s-signal .mock-post-meta { flex-wrap: wrap; }
+    #s-signal .delivery {
+      width: 100%;
+      font-size: 0.62rem;
+      font-family: 'IBM Plex Mono', monospace;
+      color: #047857;
+      padding: 0 0.65rem 0.3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    #s-signal .delivery.pending { color: #b45309; }
+    #s-signal .mock-expiry {
+      background: #f5f5f5;
+      color: #737373;
+      border: 1px solid #e5e5e5;
+    }
+    #s-signal .mock-post.sm .delivery { color: #737373; font-size: 0.58rem; }
+
+    @media (max-width: 400px) {
+      .grid { grid-template-columns: 1fr; padding-inline: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Inertia — UI Style Explorations</h1>
+    <p>
+      Ten directions for the web app shell: feed, status, and profile cues.
+      Grounded in <strong>local-first</strong>, <strong>ephemeral</strong>, and <strong>honest state</strong>
+      from the vision — without engagement chrome, algorithms, or mass-scale signals.
+      Open this file in a browser and compare side by side.
+    </p>
+    <nav class="toc" aria-label="Jump to style">
+      <a href="#s-baseline">1 Baseline</a>
+      <a href="#s-editorial">2 Editorial</a>
+      <a href="#s-midnight">3 Midnight</a>
+      <a href="#s-sandstone">4 Sandstone</a>
+      <a href="#s-polaroid">5 Polaroid</a>
+      <a href="#s-swiss">6 Swiss</a>
+      <a href="#s-fading">7 Fading</a>
+      <a href="#s-letter">8 Letterpress</a>
+      <a href="#s-forest">9 Forest</a>
+      <a href="#s-signal">10 Signal</a>
+    </nav>
+  </header>
+
+  <main class="grid">
+
+    <!-- 1 -->
+    <article class="exploration" id="s-baseline">
+      <div class="exploration-meta">
+        <div class="num">01 — Reference</div>
+        <h2>Baseline</h2>
+        <p>Current app tokens: dark surface, soft blue accent, orange logo ring. Safe default aligned with DESIGN.md.</p>
+        <div class="tags"><span class="tag align">DESIGN.md aligned</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div class="mock-logo">Inertia <span>◉</span></div>
+            <nav class="mock-nav"><span class="active">Feed</span><span>Profile</span><span>Settings</span></nav>
+            <div class="mock-status"><span class="dot"></span> online</div>
+          </header>
+          <div class="mock-body">
+            <div class="mock-compose">Share with your circle…</div>
+            <article class="mock-post">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">Maya</div><div class="mock-time">2h ago</div></div>
+                <span class="mock-expiry">5d left</span>
+              </div>
+              <div class="mock-photo"></div>
+              <p class="mock-text">Coffee before the hike. See you Sunday?</p>
+            </article>
+            <article class="mock-post sm">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">Jon</div><div class="mock-time">Yesterday</div></div>
+                <span class="mock-expiry">6d left</span>
+              </div>
+              <p class="mock-text">Relay connected — your invite went through.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 2 -->
+    <article class="exploration" id="s-editorial">
+      <div class="exploration-meta">
+        <div class="num">02 — Light &amp; literary</div>
+        <h2>Warm Editorial</h2>
+        <p>Serif headlines, paper whites, uppercase micro-nav. Feels like a private journal shared with friends — calm, not social-media loud.</p>
+        <div class="tags"><span class="tag align">Content first</span><span class="tag">Light mode hero</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div class="mock-logo">Inertia</div>
+            <nav class="mock-nav"><span class="active">Feed</span><span>Profile</span><span>Settings</span></nav>
+            <div class="mock-status"><span class="dot"></span> online</div>
+          </header>
+          <div class="mock-body">
+            <div class="mock-compose">Write something for your circle…</div>
+            <article class="mock-post">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">Maya</div><div class="mock-time">2 hours ago</div></div>
+                <span class="mock-expiry">expires in 5 days</span>
+              </div>
+              <div class="mock-photo"></div>
+              <p class="mock-text">Coffee before the hike. See you Sunday?</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 3 -->
+    <article class="exploration" id="s-midnight">
+      <div class="exploration-meta">
+        <div class="num">03 — Dark minimal</div>
+        <h2>Midnight Quiet</h2>
+        <p>Near-black canvas, photos as floating islands. Status glows softly. Maximum whitespace in dark mode — no chrome competing with images.</p>
+        <div class="tags"><span class="tag align">Less is more</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div class="mock-logo">inertia</div>
+            <nav class="mock-nav"><span class="active">Feed</span><span>Profile</span><span>Settings</span></nav>
+            <div class="mock-status"><span class="dot"></span> online</div>
+          </header>
+          <div class="mock-body">
+            <div class="mock-compose">Share with your circle…</div>
+            <article class="mock-post">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">Maya</div><div class="mock-time">2h ago · 5d left</div></div>
+              </div>
+              <div class="mock-photo"></div>
+              <p class="mock-text">Coffee before the hike. See you Sunday?</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 4 -->
+    <article class="exploration" id="s-sandstone">
+      <div class="exploration-meta">
+        <div class="num">04 — Tactile neutral</div>
+        <h2>Sandstone</h2>
+        <p>Warm stone palette — device-local, handmade feel. Dashed compose area suggests “draft on your phone.” Rounded panels like physical objects on a desk.</p>
+        <div class="tags"><span class="tag align">Local-first mood</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div class="mock-logo">Inertia</div>
+            <nav class="mock-nav"><span class="active">Feed</span><span>Profile</span><span>Settings</span></nav>
+            <div class="mock-status"><span class="dot"></span> online</div>
+          </header>
+          <div class="mock-body">
+            <div class="mock-compose">What's on your mind?</div>
+            <article class="mock-post">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">Maya</div><div class="mock-time">2h ago</div></div>
+                <span class="mock-expiry">5d left</span>
+              </div>
+              <div class="mock-photo"></div>
+              <p class="mock-text">Coffee before the hike. See you Sunday?</p>
+            </article>
+            <div class="mock-profile">
+              <div class="mock-avatar"></div>
+              <div><div class="mock-author">Your photos</div><div class="mock-time">Stored on this device</div></div>
+            </div>
+            <div class="photo-grid"><div></div><div></div><div></div></div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 5 -->
+    <article class="exploration" id="s-polaroid">
+      <div class="exploration-meta">
+        <div class="num">05 — Inner circle</div>
+        <h2>Polaroid Circle</h2>
+        <p>Posts as slightly tilted prints on a dark tray — intimate, physical, small group. Mono expiry stamps echo “developed yesterday.”</p>
+        <div class="tags"><span class="tag push">Experimental</span><span class="tag">Photo-first</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div class="mock-logo">Inertia</div>
+            <nav class="mock-nav"><span class="active">Feed</span><span>Profile</span><span>Settings</span></nav>
+            <div class="mock-status"><span class="dot"></span> online</div>
+          </header>
+          <div class="mock-body">
+            <article class="mock-post">
+              <div class="mock-photo"></div>
+              <div class="mock-post-meta">
+                <div><div class="mock-author">Maya</div><div class="mock-time">2h ago</div></div>
+                <span class="mock-expiry">5d</span>
+              </div>
+              <p class="mock-text">Coffee before the hike.</p>
+            </article>
+            <article class="mock-post sm">
+              <div class="mock-post-meta">
+                <div><div class="mock-author">Jon</div><div class="mock-time">Yesterday</div></div>
+                <span class="mock-expiry">6d</span>
+              </div>
+              <p class="mock-text">Invite accepted — you're connected.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 6 -->
+    <article class="exploration" id="s-swiss">
+      <div class="exploration-meta">
+        <div class="num">06 — Geometric clarity</div>
+        <h2>Swiss Grid</h2>
+        <p>Hard edges, uppercase labels, black/white discipline. Honest hierarchy — expiry as a stark badge. No gradients, no trends (per DESIGN.md).</p>
+        <div class="tags"><span class="tag align">No ornament</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div class="mock-logo">Inertia</div>
+            <nav class="mock-nav"><span class="active">Feed</span><span>Profile</span><span>Settings</span></nav>
+            <div class="mock-status"><span class="dot"></span> online</div>
+          </header>
+          <div class="mock-body">
+            <div class="mock-compose">Compose post</div>
+            <article class="mock-post">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">Maya</div><div class="mock-time">2H AGO</div></div>
+                <span class="mock-expiry">5D LEFT</span>
+              </div>
+              <div class="mock-photo"></div>
+              <p class="mock-text">Coffee before the hike. See you Sunday?</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 7 -->
+    <article class="exploration" id="s-fading">
+      <div class="exploration-meta">
+        <div class="num">07 — Ephemerality metaphor</div>
+        <h2>Fading Moments</h2>
+        <p>Posts visually “dissolve” at the bottom — content that won't last forever. Soft aurora accent without glassmorphism. Speaks to 7-day TTL.</p>
+        <div class="tags"><span class="tag push">Experimental</span><span class="tag">Vision: ephemeral</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div class="mock-logo">Inertia</div>
+            <nav class="mock-nav"><span class="active">Feed</span><span>Profile</span><span>Settings</span></nav>
+            <div class="mock-status"><span class="dot"></span> online</div>
+          </header>
+          <div class="mock-body">
+            <div class="mock-compose">This will fade in a week…</div>
+            <article class="mock-post">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">Maya</div><div class="mock-time">2h ago</div></div>
+                <span class="mock-expiry">5d remaining</span>
+              </div>
+              <div class="mock-photo"></div>
+              <p class="mock-text">Coffee before the hike. See you Sunday?</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 8 -->
+    <article class="exploration" id="s-letter">
+      <div class="exploration-meta">
+        <div class="num">08 — Async P2P</div>
+        <h2>Letterpress</h2>
+        <p>Store-and-forward as correspondence: monospace metadata, paper shadows, reply threading hint. Matches “not real-time” messaging from the vision.</p>
+        <div class="tags"><span class="tag">Async delivery</span><span class="tag align">Honest tone</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div class="mock-logo">inertia://local</div>
+            <nav class="mock-nav"><span class="active">feed</span><span>profile</span><span>settings</span></nav>
+            <div class="mock-status"><span class="dot"></span> online</div>
+          </header>
+          <div class="mock-body">
+            <div class="mock-compose">Write to your circle…</div>
+            <article class="mock-post">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">from: maya</div><div class="mock-time">2026-06-20 · 5d TTL</div></div>
+              </div>
+              <div class="mock-photo"></div>
+              <p class="mock-text">Coffee before the hike. See you Sunday?</p>
+            </article>
+            <article class="mock-post sm">
+              <div class="mock-post-meta">
+                <div><div class="mock-author">from: jon</div><div class="mock-time">delivered · 6d TTL</div></div>
+              </div>
+              <p class="mock-text">Relay connected — your invite went through.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 9 -->
+    <article class="exploration" id="s-forest">
+      <div class="exploration-meta">
+        <div class="num">09 — Small-scale social</div>
+        <h2>Forest Edge</h2>
+        <p>Organic greens, curved header — “your patch of the network,” not a global platform. Warm success states; profile grid stays on-device.</p>
+        <div class="tags"><span class="tag push">Experimental palette</span><span class="tag">Circle metaphor</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div class="mock-logo">Inertia</div>
+            <nav class="mock-nav"><span class="active">Feed</span><span>Profile</span><span>Settings</span></nav>
+            <div class="mock-status"><span class="dot"></span> online</div>
+          </header>
+          <div class="mock-body">
+            <div class="mock-compose">Share with friends…</div>
+            <article class="mock-post">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">Maya</div><div class="mock-time">2h ago</div></div>
+                <span class="mock-expiry">5d left</span>
+              </div>
+              <div class="mock-photo"></div>
+              <p class="mock-text">Coffee before the hike. See you Sunday?</p>
+            </article>
+            <div class="photo-grid"><div></div><div></div><div></div></div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 10 -->
+    <article class="exploration" id="s-signal">
+      <div class="exploration-meta">
+        <div class="num">10 — Transparency-first</div>
+        <h2>Signal Honest</h2>
+        <p>API vs P2P pills, delivery receipts, expiry badges — state always visible (DESIGN.md). Light, utilitarian, zero vanity metrics.</p>
+        <div class="tags"><span class="tag align">Honest state</span><span class="tag align">DESIGN.md aligned</span></div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <header class="mock-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+              <div class="mock-logo">Inertia</div>
+              <div class="mock-status"><span class="dot"></span> online</div>
+            </div>
+            <div class="status-bar">
+              <span class="pill api">API ok</span>
+              <span class="pill p2p">P2P · 3 peers</span>
+              <span class="pill exp">7d TTL</span>
+            </div>
+          </header>
+          <div class="mock-body">
+            <div class="mock-compose">Share with your circle…</div>
+            <article class="mock-post">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">Maya</div><div class="mock-time">2h ago</div></div>
+                <span class="mock-expiry">5d left</span>
+              </div>
+              <div class="delivery">✓ delivered to 4 contacts</div>
+              <div class="mock-photo"></div>
+              <p class="mock-text">Coffee before the hike. See you Sunday?</p>
+            </article>
+            <article class="mock-post sm">
+              <div class="mock-post-meta">
+                <div class="mock-avatar"></div>
+                <div><div class="mock-author">You</div><div class="mock-time">Sending…</div></div>
+                <span class="mock-expiry">6d left</span>
+              </div>
+              <div class="delivery pending">⏳ 1 pending · view outbox</div>
+              <p class="mock-text">Weekend plans?</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </article>
+
+  </main>
+</body>
+</html>

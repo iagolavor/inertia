@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-palette="midnight" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -14,9 +14,21 @@
     <script>
       (function () {
         try {
-          var theme = localStorage.getItem('inertia-theme');
-          if (theme === 'light' || theme === 'dark') {
-            document.documentElement.setAttribute('data-theme', theme);
+          var raw = localStorage.getItem('inertia-appearance');
+          if (raw) {
+            var appearance = JSON.parse(raw);
+            if (appearance.palette === 'sandstone' || appearance.palette === 'midnight') {
+              document.documentElement.setAttribute('data-palette', appearance.palette);
+            }
+            if (appearance.mode === 'light' || appearance.mode === 'dark') {
+              document.documentElement.setAttribute('data-theme', appearance.mode);
+            }
+            return;
+          }
+          var legacy = localStorage.getItem('inertia-theme');
+          if (legacy === 'light' || legacy === 'dark') {
+            document.documentElement.setAttribute('data-palette', 'midnight');
+            document.documentElement.setAttribute('data-theme', legacy);
           }
         } catch (e) {}
       })();
