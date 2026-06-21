@@ -231,6 +231,12 @@
 {/if}
 
 <style>
+	.photo-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
 	.empty-grid {
 		margin: 0 0 0.65rem;
 		font-size: 0.85rem;
@@ -239,8 +245,8 @@
 	.photo-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 3px;
-		margin-bottom: 0.5rem;
+		gap: 6px;
+		margin-bottom: 0.75rem;
 		grid-auto-flow: row dense;
 	}
 
@@ -252,11 +258,15 @@
 		aspect-ratio: 1;
 		overflow: hidden;
 		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm, 6px);
 	}
 
 	.expand-cell {
 		min-height: 280px;
 		animation: expand-in 0.18s ease-out;
+		border-radius: var(--radius-md, 8px);
+		overflow: hidden;
 	}
 
 	@keyframes expand-in {
@@ -344,7 +354,7 @@
 	.preview-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 3px;
+		gap: 6px;
 		grid-auto-flow: row dense;
 		grid-auto-rows: minmax(104px, auto);
 		min-height: 220px;
@@ -355,6 +365,8 @@
 		overflow: hidden;
 		background: var(--bg);
 		opacity: 0.72;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm, 6px);
 	}
 
 	.preview-thumb img {

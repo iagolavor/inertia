@@ -550,7 +550,11 @@
 
     gap: 1rem;
 
-    margin-bottom: 1rem;
+    margin-bottom: 1.15rem;
+
+    padding-bottom: 1.15rem;
+
+    border-bottom: 1px solid var(--border);
 
   }
 
@@ -702,7 +706,9 @@
 
     border-bottom: 1px solid var(--border);
 
-    margin-bottom: 0.65rem;
+    margin-bottom: 1rem;
+
+    padding-bottom: 0.5rem;
 
   }
 
