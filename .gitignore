@@ -5,7 +5,11 @@ node_modules
 .svelte-kit
 build
 dist
+apps/web/android/.gradle
+apps/web/android/app/build
+apps/web/android/build
+apps/web/android/local.properties
+apps/web/android/.idea
 .env
 .inertia-version
 *.db
-.p2p-docker-peer.json

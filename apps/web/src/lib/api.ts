@@ -4,10 +4,10 @@ import {
 	classifyHttpFailure,
 	type ApiErrorInfo
 } from '$lib/api-errors';
+import { getApiBase } from '$lib/api-base';
 
 export type { ApiErrorInfo };
 
-const API_BASE = '/api';
 const REQUEST_TIMEOUT_MS = 8_000;
 const UPLOAD_TIMEOUT_MS = 60_000;
 
@@ -17,6 +17,7 @@ export interface Identity {
   phone_hash: string | null;
   display_name: string;
   bio?: string;
+  avatar_blob_hash?: string | null;
 }
 
 export interface Contact {
@@ -182,7 +183,7 @@ export interface PublishPhotoResult {
 }
 
 export function blobUrl(hash: string): string {
-  return `${API_BASE}/blobs/${hash}`;
+  return `${getApiBase()}/blobs/${hash}`;
 }
 
 export interface OutboxEntry {
@@ -204,7 +205,7 @@ async function fetchWithTimeout(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(`${API_BASE}${path}`, {
+    return await fetch(`${getApiBase()}${path}`, {
       ...init,
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json', ...init?.headers }
@@ -225,13 +226,14 @@ async function request<T>(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const raw = err.error ?? res.statusText ?? 'Request failed';
+    const code = typeof err.code === 'string' ? err.code : undefined;
     if (res.status === 409) {
       throw new ApiRequestError({ kind: 'client', message: 'A profile already exists on this device' });
     }
     if (res.status === 413) {
       throw new ApiRequestError({ kind: 'client', message: 'Imagem demasiado grande para o servidor' });
     }
-    throw new ApiRequestError(classifyHttpFailure(res.status, raw));
+    throw new ApiRequestError(classifyHttpFailure(res.status, raw, code));
   }
   if (res.status === 204) return undefined as T;
   return res.json();
@@ -261,6 +263,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ display_name, bio: bio ?? '' })
     }),
+  uploadAvatar: (data_base64: string) =>
+    request<Identity>(
+      '/identity/avatar',
+      {
+        method: 'POST',
+        body: JSON.stringify({ data_base64 })
+      },
+      UPLOAD_TIMEOUT_MS
+    ),
   createInvite: (web_origin?: string) =>
     request<InviteResponse>('/invite', {
       method: 'POST',

@@ -32,13 +32,6 @@
       status.labels.sync
     ];
 
-    if (activityLines.length > 0) {
-      lines.push('', 'Recent activity:');
-      for (const line of activityLines) {
-        lines.push(`· ${line}`);
-      }
-    }
-
     return lines.join('\n');
   });
 

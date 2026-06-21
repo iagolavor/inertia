@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inertia — Profile post expand explorations</title>
+  <style>
+    :root {
+      --page-bg: #ddd9d2;
+      --page-text: #1c1917;
+      --page-muted: #57534e;
+      --page-border: #c4bdb4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--page-bg);
+      color: var(--page-text);
+      line-height: 1.5;
+    }
+
+    .page-header {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 1rem;
+    }
+
+    .page-header h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.5rem;
+      letter-spacing: -0.03em;
+    }
+
+    .page-header p {
+      margin: 0;
+      color: var(--page-muted);
+      font-size: 0.92rem;
+      max-width: 62ch;
+    }
+
+    .demo {
+      max-width: 920px;
+      margin: 0 auto 2.5rem;
+      padding: 0 1.25rem;
+    }
+
+    .demo-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem 1rem;
+      margin-bottom: 0.85rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 2px solid var(--page-border);
+    }
+
+    .demo-header h2 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .demo-header p {
+      margin: 0;
+      flex: 1;
+      min-width: 220px;
+      font-size: 0.82rem;
+      color: var(--page-muted);
+    }
+
+    .badge {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid var(--page-border);
+      color: var(--page-muted);
+    }
+
+    .badge.recommended {
+      border-color: #44403c;
+      color: #44403c;
+    }
+
+    .frame {
+      border: 1px solid var(--page-border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #eceae6;
+    }
+
+    .frame-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      border-bottom: 1px solid var(--page-border);
+      background: #fafaf9;
+      font-size: 0.78rem;
+      color: var(--page-muted);
+    }
+
+    .frame-toolbar button {
+      border: 1px solid var(--page-border);
+      background: #fff;
+      border-radius: 8px;
+      padding: 0.28rem 0.55rem;
+      font: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    .profile-shell {
+      padding: 0.75rem;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    .mini-profile {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #78716c, #44403c);
+      flex-shrink: 0;
+    }
+
+    .mini-profile strong {
+      display: block;
+      font-size: 0.9rem;
+    }
+
+    .mini-profile span {
+      font-size: 0.78rem;
+      color: var(--page-muted);
+    }
+
+    /* Shared tokens inside demos */
+    .demo-grid {
+      --bg: #eceae6;
+      --surface: #fafaf9;
+      --border: #d6d3d1;
+      --text: #44403c;
+      --muted: #78716c;
+      --accent: #57534e;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+      grid-auto-flow: row dense;
+      grid-auto-rows: minmax(88px, auto);
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      overflow: hidden;
+      background: var(--bg);
+      position: relative;
+    }
+
+    .cell img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .cell.add {
+      border: 1px dashed var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell.active {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+
+    .expand {
+      grid-column: span 2;
+      grid-row: span 2;
+      aspect-ratio: auto;
+      min-height: 250px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .expand-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.45rem 0.55rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+    }
+
+    .expand-media {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .expand-body {
+      padding: 0.55rem;
+      flex: 1;
+      overflow: auto;
+      font-size: 0.78rem;
+    }
+
+    .expand-body p {
+      margin: 0 0 0.45rem;
+      color: var(--muted);
+    }
+
+    .comment {
+      display: flex;
+      gap: 0.35rem;
+      margin-bottom: 0.35rem;
+      font-size: 0.72rem;
+    }
+
+    .comment-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #a8a29e;
+      flex-shrink: 0;
+    }
+
+    .expand-foot {
+      display: flex;
+      gap: 0.35rem;
+      padding: 0.45rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .expand-foot input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.35rem 0.55rem;
+      font: inherit;
+      font-size: 0.72rem;
+      background: var(--bg);
+    }
+
+    .expand-foot button {
+      border: none;
+      border-radius: 999px;
+      padding: 0.35rem 0.6rem;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    /* Pattern B — fixed left rail */
+    .split-layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 3px;
+      min-height: 320px;
+    }
+
+    .split-expand {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .split-rail {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 3px;
+      align-content: start;
+    }
+
+    .split-rail .cell {
+      aspect-ratio: 1;
+    }
+
+    /* Pattern C — drawer below row */
+    .drawer-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .drawer-panel {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 0.65rem;
+      display: none;
+    }
+
+    .drawer-panel.open {
+      display: block;
+    }
+
+    .drawer-panel img {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+    }
+
+    .hint {
+      margin-top: 0.55rem;
+      font-size: 0.75rem;
+      color: var(--page-muted);
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Profile post expand — layout explorations</h1>
+    <p>
+      Click thumbnails to expand a post into ~2/3 of the grid, keep commenting inline, and reflow the
+      remaining photos. Pattern A matches the Svelte implementation in <code>PhotoGrid</code>.
+    </p>
+  </header>
+
+  <section class="demo" id="demo-a">
+    <div class="demo-header">
+      <h2>A — Row-anchor dense grid</h2>
+      <span class="badge recommended">Implemented</span>
+      <p>Expand from the clicked row (2×2 cells). Other thumbs reflow into free slots on the right column.</p>
+    </div>
+    <div class="frame demo-grid">
+      <div class="frame-toolbar">
+        <span id="label-a">No selection</span>
+        <button type="button" data-reset="a">Reset</button>
+      </div>
+      <div class="profile-shell">
+        <div class="mini-profile">
+          <div class="avatar"></div>
+          <div>
+            <strong>alex</strong>
+            <span>9 posts · 4 connections</span>
+          </div>
+        </div>
+        <div class="grid-3" id="grid-a"></div>
+        <p class="hint">Try clicking photos on the right edge — the panel shifts left to keep 2 columns wide.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo" id="demo-b">
+    <div class="demo-header">
+      <h2>B — Fixed left rail</h2>
+      <span class="badge">Alternative</span>
+      <p>Expanded post always occupies the left 2/3; thumbnails scroll in a single column on the right.</p>
+    </div>
+    <div class="frame demo-grid">
+      <div class="frame-toolbar">
+        <span id="label-b">No selection</span>
+        <button type="button" data-reset="b">Reset</button>
+      </div>
+      <div class="profile-shell">
+        <div class="split-layout" id="split-b">
+          <div class="split-expand" id="expand-b">
+            <div class="expand-head"><span>Select a photo</span><button type="button" data-reset="b">×</button></div>
+            <div class="expand-body"><p>Fixed rail — simpler layout math, less “Instagram grid” feel.</p></div>
+          </div>
+          <div class="split-rail" id="rail-b"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo" id="demo-c">
+    <div class="demo-header">
+      <h2>C — Row drawer</h2>
+      <span class="badge">Alternative</span>
+      <p>Grid stays intact; a full-width drawer opens under the active row with image + comments.</p>
+    </div>
+    <div class="frame demo-grid">
+      <div class="frame-toolbar">
+        <span id="label-c">No selection</span>
+        <button type="button" data-reset="c">Reset</button>
+      </div>
+      <div class="profile-shell drawer-wrap">
+        <div class="grid-3" id="grid-c"></div>
+        <div class="drawer-panel" id="drawer-c">
+          <img id="drawer-img-c" alt="" />
+          <div class="expand-body" id="drawer-body-c"></div>
+          <div class="expand-foot">
+            <input placeholder="Add a comment…" />
+            <button type="button">Post</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const COLORS = ['#a8a29e', '#78716c', '#57534e', '#44403c', '#d6d3d1', '#292524', '#78716c', '#a8a29e', '#57534e'];
+    const CAPTIONS = ['Morning light', 'Weekend hike', 'New desk setup', 'Dinner', 'Rainy walk', 'Studio day', 'Old friends', 'Late night', 'Home'];
+
+    function thumbSvg(i) {
+      const c = COLORS[i % COLORS.length];
+      return `data:image/svg+xml,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect fill="${c}" width="400" height="400"/><text x="50%" y="52%" fill="#fafaf9" font-family="sans-serif" font-size="28" text-anchor="middle">${i + 1}</text></svg>`
+      )}`;
+    }
+
+    function expandHtml(i) {
+      return `
+        <div class="expand-head"><span>Post ${i + 1}</span><button type="button" class="close">×</button></div>
+        <img class="expand-media" src="${thumbSvg(i)}" alt="" />
+        <div class="expand-body">
+          <p>${CAPTIONS[i]}</p>
+          <div class="comment"><div class="comment-dot"></div><div><strong>sam</strong> Love this.</div></div>
+          <div class="comment"><div class="comment-dot"></div><div><strong>jo</strong> Where was this?</div></div>
+        </div>
+        <div class="expand-foot"><input placeholder="Add a comment…" /><button type="button">Post</button></div>
+      `;
+    }
+
+    const COLS = 3;
+    const EXPAND_COL = 2;
+    const EXPAND_ROW = 2;
+
+    function naturalSlot(index) {
+      const slot = index + 1;
+      return { row: Math.floor(slot / COLS), col: slot % COLS };
+    }
+
+    function expandAnchor(index) {
+      const { row, col } = naturalSlot(index);
+      return { row, col: col >= COLS - 1 ? col - 1 : col };
+    }
+
+    function computeLayout(count, selected) {
+      const occupied = new Set(['0,0']);
+      const cells = [{ kind: 'add', row: 0, col: 0 }];
+
+      if (selected >= 0) {
+        const anchor = expandAnchor(selected);
+        for (let dr = 0; dr < EXPAND_ROW; dr++) {
+          for (let dc = 0; dc < EXPAND_COL; dc++) {
+            occupied.add(`${anchor.row + dr},${anchor.col + dc}`);
+          }
+        }
+        cells.push({ kind: 'expand', index: selected, ...anchor, rowSpan: EXPAND_ROW, colSpan: EXPAND_COL });
+      }
+
+      let cursor = { row: 0, col: 1 };
+      const nextFree = () => {
+        while (occupied.has(`${cursor.row},${cursor.col}`)) {
+          cursor.col++;
+          if (cursor.col >= COLS) { cursor.col = 0; cursor.row++; }
+        }
+        const spot = { row: cursor.row, col: cursor.col };
+        occupied.add(`${spot.row},${spot.col}`);
+        cursor.col++;
+        if (cursor.col >= COLS) { cursor.col = 0; cursor.row++; }
+        return spot;
+      };
+
+      for (let i = 0; i < count; i++) {
+        if (i === selected) continue;
+        const spot = nextFree();
+        cells.push({ kind: 'thumb', index: i, row: spot.row, col: spot.col });
+      }
+      return cells;
+    }
+
+    function styleFor(cell) {
+      if (cell.kind === 'expand') {
+        return `grid-row:${cell.row + 1}/span ${cell.rowSpan};grid-column:${cell.col + 1}/span ${cell.colSpan}`;
+      }
+      return `grid-row:${cell.row + 1};grid-column:${cell.col + 1}`;
+    }
+
+    function renderGridA(selected = -1) {
+      const grid = document.getElementById('grid-a');
+      const label = document.getElementById('label-a');
+      grid.innerHTML = '';
+      const cells = computeLayout(9, selected);
+      label.textContent = selected >= 0 ? `Post ${selected + 1} expanded` : 'No selection';
+
+      cells.forEach((cell) => {
+        if (cell.kind === 'add') {
+          const btn = document.createElement('button');
+          btn.className = 'cell add';
+          btn.style.cssText = styleFor(cell);
+          btn.textContent = '+';
+          btn.type = 'button';
+          grid.appendChild(btn);
+          return;
+        }
+        if (cell.kind === 'expand') {
+          const panel = document.createElement('div');
+          panel.className = 'expand';
+          panel.style.cssText = styleFor(cell);
+          panel.innerHTML = expandHtml(cell.index);
+          panel.querySelector('.close').onclick = () => renderGridA(-1);
+          grid.appendChild(panel);
+          return;
+        }
+        const btn = document.createElement('button');
+        btn.className = 'cell' + (selected === cell.index ? ' active' : '');
+        btn.style.cssText = styleFor(cell);
+        btn.type = 'button';
+        btn.innerHTML = `<img src="${thumbSvg(cell.index)}" alt="Post ${cell.index + 1}" />`;
+        btn.onclick = () => renderGridA(cell.index);
+        grid.appendChild(btn);
+      });
+    }
+
+    function renderSplitB(selected = -1) {
+      const rail = document.getElementById('rail-b');
+      const expand = document.getElementById('expand-b');
+      const label = document.getElementById('label-b');
+      rail.innerHTML = '';
+      label.textContent = selected >= 0 ? `Post ${selected + 1} expanded` : 'No selection';
+
+      if (selected >= 0) {
+        expand.innerHTML = expandHtml(selected);
+        expand.querySelector('.close').onclick = () => renderSplitB(-1);
+      } else {
+        expand.innerHTML = '<div class="expand-head"><span>Select a photo</span></div><div class="expand-body"><p>Fixed rail — simpler layout math.</p></div>';
+      }
+
+      for (let i = 0; i < 9; i++) {
+        if (i === selected) continue;
+        const btn = document.createElement('button');
+        btn.className = 'cell';
+        btn.type = 'button';
+        btn.innerHTML = `<img src="${thumbSvg(i)}" alt="Post ${i + 1}" />`;
+        btn.onclick = () => renderSplitB(i);
+        rail.appendChild(btn);
+      }
+    }
+
+    function renderGridC(selected = -1) {
+      const grid = document.getElementById('grid-c');
+      const drawer = document.getElementById('drawer-c');
+      const drawerImg = document.getElementById('drawer-img-c');
+      const drawerBody = document.getElementById('drawer-body-c');
+      const label = document.getElementById('label-c');
+      grid.innerHTML = '';
+      label.textContent = selected >= 0 ? `Post ${selected + 1} drawer open` : 'No selection';
+
+      const add = document.createElement('button');
+      add.className = 'cell add';
+      add.type = 'button';
+      add.textContent = '+';
+      grid.appendChild(add);
+
+      for (let i = 0; i < 9; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'cell' + (selected === i ? ' active' : '');
+        btn.type = 'button';
+        btn.innerHTML = `<img src="${thumbSvg(i)}" alt="Post ${i + 1}" />`;
+        btn.onclick = () => renderGridC(i);
+        grid.appendChild(btn);
+      }
+
+      if (selected >= 0) {
+        drawer.classList.add('open');
+        drawerImg.src = thumbSvg(selected);
+        drawerBody.innerHTML = `<p>${CAPTIONS[selected]}</p><div class="comment"><div class="comment-dot"></div><div><strong>sam</strong> Nice shot.</div></div>`;
+      } else {
+        drawer.classList.remove('open');
+      }
+    }
+
+    document.querySelectorAll('[data-reset]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-reset');
+        if (id === 'a') renderGridA(-1);
+        if (id === 'b') renderSplitB(-1);
+        if (id === 'c') renderGridC(-1);
+      });
+    });
+
+    renderGridA(-1);
+    renderSplitB(-1);
+    renderGridC(-1);
+  </script>
+</body>
+</html>

@@ -85,6 +85,7 @@ impl Store {
         )?;
         self.ensure_identity_key_columns()?;
         self.ensure_identity_bio_column()?;
+        self.ensure_identity_avatar_column()?;
         self.ensure_inbox_media_ref_column()?;
         self.ensure_feed_archive_tables()?;
         self.ensure_post_comments_table()?;
@@ -223,6 +224,20 @@ impl Store {
         if !cols.iter().any(|c| c == "bio") {
             self.conn
                 .execute("ALTER TABLE identity ADD COLUMN bio TEXT NOT NULL DEFAULT ''", [])?;
+        }
+        Ok(())
+    }
+
+    fn ensure_identity_avatar_column(&self) -> CoreResult<()> {
+        let mut stmt = self.conn.prepare("PRAGMA table_info(identity)")?;
+        let cols: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>("name"))?
+            .filter_map(Result::ok)
+            .collect();
+
+        if !cols.iter().any(|c| c == "avatar_blob_hash") {
+            self.conn
+                .execute("ALTER TABLE identity ADD COLUMN avatar_blob_hash TEXT", [])?;
         }
         Ok(())
     }

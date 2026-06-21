@@ -19,6 +19,8 @@ pub struct Identity {
     pub display_name: String,
     #[serde(default)]
     pub bio: String,
+    #[serde(default)]
+    pub avatar_blob_hash: Option<String>,
     #[serde(skip)]
     signing_key: Option<SigningKey>,
     #[serde(skip)]
@@ -38,6 +40,7 @@ impl Identity {
             phone_hash: None,
             display_name: display_name.into(),
             bio: String::new(),
+            avatar_blob_hash: None,
             signing_key: Some(signing_key),
             encryption_secret: Some(encryption_secret),
         }
@@ -49,6 +52,7 @@ impl Identity {
         phone_hash: Option<String>,
         display_name: String,
         bio: String,
+        avatar_blob_hash: Option<String>,
         signing_key_hex: Option<String>,
         encryption_secret_hex: Option<String>,
     ) -> CoreResult<Self> {
@@ -80,6 +84,7 @@ impl Identity {
             phone_hash,
             display_name,
             bio,
+            avatar_blob_hash,
             signing_key,
             encryption_secret,
         })

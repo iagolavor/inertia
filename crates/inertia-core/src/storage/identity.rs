@@ -6,6 +6,17 @@ use crate::identity::{encode_hex, Identity};
 use super::Store;
 
 impl Store {
+    pub fn update_identity_avatar(&self, avatar_blob_hash: &str) -> CoreResult<()> {
+        let updated = self.conn.execute(
+            "UPDATE identity SET avatar_blob_hash = ?1 WHERE id = 1",
+            params![avatar_blob_hash],
+        )?;
+        if updated == 0 {
+            return Err(CoreError::IdentityNotInitialized);
+        }
+        Ok(())
+    }
+
     pub fn update_identity_profile(
         &self,
         display_name: &str,
@@ -72,7 +83,7 @@ impl Store {
 
     pub fn load_identity(&self) -> CoreResult<Option<Identity>> {
         let mut stmt = self.conn.prepare(
-            "SELECT signing_pubkey, encryption_pubkey, phone_hash, display_name, bio, signing_key, encryption_secret
+            "SELECT signing_pubkey, encryption_pubkey, phone_hash, display_name, bio, avatar_blob_hash, signing_key, encryption_secret
              FROM identity WHERE id = 1",
         )?;
         let mut rows = stmt.query([])?;
@@ -83,6 +94,7 @@ impl Store {
                 row.get("phone_hash")?,
                 row.get("display_name")?,
                 row.get("bio").unwrap_or_default(),
+                row.get("avatar_blob_hash").ok(),
                 row.get("signing_key")?,
                 row.get("encryption_secret")?,
             )?;

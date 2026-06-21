@@ -16,7 +16,18 @@ impl Engine {
         drop(identity);
 
         let status = self.p2p_status().await;
-        if !status.relay_configured || !status.relay_connected {
+        if !status.relay_configured {
+            return Err(CoreError::Invite(
+                "relay multiaddr is not configured".into(),
+            ));
+        }
+        if status.relay_tcp_reachable == Some(false) {
+            return Err(CoreError::Invite(
+                "connect to the relay in Settings before inviting (header must show Relay OK)"
+                    .into(),
+            ));
+        }
+        if !status.relay_connected {
             return Err(CoreError::Invite(
                 "connect to the relay in Settings before inviting (header must show Relay OK)"
                     .into(),
@@ -95,9 +106,9 @@ impl Engine {
         }
 
         let p2p_guard = self.p2p.lock().await;
-        let p2p = p2p_guard
-            .as_ref()
-            .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
+        let p2p = p2p_guard.as_ref().ok_or_else(|| {
+            CoreError::P2p("p2p not started".into())
+        })?;
 
         let peer_id_str = invite.peer_id.as_ref().ok_or_else(|| {
             CoreError::Invite(

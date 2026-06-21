@@ -59,24 +59,22 @@
 
 <header class="app-header">
   <div class="header-inner">
-    <div class="header-start">
-      <a href="/" class="brand">
-        <InertiaLogo />
-        <span class="brand-name">Inertia</span>
-      </a>
+    <a href="/" class="brand">
+      <InertiaLogo />
+      <span class="brand-name">Inertia</span>
+    </a>
 
-      <nav class="primary-tabs" aria-label="Principal">
-        {#each primaryTabs as tab}
-          <a
-            href={tab.href}
-            class:active={tab.match(page.url.pathname)}
-            aria-current={tab.match(page.url.pathname) ? 'page' : undefined}
-          >
-            {tab.label}
-          </a>
-        {/each}
-      </nav>
-    </div>
+    <nav class="primary-tabs" aria-label="Principal">
+      {#each primaryTabs as tab}
+        <a
+          href={tab.href}
+          class:active={tab.match(page.url.pathname)}
+          aria-current={tab.match(page.url.pathname) ? 'page' : undefined}
+        >
+          {tab.label}
+        </a>
+      {/each}
+    </nav>
 
     <div class="header-end">
       <OnlineStatus
@@ -130,34 +128,31 @@
     position: sticky;
     top: 0;
     z-index: 30;
+    padding-top: var(--safe-top);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
     border-bottom: 1px solid var(--border);
-    background: var(--header-bg, color-mix(in srgb, var(--bg) 88%, transparent));
-    backdrop-filter: var(--header-backdrop, blur(10px));
+    background: var(--bg);
   }
 
   .header-inner {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'brand tabs end';
     align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.65rem 0.75rem;
     max-width: 720px;
     margin: 0 auto;
     padding: 0.75rem 1.5rem;
   }
 
-  .header-start {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    min-width: 0;
-    flex: 1;
-  }
-
   .brand {
+    grid-area: brand;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
+    min-width: 0;
     text-decoration: none;
     border-radius: 6px;
     transition: opacity 0.12s;
@@ -178,8 +173,10 @@
   }
 
   .primary-tabs {
+    grid-area: tabs;
     display: inline-flex;
     align-items: center;
+    justify-self: center;
     padding: 0.2rem;
     border-radius: 9px;
     border: 1px solid var(--border);
@@ -222,10 +219,12 @@
   }
 
   .header-end {
+    grid-area: end;
     display: flex;
     align-items: center;
     gap: 0.45rem;
     flex-shrink: 0;
+    justify-self: end;
   }
 
   .more-menu {
@@ -233,27 +232,32 @@
   }
 
   .more-trigger {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
+    padding: 0.28rem 0.45rem;
     border: 1px solid var(--border);
     border-radius: 8px;
-    background: var(--surface);
+    background: transparent;
     color: var(--muted);
+    line-height: 1;
+    flex-shrink: 0;
     cursor: pointer;
+    transition:
+      border-color 0.15s,
+      background 0.15s,
+      color 0.12s;
   }
 
   .more-trigger:hover {
     color: var(--text);
-    background: color-mix(in srgb, var(--border) 25%, var(--surface));
+    background: color-mix(in srgb, var(--border) 35%, transparent);
   }
 
   .more-trigger svg {
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    display: block;
   }
 
   .more-panel {
@@ -289,14 +293,37 @@
     background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: 640px) {
     .header-inner {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'brand end'
+        'tabs tabs';
+      gap: 0.55rem 0.5rem;
       padding-left: 1rem;
       padding-right: 1rem;
     }
 
+    .primary-tabs {
+      justify-self: stretch;
+      width: 100%;
+    }
+
     .primary-tabs a {
-      padding: 0.3rem 0.65rem;
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 0.45rem 0.35rem;
+      font-size: 0.75rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .brand-name {
+      display: none;
+    }
+
+    .header-end {
+      gap: 0.35rem;
     }
   }
 </style>

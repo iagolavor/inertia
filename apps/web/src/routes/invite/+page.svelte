@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, type Contact, type InvitePreview } from '$lib/api';
+  import { ApiRequestError } from '$lib/api-errors';
   import ProfileHeader from '$lib/components/ProfileHeader.svelte';
 
   let inviteInput = $state('');
@@ -28,7 +29,7 @@
     try {
       preview = await api.previewInvite(inviteInput.trim());
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Invalid or expired invite';
+      error = e instanceof ApiRequestError ? e.message : e instanceof Error ? e.message : 'Invalid or expired invite';
     } finally {
       loading = false;
     }
@@ -42,7 +43,7 @@
       accepted = await api.acceptInvite(inviteInput.trim());
       preview = null;
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to accept invite';
+      error = e instanceof ApiRequestError ? e.message : e instanceof Error ? e.message : 'Failed to accept invite';
     } finally {
       accepting = false;
     }

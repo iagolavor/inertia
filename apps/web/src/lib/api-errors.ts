@@ -8,6 +8,7 @@ export type ApiErrorKind = 'offline' | 'timeout' | 'server' | 'client';
 export interface ApiErrorInfo {
 	kind: ApiErrorKind;
 	message: string;
+	code?: string;
 }
 
 const PROXY_OFFLINE_RE =
@@ -38,9 +39,19 @@ export function classifyFetchFailure(error: unknown): ApiErrorInfo {
 	return { kind: 'server', message: 'Something went wrong talking to the API' };
 }
 
-export function classifyHttpFailure(status: number, rawMessage: string): ApiErrorInfo {
+export function classifyHttpFailure(
+	status: number,
+	rawMessage: string,
+	code?: string
+): ApiErrorInfo {
 	const msg = rawMessage.trim() || `HTTP ${status}`;
 
+	if (code === 'relay_unreachable' || code === 'p2p_not_started') {
+		return { kind: 'server', message: msg, code };
+	}
+	if (code === 'inviter_offline') {
+		return { kind: 'client', message: msg, code };
+	}
 	if (status === 502 || status === 503 || status === 504 || PROXY_OFFLINE_RE.test(msg)) {
 		return {
 			kind: 'offline',
@@ -56,7 +67,7 @@ export function classifyHttpFailure(status: number, rawMessage: string): ApiErro
 	if (status === 408 || status === 429) {
 		return { kind: 'timeout', message: API_TIMEOUT_HINT };
 	}
-	return { kind: 'client', message: msg };
+	return { kind: 'client', message: msg, code };
 }
 
 export function toApiError(error: unknown): ApiErrorInfo {
@@ -69,10 +80,12 @@ export function toApiError(error: unknown): ApiErrorInfo {
 
 export class ApiRequestError extends Error {
 	kind: ApiErrorKind;
+	code?: string;
 
 	constructor(info: ApiErrorInfo) {
 		super(info.message);
 		this.name = 'ApiRequestError';
 		this.kind = info.kind;
+		this.code = info.code;
 	}
 }

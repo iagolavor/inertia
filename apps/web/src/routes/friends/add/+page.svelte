@@ -5,6 +5,7 @@
   import QRCode from 'qrcode';
 
   import { api, type Contact, type InviteResponse } from '$lib/api';
+  import { ApiRequestError } from '$lib/api-errors';
   import Avatar from '$lib/components/Avatar.svelte';
 
 
@@ -73,7 +74,7 @@
 
     } catch (e) {
 
-      error = e instanceof Error ? e.message : 'Failed to create invite';
+      error = e instanceof ApiRequestError ? e.message : e instanceof Error ? e.message : 'Failed to create invite';
 
     } finally {
 
