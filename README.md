@@ -13,6 +13,7 @@
 <p align="center">
   <a href="docs/VISION.md">Vision</a> ·
   <a href="docs/WINDOWS-SETUP.md">Windows</a> ·
+  <a href="docs/CAPACITOR.md">Android</a> ·
   <a href="docs/VPS-RELAY.md">Relay</a> ·
   <a href="https://github.com/iagolavor/inertia/releases">Releases</a>
 </p>

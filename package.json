@@ -13,6 +13,10 @@
     "web": "npm run dev --prefix apps/web",
     "web:build": "npm run build --prefix apps/web",
     "web:preview": "npm run preview --prefix apps/web -- --host",
+    "android:sync": "npm run cap:sync --prefix apps/web",
+    "android:open": "npm run cap:android --prefix apps/web",
+    "android:run": "npm run cap:run:android --prefix apps/web",
+    "android:sdk": "powershell -ExecutionPolicy Bypass -File scripts/setup-android-sdk.ps1",
     "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1"
   }
 }

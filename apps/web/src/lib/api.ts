@@ -4,10 +4,11 @@ import {
 	classifyHttpFailure,
 	type ApiErrorInfo
 } from '$lib/api-errors';
+import { getApiBase } from '$lib/api-base';
 
 export type { ApiErrorInfo };
 
-const API_BASE = '/api';
+const API_BASE = getApiBase();
 const REQUEST_TIMEOUT_MS = 8_000;
 const UPLOAD_TIMEOUT_MS = 60_000;
 
