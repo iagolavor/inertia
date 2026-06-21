@@ -233,27 +233,32 @@
   }
 
   .more-trigger {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
+    padding: 0.28rem 0.45rem;
     border: 1px solid var(--border);
     border-radius: 8px;
-    background: var(--surface);
+    background: transparent;
     color: var(--muted);
+    line-height: 1;
+    flex-shrink: 0;
     cursor: pointer;
+    transition:
+      border-color 0.15s,
+      background 0.15s,
+      color 0.12s;
   }
 
   .more-trigger:hover {
     color: var(--text);
-    background: color-mix(in srgb, var(--border) 25%, var(--surface));
+    background: color-mix(in srgb, var(--border) 35%, transparent);
   }
 
   .more-trigger svg {
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    display: block;
   }
 
   .more-panel {
