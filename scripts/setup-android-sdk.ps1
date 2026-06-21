@@ -39,7 +39,7 @@ $yes = ('y' + [Environment]::NewLine) * 200
 $yes | & sdkmanager.bat --licenses | Out-Null
 
 Write-Host "Installing platform-tools, Android 35, build-tools 35.0.0..."
-& sdkmanager.bat 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+& sdkmanager.bat 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0' 'ndk;26.3.11579264'
 
 $sdkDirEscaped = ($SdkRoot -replace '\\', '\\')
 @("sdk.dir=$sdkDirEscaped") | Set-Content -Path $LocalProps -Encoding ascii

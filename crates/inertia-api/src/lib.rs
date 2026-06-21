@@ -23,6 +23,7 @@ pub async fn run() -> anyhow::Result<()> {
         .unwrap_or_else(|_| PathBuf::from("./data"));
 
     let engine = Arc::new(Mutex::new(Engine::open(&data_dir).await?));
+    inertia_core::spawn_relay_maintenance(Arc::clone(&engine));
     {
         let eng = engine.lock().await;
         if eng.identity_snapshot().await.is_initialized() {

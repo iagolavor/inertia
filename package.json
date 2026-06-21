@@ -18,6 +18,9 @@
     "android:run": "npm run cap:run:android --prefix apps/web",
     "android:sdk": "powershell -ExecutionPolicy Bypass -File scripts/setup-android-sdk.ps1",
     "android:reverse": "powershell -ExecutionPolicy Bypass -File scripts/adb-reverse.ps1",
+    "android:api:build": "powershell -ExecutionPolicy Bypass -File scripts/build-android-api.ps1",
+    "android:package": "powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1",
+    "android:stage-b": "npm run android:api:build && npm run web:build && npm run android:package && npm run android:sync",
     "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1"
   }
 }
