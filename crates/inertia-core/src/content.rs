@@ -16,6 +16,7 @@ pub enum ContentType {
 #[serde(rename_all = "lowercase")]
 pub enum DeliveryStatus {
     Pending,
+    Sent,
     Failed,
     Delivered,
     Expired,

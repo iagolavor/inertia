@@ -40,6 +40,7 @@ pub struct Contact {
 #[serde(rename_all = "lowercase")]
 pub enum ConnectionState {
     Online,
+    Reachable,
     Offline,
     Unreachable,
 }

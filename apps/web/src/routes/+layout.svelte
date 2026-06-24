@@ -7,7 +7,12 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import ApiStatusBanner from '$lib/components/ApiStatusBanner.svelte';
   import { refreshIdentity } from '$lib/identity.svelte';
-  import { startPresencePolling, stopPresencePolling } from '$lib/presence.svelte';
+  import {
+    refreshMessagesOnVisible,
+    refreshP2pLive,
+    startPresencePolling,
+    stopPresencePolling
+  } from '$lib/presence.svelte';
   import { initTheme } from '$lib/theme.svelte';
 
   let { children } = $props();
@@ -22,6 +27,8 @@
     function onVisible() {
       if (document.visibilityState === 'visible') {
         void refreshIdentity({ silent: true });
+        void refreshP2pLive();
+        refreshMessagesOnVisible();
       }
     }
     document.addEventListener('visibilitychange', onVisible);

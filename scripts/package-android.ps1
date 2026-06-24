@@ -47,7 +47,8 @@ New-Item -ItemType Directory -Path $assetsRoot -Force | Out-Null
 Copy-Item $webBuild (Join-Path $assetsRoot 'web') -Recurse
 
 $bundleId = (Get-FileHash (Join-Path $webBuild 'index.html') -Algorithm SHA256).Hash.Substring(0, 12)
-Set-Content -Path (Join-Path $assetsRoot 'web/.bundle-id') -Value $bundleId -NoNewline
+# No leading dot — aapt ignoreAssetsPattern `.*` drops dotfiles from the APK.
+Set-Content -Path (Join-Path $assetsRoot 'web/bundle-id') -Value $bundleId -NoNewline
 
 New-Item -ItemType Directory -Path $jniLibs -Force | Out-Null
 

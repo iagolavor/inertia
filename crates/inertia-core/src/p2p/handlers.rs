@@ -41,6 +41,23 @@ pub async fn update_contact_state(store: &StoreHandle, peer_id: &PeerId, state: 
         .await;
 }
 
+pub async fn touch_contact_last_seen_by_peer(store: &StoreHandle, peer_id: &PeerId) {
+    let peer_id = peer_id.to_string();
+    let _ = store
+        .with_mut(|store| {
+            if let Ok(contacts) = store.list_contacts() {
+                for mut c in contacts {
+                    if c.peer_id.as_deref() == Some(&peer_id) {
+                        c.last_seen = Some(chrono::Utc::now());
+                        store.upsert_contact(&c)?;
+                    }
+                }
+            }
+            Ok(())
+        })
+        .await;
+}
+
 pub async fn handle_inbound_request(
     store: &StoreHandle,
     identity: &Arc<RwLock<Identity>>,
@@ -91,6 +108,7 @@ pub async fn handle_inbound_request(
         InertiaRequest::SendEnvelope(SendEnvelope { envelope }) => {
             let missing_hash =
                 process_incoming_envelope(store, identity, event_tx, &envelope).await?;
+            touch_contact_last_seen_by_peer(store, &peer).await;
             if let Some(hash) = missing_hash {
                 if !store.with(|s| Ok(s.blob_exists(&hash))).await? {
                     let _ = event_tx.send(P2pEvent::BlobNeeded { hash, peer_id: peer });
@@ -129,6 +147,7 @@ pub async fn handle_outbound_response(
 ) -> CoreResult<()> {
     match response {
         InertiaResponse::DeliveryAck(ack) => {
+            touch_contact_last_seen_by_peer(store, &peer).await;
             let _ = event_tx.send(P2pEvent::DeliveryAcked {
                 content_id: ack.content_id.clone(),
                 peer_id: peer,

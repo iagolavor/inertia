@@ -69,7 +69,7 @@ async fn flush_outbox_for_peer(
         }
         if !matches!(
             entry.status,
-            DeliveryStatus::Pending | DeliveryStatus::Failed
+            DeliveryStatus::Pending | DeliveryStatus::Failed | DeliveryStatus::Sent
         ) {
             continue;
         }
@@ -126,7 +126,14 @@ pub async fn deliver_outbox_entry(
         .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
 
     match node.send_envelope_to_peer(peer_id, envelope).await {
-        Ok(()) => Ok(()),
+        Ok(()) => {
+            store
+                .with_mut(|s| {
+                    s.update_outbox_status(content_id, recipient_id, DeliveryStatus::Sent)
+                })
+                .await?;
+            Ok(())
+        }
         Err(e) => {
             store
                 .with_mut(|s| {

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Re-extract packaged web on reinstall; stale UI was restored from backup. -->
+    <exclude domain="file" path="inertia/web/" />
+</full-backup-content>

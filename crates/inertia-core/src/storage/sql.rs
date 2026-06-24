@@ -11,6 +11,7 @@ pub(super) const WEB_ORIGIN_KEY: &str = "web_origin";
 pub(super) fn status_str(status: DeliveryStatus) -> &'static str {
     match status {
         DeliveryStatus::Pending => "pending",
+        DeliveryStatus::Sent => "sent",
         DeliveryStatus::Failed => "failed",
         DeliveryStatus::Delivered => "delivered",
         DeliveryStatus::Expired => "expired",
@@ -20,6 +21,7 @@ pub(super) fn status_str(status: DeliveryStatus) -> &'static str {
 pub(super) fn parse_status(s: &str) -> DeliveryStatus {
     match s {
         "failed" => DeliveryStatus::Failed,
+        "sent" => DeliveryStatus::Sent,
         "delivered" => DeliveryStatus::Delivered,
         "expired" => DeliveryStatus::Expired,
         _ => DeliveryStatus::Pending,
@@ -45,6 +47,7 @@ pub(super) fn parse_content_type(s: &str) -> ContentType {
 pub(super) fn connection_state_str(s: ConnectionState) -> &'static str {
     match s {
         ConnectionState::Online => "online",
+        ConnectionState::Reachable => "reachable",
         ConnectionState::Offline => "offline",
         ConnectionState::Unreachable => "unreachable",
     }
@@ -53,6 +56,7 @@ pub(super) fn connection_state_str(s: ConnectionState) -> &'static str {
 pub(super) fn parse_connection_state(s: &str) -> ConnectionState {
     match s {
         "online" => ConnectionState::Online,
+        "reachable" => ConnectionState::Reachable,
         "unreachable" => ConnectionState::Unreachable,
         _ => ConnectionState::Offline,
     }

@@ -6,6 +6,7 @@
   import { buildDmThreads } from '$lib/dmThreads';
   import { identityState } from '$lib/identity.svelte';
   import { formatCacheAge, readCachedMessages, writeCachedMessages } from '$lib/local-cache';
+  import { registerInboxRefresh, startInboxPolling, stopInboxPolling } from '$lib/presence.svelte';
 
   let contacts = $state<Contact[]>([]);
   let inbox = $state<InboxEntry[]>([]);
@@ -22,6 +23,18 @@
     cacheAge = formatCacheAge(cached.saved_at);
     showingCached = true;
     return true;
+  }
+
+  async function silentLoad() {
+    if (!identityState.identity || !identityState.apiOnline) return;
+    try {
+      [contacts, inbox] = await Promise.all([api.listContacts(), api.listInbox()]);
+      showingCached = false;
+      cacheAge = null;
+      await writeCachedMessages(contacts, inbox);
+    } catch {
+      // background refresh — keep last good snapshot
+    }
   }
 
   async function load() {
@@ -57,6 +70,8 @@
 
   onMount(() => {
     void hydrateFromCache().then(() => load());
+    startInboxPolling(silentLoad);
+    return () => stopInboxPolling();
   });
 
   const threads = $derived(buildDmThreads(contacts, inbox));
@@ -71,7 +86,7 @@
   </h1>
   <a class="head-action" href="/friends/add" aria-label="Add friend">+</a>
 </div>
-<p class="subtitle">Direct messages with your circle — encrypted and ephemeral.</p>
+<p class="subtitle">Connected — active session. Reachable — seen in the last day.</p>
 
 {#if !identityState.apiOnline && identityState.identity}
   <p class="offline-hint muted">Thread list may be outdated while the API is offline.</p>
@@ -129,7 +144,7 @@
   }
 
   .head-action:hover {
-    background: color-mix(in srgb, var(--border) 25%, var(--surface));
+    background: var(--hover-bg);
     text-decoration: none;
   }
 

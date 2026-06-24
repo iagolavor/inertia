@@ -49,6 +49,15 @@ impl Engine {
                 let p2p_guard = self.p2p.lock().await;
                 if let Some(p2p) = p2p_guard.as_ref() {
                     if p2p.send_envelope_to_peer(peer_id, envelope).await.is_ok() {
+                        self.store
+                            .with_mut(|store| {
+                                store.update_outbox_status(
+                                    &content_id,
+                                    recipient_id,
+                                    DeliveryStatus::Sent,
+                                )
+                            })
+                            .await?;
                         return Ok(content_id);
                     }
                 }

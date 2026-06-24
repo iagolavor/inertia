@@ -23,6 +23,38 @@
   --post-padding-last: 0;
 }
 
+/* Semantic tokens — shared across all palette × mode combinations */
+[data-palette][data-theme] {
+  --hover-bg: color-mix(in srgb, var(--border) 35%, transparent);
+  --input-bg: var(--bg);
+  --input-border: var(--border);
+  --presence-ring-online: linear-gradient(
+    135deg,
+    var(--success),
+    color-mix(in srgb, var(--success) 40%, var(--border))
+  );
+  --presence-ring-offline: var(--border);
+  --presence-ring-reachable: linear-gradient(
+    135deg,
+    var(--warning),
+    color-mix(in srgb, var(--warning) 35%, var(--border))
+  );
+  --connection-live: var(--success);
+  --connection-reachable: var(--warning);
+  --msg-inbound-bg: var(--surface);
+  --msg-inbound-border: var(--border);
+  --msg-outbound-bg: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --msg-outbound-border: var(--border);
+  --msg-radius: var(--radius-md);
+  --msg-meta: var(--muted);
+  --ttl-chip-bg: var(--badge-pending-bg);
+  --ttl-chip-text: var(--warning);
+  --ephemeral-note-bg: color-mix(in srgb, var(--border) 22%, transparent);
+  --ephemeral-note-border: var(--border);
+  --composer-radius: var(--radius-md);
+  --btn-on-accent: #fff;
+}
+
 /* Midnight Classic (dark) */
 [data-palette='midnight'][data-theme='dark'] {
   --bg: #08090c;
@@ -49,10 +81,9 @@
   --header-bg: color-mix(in srgb, var(--bg) 92%, transparent);
   --header-backdrop: blur(10px);
   --status-dot-glow: 0 0 8px rgba(74, 222, 128, 0.45);
+  --msg-outbound-bg: color-mix(in srgb, var(--accent) 18%, var(--surface));
   color-scheme: dark;
 }
-
-/* Midnight Mist (light) */
 [data-palette='midnight'][data-theme='light'] {
   --bg: #f4f4f5;
   --surface: #ffffff;
@@ -78,10 +109,9 @@
   --header-bg: color-mix(in srgb, var(--bg) 90%, transparent);
   --header-backdrop: blur(10px);
   --status-dot-glow: none;
+  --msg-outbound-bg: color-mix(in srgb, var(--accent) 10%, var(--surface));
   color-scheme: light;
 }
-
-/* Sandstone Driftwood (light) */
 [data-palette='sandstone'][data-theme='light'] {
   --bg: #eceae6;
   --surface: #fafaf9;
@@ -107,10 +137,10 @@
   --header-bg: var(--surface);
   --header-backdrop: none;
   --status-dot-glow: none;
+  --msg-inbound-bg: var(--card-bg, var(--surface));
+  --msg-outbound-bg: var(--badge-offline-bg);
   color-scheme: light;
 }
-
-/* Sandstone Night (dark) — matches S5 exploration tokens */
 [data-palette='sandstone'][data-theme='dark'] {
   --bg: #1c1917;
   --surface: #292524;
@@ -143,6 +173,10 @@
   --post-padding: 0.85rem;
   --post-margin-bottom: 0.65rem;
   --post-border-bottom: none;
+  --msg-inbound-bg: var(--post-bg);
+  --msg-inbound-border: var(--post-border);
+  --msg-outbound-bg: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  --ephemeral-note-bg: color-mix(in srgb, var(--border) 40%, var(--surface));
   color-scheme: dark;
 }
 
@@ -237,7 +271,7 @@ textarea {
   border: none;
   border-radius: var(--radius-md);
   background: var(--accent);
-  color: #fff;
+  color: var(--btn-on-accent);
   font-weight: 600;
 }
 
@@ -245,8 +279,12 @@ textarea {
   background: var(--accent-dim);
 }
 
+.btn.btn-secondary:hover {
+  background: var(--hover-bg);
+}
+
 .btn-secondary {
-  background: transparent;
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
 }
@@ -272,7 +310,7 @@ textarea {
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--bg);
+  background: var(--input-bg);
   color: var(--text);
 }
 
@@ -285,7 +323,113 @@ textarea {
   text-transform: uppercase;
 }
 
+/* Messages — shared token-driven patterns */
+.presence-ring {
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--presence-ring-online);
+}
+
+.presence-ring.reachable {
+  background: var(--presence-ring-reachable);
+}
+
+.presence-ring.muted {
+  background: var(--presence-ring-offline);
+}
+
+.connection-status {
+  font-weight: 500;
+  color: var(--connection-live);
+}
+
+.connection-status.reachable {
+  color: var(--connection-reachable);
+}
+
+.chat-back-link {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.chat-back-link:hover {
+  text-decoration: underline;
+}
+
+.ttl-chip {
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--ttl-chip-bg);
+  color: var(--ttl-chip-text);
+}
+
+.ephemeral-note {
+  text-align: center;
+  font-size: 0.65rem;
+  color: var(--muted);
+  padding: 0.35rem 0.5rem;
+  border: 1px dashed var(--ephemeral-note-border);
+  border-radius: var(--radius-md);
+  background: var(--ephemeral-note-bg);
+}
+
+.msg-body {
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--msg-radius);
+  background: var(--msg-inbound-bg);
+  border: 1px solid var(--msg-inbound-border);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.msg-body.own {
+  background: var(--msg-outbound-bg);
+  border-color: var(--msg-outbound-border);
+}
+
+.msg-meta {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--msg-meta);
+  margin-top: 0.2rem;
+  padding: 0 0.25rem;
+}
+
+.msg-meta.own {
+  text-align: right;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.1rem;
+  width: 100%;
+}
+
+.composer-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--input-border);
+  border-radius: var(--composer-radius);
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
 .badge-online { background: var(--badge-success-bg); color: var(--success); }
+.badge-reachable { background: var(--badge-pending-bg); color: var(--warning); }
+.badge-sent { background: var(--badge-pending-bg); color: var(--warning); }
 .badge-offline { background: var(--badge-offline-bg); color: var(--muted); }
 .badge-pending { background: var(--badge-pending-bg); color: var(--warning); }
 .badge-failed { background: var(--badge-failed-bg); color: var(--danger); }
