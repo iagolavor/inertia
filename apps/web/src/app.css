@@ -388,6 +388,9 @@ textarea {
   border: 1px solid var(--msg-inbound-border);
   font-size: 0.9rem;
   line-height: 1.45;
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .msg-body.own {

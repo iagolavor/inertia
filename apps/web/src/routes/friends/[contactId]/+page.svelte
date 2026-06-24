@@ -134,10 +134,8 @@
     }
   }
 
-  function messageMeta(msg: ConversationMessage): string {
-    const time = isOptimisticMessageId(msg.content_id) ? 'now' : timeAgo(msg.at);
-    if (msg.is_own) return time;
-    return `${contact?.display_name ?? 'Them'} · ${time}`;
+  function messageTime(msg: ConversationMessage): string {
+    return isOptimisticMessageId(msg.content_id) ? 'now' : timeAgo(msg.at);
   }
 </script>
 
@@ -172,7 +170,7 @@
               <FormattedText text={msg.body} />
             </div>
             <span class="msg-meta" class:own={msg.is_own}>
-              {messageMeta(msg)}
+              {messageTime(msg)}
               {#if msg.is_own}
                 <DeliveryTicks
                   status={msg.delivery_status}
@@ -241,6 +239,8 @@
 
   .stack-msg {
     max-width: 88%;
+    width: fit-content;
+    align-self: flex-start;
   }
 
   .stack-msg.own {
