@@ -13,6 +13,7 @@
     writeCachedConversation
   } from '$lib/local-cache';
   import { timeAgo } from '$lib/dmThreads';
+  import { registerConversationRefresh } from '$lib/presence.svelte';
 
   let contacts = $state<Contact[]>([]);
   let messages = $state<ConversationMessage[]>([]);
@@ -49,6 +50,16 @@
     cacheAge = null;
   }
 
+  async function silentRefresh() {
+    if (!contactId || !identityState.apiOnline) return;
+    try {
+      contacts = await api.listContacts();
+      await loadConversation();
+    } catch {
+      // background refresh — keep last good snapshot
+    }
+  }
+
   async function load() {
     if (!contactId) return;
 
@@ -77,6 +88,8 @@
 
   onMount(() => {
     void hydrateFromCache().then(() => load());
+    registerConversationRefresh(silentRefresh);
+    return () => registerConversationRefresh(null);
   });
 
   async function send() {

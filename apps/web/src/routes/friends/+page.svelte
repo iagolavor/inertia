@@ -6,6 +6,7 @@
   import { buildDmThreads } from '$lib/dmThreads';
   import { identityState } from '$lib/identity.svelte';
   import { formatCacheAge, readCachedMessages, writeCachedMessages } from '$lib/local-cache';
+  import { registerInboxRefresh } from '$lib/presence.svelte';
 
   let contacts = $state<Contact[]>([]);
   let inbox = $state<InboxEntry[]>([]);
@@ -22,6 +23,18 @@
     cacheAge = formatCacheAge(cached.saved_at);
     showingCached = true;
     return true;
+  }
+
+  async function silentLoad() {
+    if (!identityState.identity || !identityState.apiOnline) return;
+    try {
+      [contacts, inbox] = await Promise.all([api.listContacts(), api.listInbox()]);
+      showingCached = false;
+      cacheAge = null;
+      await writeCachedMessages(contacts, inbox);
+    } catch {
+      // background refresh — keep last good snapshot
+    }
   }
 
   async function load() {
@@ -57,6 +70,8 @@
 
   onMount(() => {
     void hydrateFromCache().then(() => load());
+    registerInboxRefresh(silentLoad);
+    return () => registerInboxRefresh(null);
   });
 
   const threads = $derived(buildDmThreads(contacts, inbox));
