@@ -191,7 +191,19 @@ impl Store {
             self.store_chunk_verified(&root_hash, i as u32, &chunk_hashes[i], chunk)?;
         }
         self.insert_manifest(&manifest)?;
+        self.assemble_media_if_complete(&manifest)?;
         Ok(manifest)
+    }
+
+    /// Read a blob from disk, assembling chunked video into `blobs/{root_hash}` when needed.
+    pub fn read_blob_resolved(&self, hash: &str) -> CoreResult<Vec<u8>> {
+        if self.blob_exists(hash) {
+            return self.read_blob(hash);
+        }
+        if let Some(manifest) = self.get_manifest(hash)? {
+            self.assemble_media_if_complete(&manifest)?;
+        }
+        self.read_blob(hash)
     }
 
     pub fn apply_media_meta(&self, item: &mut FeedItem) -> CoreResult<()> {
@@ -203,7 +215,10 @@ impl Store {
         if let Some(manifest) = self.get_manifest(media_ref)? {
             item.media_kind = Some(manifest.kind);
             item.thumb_ref = Some(manifest.thumb_hash.clone());
-            item.media_ready = self.media_is_complete(&manifest);
+            if self.media_is_complete(&manifest) {
+                let _ = self.assemble_media_if_complete(&manifest);
+            }
+            item.media_ready = self.blob_exists(media_ref);
         } else {
             item.media_kind = Some(MediaKind::Photo);
             item.thumb_ref = Some(media_ref.clone());
