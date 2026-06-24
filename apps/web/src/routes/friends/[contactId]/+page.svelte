@@ -1,11 +1,16 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { page } from '$app/state';
   import { api, type Contact, type ConversationMessage } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
-  import Avatar from '$lib/components/Avatar.svelte';
-	import FriendSectionTabs from '$lib/components/FriendSectionTabs.svelte';
-	import FormattedText from '$lib/components/FormattedText.svelte';
+  import FriendPresenceHeader from '$lib/components/FriendPresenceHeader.svelte';
+  import FormattedText from '$lib/components/FormattedText.svelte';
+  import {
+    createOptimisticMessage,
+    isOptimisticMessageId,
+    mergeConversationMessages,
+    timeAgo
+  } from '$lib/dmThreads';
   import { identityState } from '$lib/identity.svelte';
   import {
     formatCacheAge,
@@ -13,7 +18,7 @@
     readCachedMessages,
     writeCachedConversation
   } from '$lib/local-cache';
-  import { timeAgo } from '$lib/dmThreads';
+  import { startConversationPolling, stopConversationPolling } from '$lib/presence.svelte';
 
   let contacts = $state<Contact[]>([]);
   let messages = $state<ConversationMessage[]>([]);
@@ -23,10 +28,17 @@
   let error = $state('');
   let showingCached = $state(false);
   let cacheAge = $state<string | null>(null);
+  let chatPanel = $state<HTMLDivElement | null>(null);
 
   const contactId = $derived(page.params.contactId);
 
   const contact = $derived(contacts.find((c) => c.id === contactId) ?? null);
+
+  async function scrollToLatest() {
+    await tick();
+    if (!chatPanel) return;
+    chatPanel.scrollTop = chatPanel.scrollHeight;
+  }
 
   async function hydrateFromCache() {
     if (!contactId) return false;
@@ -44,10 +56,22 @@
 
   async function loadConversation() {
     if (!contactId || !identityState.apiOnline) return;
-    messages = await api.listConversationMessages(contactId);
-    await writeCachedConversation(contactId, messages);
+    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
+    const serverMessages = await api.listConversationMessages(contactId);
+    messages = mergeConversationMessages(serverMessages, optimistic);
+    await writeCachedConversation(contactId, messages.filter((m) => !isOptimisticMessageId(m.content_id)));
     showingCached = false;
     cacheAge = null;
+  }
+
+  async function silentRefresh() {
+    if (!contactId || !identityState.apiOnline) return;
+    try {
+      contacts = await api.listContacts();
+      await loadConversation();
+    } catch {
+      // background refresh — keep last good snapshot
+    }
   }
 
   async function load() {
@@ -58,6 +82,7 @@
       error = '';
       await hydrateFromCache();
       loading = false;
+      await scrollToLatest();
       return;
     }
 
@@ -73,26 +98,46 @@
       }
     } finally {
       loading = false;
+      await scrollToLatest();
     }
   }
 
   onMount(() => {
     void hydrateFromCache().then(() => load());
+    startConversationPolling(silentRefresh);
+    return () => stopConversationPolling();
   });
 
   async function send() {
     if (!contactId || !messageBody.trim() || sending || !identityState.apiOnline) return;
-    sending = true;
+
+    const body = messageBody.trim();
+    const optimistic = createOptimisticMessage(body);
+    messages = [...messages, optimistic];
+    messageBody = '';
     error = '';
+    sending = true;
+    await scrollToLatest();
+
     try {
-      await api.sendMessage(contactId, messageBody.trim());
-      messageBody = '';
+      await api.sendMessage(contactId, body);
       await loadConversation();
+      await scrollToLatest();
     } catch (e) {
+      messages = messages.map((m) =>
+        m.content_id === optimistic.content_id ? { ...m, delivery_status: 'failed' } : m
+      );
       error = e instanceof ApiRequestError ? e.message : 'Send failed';
     } finally {
       sending = false;
     }
+  }
+
+  function messageMeta(msg: ConversationMessage): string {
+    const who = msg.is_own ? 'You' : (contact?.display_name ?? 'Them');
+    const time = isOptimisticMessageId(msg.content_id) ? 'now' : timeAgo(msg.at);
+    const delivery = deliveryLabel(msg.delivery_status);
+    return delivery ? `${who} · ${time} · ${delivery}` : `${who} · ${time}`;
   }
 
   function deliveryLabel(status: ConversationMessage['delivery_status']): string | null {
@@ -103,46 +148,37 @@
   }
 </script>
 
-<a class="back-link" href="/friends">← Messages</a>
-
 {#if loading}
   <p class="empty">Loading…</p>
 {:else if !contact}
+  <a class="chat-back-link" href="/friends">← Messages</a>
   <p class="error">Friend not found.</p>
 {:else}
-  <header class="chat-header">
-    <Avatar seed={contact.signing_pubkey} alt={contact.display_name} size={44} />
-    <div class="chat-meta">
-      <h1 class="chat-name">{contact.display_name}</h1>
-      <span class="badge badge-{contact.connection_state}">{contact.connection_state}</span>
-      {#if showingCached && cacheAge}
-        <span class="cache-badge">saved · {cacheAge}</span>
-      {/if}
-    </div>
-  </header>
+  <a class="chat-back-link" href="/friends">← Messages</a>
 
-  <FriendSectionTabs contactId={contact.id} active="messages" />
+  <FriendPresenceHeader
+    {contact}
+    href="/friends/{contact.id}/profile"
+    cacheAge={showingCached ? cacheAge : null}
+  />
 
   {#if !identityState.apiOnline}
     <p class="offline-hint muted">Read-only — reconnect the API to send messages.</p>
   {/if}
 
-  <div class="chat-panel">
+  <p class="ephemeral-note">Messages auto-delete after 7 days</p>
+
+  <div class="chat-panel" bind:this={chatPanel}>
     {#if messages.length === 0}
-      <p class="empty chat-empty">No messages yet. Say hello — they expire after 7 days.</p>
+      <p class="empty chat-empty">No messages yet. Say hello.</p>
     {:else}
       <ul class="message-list">
         {#each messages as msg (msg.content_id)}
-          <li class="message-row" class:own={msg.is_own}>
-            <div class="message-bubble">
+          <li class="stack-msg" class:own={msg.is_own} class:pending={msg.delivery_status === 'pending'}>
+            <div class="msg-body" class:own={msg.is_own}>
               <FormattedText text={msg.body} />
-              <span class="message-time">
-                {timeAgo(msg.at)}
-                {#if deliveryLabel(msg.delivery_status)}
-                  · {deliveryLabel(msg.delivery_status)}
-                {/if}
-              </span>
             </div>
+            <span class="msg-meta" class:own={msg.is_own}>{messageMeta(msg)}</span>
           </li>
         {/each}
       </ul>
@@ -151,13 +187,18 @@
 
   <form class="composer" onsubmit={(e) => { e.preventDefault(); void send(); }}>
     <input
+      class="composer-input"
       bind:value={messageBody}
       placeholder={identityState.apiOnline ? 'Message…' : 'API offline — reconnect to send'}
-      disabled={sending || !identityState.apiOnline}
+      disabled={!identityState.apiOnline}
       autocomplete="off"
     />
-    <button type="submit" class="btn" disabled={sending || !messageBody.trim() || !identityState.apiOnline}>
-      {sending ? '…' : 'Send'}
+    <button
+      type="submit"
+      class="btn btn-secondary"
+      disabled={sending || !messageBody.trim() || !identityState.apiOnline}
+    >
+      Send
     </button>
   </form>
 
@@ -167,60 +208,19 @@
 {/if}
 
 <style>
-  .back-link {
-    display: inline-block;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .back-link:hover {
-    text-decoration: underline;
-  }
-
-  .chat-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0;
-  }
-
-  .chat-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .chat-name {
-    margin: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
-  }
-
-  .cache-badge {
-    font-size: 0.68rem;
-    font-weight: 500;
-    padding: 0.12rem 0.4rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    color: var(--muted);
-  }
-
   .offline-hint {
-    margin: 0.65rem 0 0.75rem;
+    margin: 0 0 0.5rem;
     font-size: 0.875rem;
+  }
+
+  .ephemeral-note {
+    margin: 0 0 0.75rem;
   }
 
   .chat-panel {
     min-height: 280px;
     max-height: 55vh;
     overflow-y: auto;
-    padding: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--surface);
     margin-bottom: 0.75rem;
   }
 
@@ -235,59 +235,30 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.55rem;
   }
 
-  .message-row {
-    display: flex;
-    justify-content: flex-start;
+  .stack-msg {
+    max-width: 88%;
   }
 
-  .message-row.own {
-    justify-content: flex-end;
+  .stack-msg.own {
+    align-self: flex-end;
+    margin-left: auto;
   }
 
-  .message-bubble {
-    max-width: 85%;
-    padding: 0.65rem 0.85rem;
-    border-radius: 14px 14px 14px 4px;
-    background: color-mix(in srgb, var(--accent) 12%, var(--bg));
-    border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
-  }
-
-  .message-row.own .message-bubble {
-    border-radius: 14px 14px 4px 14px;
-    background: color-mix(in srgb, var(--accent) 28%, var(--bg));
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  }
-
-  .message-time {
-    display: block;
-    margin-top: 0.35rem;
-    font-size: 0.72rem;
-    color: var(--muted);
+  .stack-msg.pending .msg-body.own {
+    opacity: 0.88;
   }
 
   .composer {
     display: flex;
-    gap: 0.5rem;
-  }
-
-  .composer input {
-    flex: 1;
-    min-width: 0;
-    padding: 0.65rem 0.85rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--bg);
-    color: var(--text);
-    font: inherit;
+    gap: 0.45rem;
   }
 
   .composer .btn {
     flex-shrink: 0;
-    border-radius: 999px;
-    padding: 0.65rem 1.1rem;
+    border-radius: var(--composer-radius);
+    padding: 0.55rem 0.85rem;
   }
 </style>
-

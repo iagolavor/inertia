@@ -3,16 +3,23 @@ import { identityState } from '$lib/identity.svelte';
 
 const P2P_POLL_MS = 5_000;
 const FEED_POLL_MS = 12_000;
+const INBOX_POLL_MS = 8_000;
+const CONVERSATION_POLL_MS = 4_000;
+
+const MESSAGE_ACTIVITY_KINDS = new Set(['message_received', 'delivery_acked', 'outbox_flush']);
 
 type FeedRefreshFn = () => void | Promise<void>;
 type InboxRefreshFn = () => void | Promise<void>;
+type ConversationRefreshFn = () => void | Promise<void>;
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let lastConnectedKey = '';
 let lastActivityAt: string | null = null;
 let lastTone = '';
+let lastPendingOutbox: number | null = null;
 let feedRefresh: FeedRefreshFn | null = null;
 let inboxRefresh: InboxRefreshFn | null = null;
+let conversationRefresh: ConversationRefreshFn | null = null;
 let pulseUntil = 0;
 
 export function presencePulseActive(): boolean {
@@ -27,6 +34,37 @@ export function registerInboxRefresh(fn: InboxRefreshFn | null) {
 	inboxRefresh = fn;
 }
 
+export function registerConversationRefresh(fn: ConversationRefreshFn | null) {
+	conversationRefresh = fn;
+}
+
+function latestActivityKind(status: P2pStatus): string | undefined {
+	return status.recent_activity[0]?.kind;
+}
+
+function hasMessageActivity(status: P2pStatus): boolean {
+	const kind = latestActivityKind(status);
+	return kind !== undefined && MESSAGE_ACTIVITY_KINDS.has(kind);
+}
+
+function notifyInboxRefresh() {
+	if (inboxRefresh) void inboxRefresh();
+}
+
+function notifyConversationRefresh() {
+	if (conversationRefresh) void conversationRefresh();
+}
+
+function notifyMessageRefresh() {
+	notifyInboxRefresh();
+	notifyConversationRefresh();
+}
+
+/** Called when the tab becomes visible — refreshes any registered message views. */
+export function refreshMessagesOnVisible() {
+	notifyMessageRefresh();
+}
+
 export async function refreshP2pLive() {
 	if (!identityState.apiOnline || !identityState.identity) return;
 
@@ -35,27 +73,37 @@ export async function refreshP2pLive() {
 		const connectedKey = status.connected_peer_ids.slice().sort().join(',');
 		const activityAt = status.last_activity_at ?? null;
 		const tone = status.tone;
+		const pendingOutbox = status.layers.pending_outbox_count;
+		const peersChanged = connectedKey !== lastConnectedKey;
+		const activityAdvanced = Boolean(activityAt && activityAt !== lastActivityAt);
+		const outboxChanged = lastPendingOutbox !== null && pendingOutbox !== lastPendingOutbox;
 
-		if (
-			connectedKey !== lastConnectedKey ||
-			(activityAt && activityAt !== lastActivityAt) ||
-			tone !== lastTone
-		) {
+		if (peersChanged || activityAdvanced || tone !== lastTone) {
 			pulseUntil = Date.now() + 2_500;
+		}
+
+		if (peersChanged) {
+			notifyInboxRefresh();
+			notifyConversationRefresh();
+		}
+
+		if (activityAdvanced && hasMessageActivity(status)) {
+			const latest = status.recent_activity[0];
+			if (latest?.kind === 'message_received' && feedRefresh) {
+				void feedRefresh();
+			}
+			notifyMessageRefresh();
+		}
+
+		if (outboxChanged) {
+			notifyMessageRefresh();
 		}
 
 		lastConnectedKey = connectedKey;
 		lastActivityAt = activityAt;
 		lastTone = tone;
+		lastPendingOutbox = pendingOutbox;
 		identityState.p2pStatus = status;
-
-		const latest = status.recent_activity[0];
-		if (latest?.kind === 'message_received' && feedRefresh) {
-			void feedRefresh();
-		}
-		if (latest?.kind === 'message_received' && inboxRefresh) {
-			void inboxRefresh();
-		}
 	} catch {
 		// keep last snapshot on transient errors
 	}
@@ -70,6 +118,7 @@ async function pollTick() {
 
 export function startPresencePolling() {
 	stopPresencePolling();
+	lastPendingOutbox = null;
 	void pollTick();
 	pollTimer = setInterval(() => void pollTick(), P2P_POLL_MS);
 }
@@ -99,6 +148,46 @@ export function stopFeedPolling() {
 		feedPollTimer = null;
 	}
 	registerFeedRefresh(null);
+}
+
+let inboxPollTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startInboxPolling(refresh: InboxRefreshFn) {
+	registerInboxRefresh(refresh);
+	stopInboxPolling();
+	inboxPollTimer = setInterval(() => {
+		if (document.visibilityState === 'visible') {
+			void refresh();
+		}
+	}, INBOX_POLL_MS);
+}
+
+export function stopInboxPolling() {
+	if (inboxPollTimer) {
+		clearInterval(inboxPollTimer);
+		inboxPollTimer = null;
+	}
+	registerInboxRefresh(null);
+}
+
+let conversationPollTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startConversationPolling(refresh: ConversationRefreshFn) {
+	registerConversationRefresh(refresh);
+	stopConversationPolling();
+	conversationPollTimer = setInterval(() => {
+		if (document.visibilityState === 'visible') {
+			void refresh();
+		}
+	}, CONVERSATION_POLL_MS);
+}
+
+export function stopConversationPolling() {
+	if (conversationPollTimer) {
+		clearInterval(conversationPollTimer);
+		conversationPollTimer = null;
+	}
+	registerConversationRefresh(null);
 }
 
 export function formatActivityLine(event: P2pStatus['recent_activity'][number]): string {
