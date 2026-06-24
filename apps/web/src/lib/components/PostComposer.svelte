@@ -1,7 +1,15 @@
 <script lang="ts">
   import { api } from '$lib/api';
   import { prepareImageForUpload } from '$lib/image';
-  import { isVideoUploadFile, prepareVideoForUpload, type PreparedVideo } from '$lib/video';
+  import {
+    assertVideoUploadAllowed,
+    isVideoUploadFile,
+    prepareVideoForUpload,
+    formatVideoDuration,
+    processingLabel,
+    type PreparedVideo,
+    type VideoPrepareStage
+  } from '$lib/video';
   import {
     applyInlineFormat,
     prefixSelectedLines,
@@ -26,7 +34,8 @@
   let mediaBase64 = $state<string | null>(null);
   let pendingVideo = $state<PreparedVideo | null>(null);
   let mediaKind = $state<'photo' | 'video' | null>(null);
-  let processingMedia = $state(false);
+  let processingStage = $state<VideoPrepareStage | null>(null);
+  let pendingDurationMs = $state<number | null>(null);
   let posting = $state(false);
   let error = $state('');
   let fileInput = $state<HTMLInputElement | null>(null);
@@ -34,12 +43,34 @@
 
   const canSend = $derived(
     !posting &&
-      !processingMedia &&
+      !processingStage &&
       !disabled &&
       (body.trim().length > 0 || mediaBase64 !== null || pendingVideo !== null)
   );
   const hasDraft = $derived(
-    body.trim().length > 0 || mediaPreview !== null || pendingVideo !== null || posting
+    body.trim().length > 0 ||
+      mediaPreview !== null ||
+      pendingVideo !== null ||
+      posting ||
+      processingStage !== null
+  );
+
+  const videoDurationLabel = $derived(
+    pendingVideo
+      ? formatVideoDuration(pendingVideo.durationMs)
+      : pendingDurationMs
+        ? formatVideoDuration(pendingDurationMs)
+        : null
+  );
+
+  const processingMedia = $derived(processingStage !== null);
+  const previewBusy = $derived(processingMedia || (posting && mediaKind === 'video'));
+  const previewStatus = $derived(
+    processingStage
+      ? processingLabel(processingStage)
+      : posting && mediaKind === 'video'
+        ? 'Uploading video…'
+        : null
   );
 
   let composerFocused = $state(false);
@@ -74,13 +105,24 @@
 
     error = '';
     clearMedia();
-    processingMedia = true;
     try {
       if (isVideoUploadFile(file)) {
-        const prepared = await prepareVideoForUpload(file);
+        assertVideoUploadAllowed(file);
+        processingStage = 'loading';
+        const prepared = await prepareVideoForUpload(file, (progress) => {
+          processingStage = progress.stage;
+          if (progress.previewUrl) {
+            mediaPreview = progress.previewUrl;
+            mediaKind = 'video';
+          }
+          if (progress.durationMs) {
+            pendingDurationMs = progress.durationMs;
+          }
+        });
         pendingVideo = prepared;
         mediaKind = 'video';
         mediaPreview = prepared.previewUrl;
+        pendingDurationMs = prepared.durationMs;
       } else {
         const reader = new FileReader();
         const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -96,7 +138,7 @@
       error = e instanceof Error ? e.message : 'Failed to process media';
       clearMedia();
     } finally {
-      processingMedia = false;
+      processingStage = null;
     }
   }
 
@@ -104,6 +146,7 @@
     mediaPreview = null;
     mediaBase64 = null;
     pendingVideo = null;
+    pendingDurationMs = null;
     mediaKind = null;
   }
 
@@ -196,11 +239,26 @@
       onkeydown={onKeydown}
     ></textarea>
 
-    {#if mediaPreview}
+    {#if processingMedia && !mediaPreview}
+      <div class="preview-wrap preview-placeholder" aria-busy="true" aria-label="Processing video">
+        <div class="preview-overlay">
+          <span class="overlay-spinner" aria-hidden="true"></span>
+          <span class="overlay-label">Processing video…</span>
+        </div>
+      </div>
+    {:else if mediaPreview}
       <div class="preview-wrap">
-        <img class="preview" src={mediaPreview} alt="Preview" />
+        <img class="preview" src={mediaPreview} alt="Video preview" />
         {#if mediaKind === 'video'}
-          <span class="video-badge" aria-hidden="true">Video</span>
+          <span class="video-badge" aria-hidden="true">
+            {#if videoDurationLabel}{videoDurationLabel}{:else}Video{/if}
+          </span>
+        {/if}
+        {#if previewBusy && previewStatus}
+          <div class="preview-overlay" aria-live="polite">
+            <span class="overlay-spinner" aria-hidden="true"></span>
+            <span class="overlay-label">{previewStatus}</span>
+          </div>
         {/if}
         <button
           type="button"
@@ -212,10 +270,6 @@
           ×
         </button>
       </div>
-    {/if}
-
-    {#if processingMedia}
-      <p class="processing">Processing media…</p>
     {/if}
 
     <div class="composer-toolbar" aria-hidden={!toolbarVisible}>
@@ -513,6 +567,41 @@
     max-width: calc(100% - 1.5rem);
   }
 
+  .preview-placeholder {
+    width: min(100%, 280px);
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--border) 35%, var(--bg));
+  }
+
+  .preview-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border-radius: inherit;
+  }
+
+  .overlay-spinner {
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  .overlay-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
   .preview {
     display: block;
     max-width: 100%;
@@ -547,13 +636,7 @@
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .processing {
-    margin: 0 0.75rem 0.5rem;
-    font-size: 0.8rem;
-    color: var(--muted);
+    font-variant-numeric: tabular-nums;
   }
 
   .attach-btn:hover:not(:disabled) {

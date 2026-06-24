@@ -6,6 +6,7 @@
 
   import AppHeader from '$lib/components/AppHeader.svelte';
   import ApiStatusBanner from '$lib/components/ApiStatusBanner.svelte';
+  import VideoDebugPanel from '$lib/components/VideoDebugPanel.svelte';
   import { refreshIdentity } from '$lib/identity.svelte';
   import {
     refreshMessagesOnVisible,
@@ -61,6 +62,8 @@
       {@render children()}
     </main>
   </div>
+
+  <VideoDebugPanel />
 </div>
 
 <style>
