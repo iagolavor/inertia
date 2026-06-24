@@ -23,7 +23,8 @@ import java.util.zip.ZipFile;
 /** Extracts and runs bundled inertia-api (Stage B — mirrors Windows zip layout). */
 public final class InertiaRuntime {
     private static final String ASSET_WEB_DIR = "inertia/web";
-    private static final String ASSET_BUNDLE_ID = "inertia/web/.bundle-id";
+    private static final String ASSET_BUNDLE_ID = "inertia/web/bundle-id";
+    private static final String EXTRACTED_BUNDLE_ID = "bundle-id";
     /** Packaged in jniLibs; .so suffix so Android extracts it with execute permission. */
     private static final String NATIVE_LIB_NAME = "libinertia_api.so";
     private static final String API_HOST = "127.0.0.1";
@@ -147,13 +148,45 @@ public final class InertiaRuntime {
         File versionFile = new File(installDir, ".version");
         File webDir = new File(installDir, "web");
         String expected = getWebBundleVersion(context);
-        if (versionFile.exists() && expected.equals(readUtf8(versionFile)) && webDir.isDirectory()) {
+        if (isExtractedWebCurrent(context, versionFile, webDir, expected)) {
             return;
         }
         deleteRecursive(installDir);
         installDir.mkdirs();
         copyAssetTree(context, ASSET_WEB_DIR, webDir);
         writeUtf8(versionFile, expected);
+    }
+
+    /** Skip re-extract only when version + packaged web bundle-id match extracted files. */
+    private static boolean isExtractedWebCurrent(
+        Context context,
+        File versionFile,
+        File webDir,
+        String expectedVersion
+    ) {
+        if (!versionFile.exists() || !webDir.isDirectory()) {
+            return false;
+        }
+        try {
+            if (!expectedVersion.equals(readUtf8(versionFile).trim())) {
+                return false;
+            }
+        } catch (IOException e) {
+            return false;
+        }
+        String assetBundleId = readAssetBundleId(context);
+        if (assetBundleId.isEmpty()) {
+            return false;
+        }
+        File extractedBundleId = new File(webDir, EXTRACTED_BUNDLE_ID);
+        if (!extractedBundleId.isFile()) {
+            return false;
+        }
+        try {
+            return assetBundleId.equals(readUtf8(extractedBundleId).trim());
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     public static synchronized void start(Context context) throws IOException {
@@ -242,14 +275,19 @@ public final class InertiaRuntime {
 
     private static String getWebBundleVersion(Context context) {
         String app = getAppVersion(context);
-        try {
-            String bundleId = readAssetUtf8(context, ASSET_BUNDLE_ID).trim();
-            if (!bundleId.isEmpty()) {
-                return app + "+" + bundleId;
-            }
-        } catch (IOException ignored) {
+        String bundleId = readAssetBundleId(context);
+        if (!bundleId.isEmpty()) {
+            return app + "+" + bundleId;
         }
         return app;
+    }
+
+    private static String readAssetBundleId(Context context) {
+        try {
+            return readAssetUtf8(context, ASSET_BUNDLE_ID).trim();
+        } catch (IOException ignored) {
+            return "";
+        }
     }
 
     private static String readAssetUtf8(Context context, String assetPath) throws IOException {

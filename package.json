@@ -16,6 +16,7 @@
     "android:sync": "npm run cap:sync --prefix apps/web",
     "android:open": "npm run cap:android --prefix apps/web",
     "android:run": "npm run cap:run:android --prefix apps/web",
+    "android:run:device": "powershell -ExecutionPolicy Bypass -File scripts/android-run-device.ps1",
     "android:sdk": "powershell -ExecutionPolicy Bypass -File scripts/setup-android-sdk.ps1",
     "android:reverse": "powershell -ExecutionPolicy Bypass -File scripts/adb-reverse.ps1",
     "android:api:build": "powershell -ExecutionPolicy Bypass -File scripts/build-android-api.ps1",
