@@ -222,6 +222,29 @@ impl Engine {
         self.activity.lock().await.snapshot()
     }
 
+    /// Connected libp2p peers excluding the configured relay.
+    pub(crate) async fn connected_friend_peer_ids(&self) -> std::collections::HashSet<String> {
+        use std::collections::HashSet;
+
+        let relay_peer_id = self
+            .effective_relay()
+            .await
+            .as_deref()
+            .and_then(peer_id_from_multiaddr_str);
+
+        let guard = self.p2p.lock().await;
+        let Some(p2p) = guard.as_ref() else {
+            return HashSet::new();
+        };
+        let connected = p2p.connected_peer_ids().await;
+        drop(guard);
+
+        connected
+            .into_iter()
+            .filter(|id| relay_peer_id.as_ref() != Some(id))
+            .collect()
+    }
+
     pub async fn p2p_status(&self) -> P2pStatus {
         let relay = self.relay_multiaddr().await;
         let relay_tcp_reachable = if let Some(ref addr) = relay {

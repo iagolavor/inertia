@@ -45,6 +45,7 @@ pub(super) fn parse_content_type(s: &str) -> ContentType {
 pub(super) fn connection_state_str(s: ConnectionState) -> &'static str {
     match s {
         ConnectionState::Online => "online",
+        ConnectionState::Reachable => "reachable",
         ConnectionState::Offline => "offline",
         ConnectionState::Unreachable => "unreachable",
     }
@@ -53,6 +54,7 @@ pub(super) fn connection_state_str(s: ConnectionState) -> &'static str {
 pub(super) fn parse_connection_state(s: &str) -> ConnectionState {
     match s {
         "online" => ConnectionState::Online,
+        "reachable" => ConnectionState::Reachable,
         "unreachable" => ConnectionState::Unreachable,
         _ => ConnectionState::Offline,
     }
