@@ -2,9 +2,15 @@
   import { blobUrl, type FeedItem } from '$lib/api';
   import Avatar from './Avatar.svelte';
   import FormattedText from './FormattedText.svelte';
+  import VideoMedia from './VideoMedia.svelte';
 
   interface Props {
-    post: FeedItem & { local_media_preview?: string; delivering?: boolean };
+    post: FeedItem & {
+      local_media_preview?: string;
+      delivering?: boolean;
+      media_kind?: 'photo' | 'video' | null;
+      media_ready?: boolean;
+    };
     onopen?: (post: FeedItem) => void;
   }
 
@@ -41,7 +47,18 @@
     </div>
   </header>
 
-  {#if post.media_ref}
+  {#if post.media_kind === 'video' && post.media_ref}
+    <VideoMedia
+      rootHash={post.media_ref}
+      thumbRef={post.thumb_ref ?? post.media_ref}
+      mediaReady={post.media_ready ?? false}
+    />
+  {:else if post.media_kind === 'video' && post.local_media_preview}
+    <div class="media-btn local-preview">
+      <img class="post-media" src={post.local_media_preview} alt="" />
+      <span class="video-badge">Video</span>
+    </div>
+  {:else if post.media_ref}
     <button type="button" class="media-btn" onclick={() => onopen?.(post)}>
       <img class="post-media" src={blobUrl(post.media_ref)} alt="" loading="lazy" />
     </button>
@@ -126,6 +143,21 @@
 
   .local-preview {
     cursor: default;
+    position: relative;
+  }
+
+  .video-badge {
+    position: absolute;
+    left: 0.5rem;
+    bottom: 0.5rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   .time {

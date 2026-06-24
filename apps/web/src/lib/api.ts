@@ -125,11 +125,23 @@ export interface FeedItem {
   author_name: string;
   body: string;
   media_ref: string | null;
+  thumb_ref?: string | null;
+  media_kind?: 'photo' | 'video' | null;
+  media_ready?: boolean;
   created_at: string;
   expires_at: string;
   is_own: boolean;
   is_archived: boolean;
   comment_count?: number;
+}
+
+export interface MediaFetchStatus {
+  root_hash: string;
+  state: 'idle' | 'fetching' | 'complete' | 'failed';
+  chunks_done: number;
+  chunks_total: number;
+  transport: string;
+  error?: string | null;
 }
 
 export interface PostComment {
@@ -244,7 +256,7 @@ async function request<T>(
       error: res.statusText
     }));
     const raw = err.error ?? res.statusText ?? 'Request failed';
-    const code = typeof err.code === 'string' ? err.code : undefined;
+    const code = 'code' in err && typeof err.code === 'string' ? err.code : undefined;
     if (res.status === 409) {
       throw new ApiRequestError({ kind: 'client', message: 'A profile already exists on this device' });
     }
@@ -390,6 +402,28 @@ export const api = {
       },
       UPLOAD_TIMEOUT_MS
     ),
+  createVideoPost: (
+    body: string,
+    video_base64: string,
+    thumb_base64: string,
+    duration_ms: number
+  ) =>
+    request<{ content_id: string }>(
+      '/posts/video',
+      {
+        method: 'POST',
+        body: JSON.stringify({ body, video_base64, thumb_base64, duration_ms })
+      },
+      UPLOAD_TIMEOUT_MS
+    ),
+  startMediaFetch: (root_hash: string) =>
+    request<MediaFetchStatus>(
+      `/media/${encodeURIComponent(root_hash)}/fetch`,
+      { method: 'POST' },
+      UPLOAD_TIMEOUT_MS
+    ),
+  mediaFetchStatus: (root_hash: string) =>
+    request<MediaFetchStatus>(`/media/${encodeURIComponent(root_hash)}/status`),
   listProfilePhotos: () => request<ProfilePhoto[]>('/profile/photos'),
   uploadProfilePhoto: (data_base64: string, caption?: string) =>
     request<PublishPhotoResult>(

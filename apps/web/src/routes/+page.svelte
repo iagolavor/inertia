@@ -82,6 +82,8 @@
     content_id: string;
     body: string;
     local_media_preview?: string;
+    media_kind?: 'photo' | 'video';
+    media_ready?: boolean;
   }) {
     if (!identityState.identity) return;
 
@@ -93,6 +95,8 @@
       author_name: identityState.identity.display_name,
       body: result.body,
       media_ref: null,
+      media_kind: result.media_kind ?? null,
+      media_ready: result.media_ready ?? false,
       local_media_preview: result.local_media_preview,
       delivering: true,
       created_at: now,

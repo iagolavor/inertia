@@ -2,6 +2,7 @@
 	import { api, blobUrl, type FeedItem, type PostComment } from '$lib/api';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FormattedText from '$lib/components/FormattedText.svelte';
+	import VideoMedia from '$lib/components/VideoMedia.svelte';
 
 	interface Props {
 		post?: FeedItem | null;
@@ -43,8 +44,15 @@
 
 	const displayAuthorId = $derived(draft ? authorId : (post?.author_id ?? ''));
 	const displayAuthorName = $derived(draft ? authorName : (post?.author_name ?? ''));
+	const isVideo = $derived(!draft && post?.media_kind === 'video' && !!post?.media_ref);
 	const mediaUrl = $derived(
-		draft ? previewImageUrl : post?.media_ref ? blobUrl(post.media_ref) : null
+		draft
+			? previewImageUrl
+			: post?.media_kind === 'video'
+				? null
+				: post?.media_ref
+					? blobUrl(post.media_ref)
+					: null
 	);
 
 	$effect(() => {
@@ -139,11 +147,18 @@
 				</div>
 			{:else if post}
 				<div class="post-content">
-					{#if mediaUrl}
+					{#if isVideo}
+						<VideoMedia
+							rootHash={post.media_ref!}
+							thumbRef={post.thumb_ref ?? post.media_ref!}
+							mediaReady={post.media_ready ?? false}
+							{compact}
+						/>
+					{:else if mediaUrl}
 						<img class="post-content-media" src={mediaUrl} alt="" />
 					{/if}
 					{#if post.body}
-						<div class="post-content-caption" class:standalone={!mediaUrl}>
+						<div class="post-content-caption" class:standalone={!mediaUrl && !isVideo}>
 							<p class="caption-line">
 								<span class="caption-author">{displayAuthorName}</span>
 								<FormattedText text={post.body} class="expand-caption" />
