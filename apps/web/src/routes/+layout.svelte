@@ -56,13 +56,17 @@
     <ApiStatusBanner />
   </div>
 
-  <main class="container">
-    {@render children()}
-  </main>
+  <div class="main-grow">
+    <main class="container">
+      {@render children()}
+    </main>
+  </div>
 </div>
 
 <style>
   .app-shell {
+    display: flex;
+    flex-direction: column;
     min-height: 100%;
     min-height: 100dvh;
     background: var(--bg);
@@ -70,6 +74,26 @@
 
   .banner-wrap {
     padding: 0 max(1.5rem, var(--safe-right)) 0 max(1.5rem, var(--safe-left));
+  }
+
+  /* Grows vertically; keeps .container at full 720px width (no flex shrink). */
+  .main-grow {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+  }
+
+  .main-grow > main.container {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .main-grow > main.container:has(:global(.chat-fill)) {
+    display: flex;
+    flex-direction: column;
   }
 
   @media (max-width: 640px) {
