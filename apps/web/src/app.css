@@ -34,7 +34,13 @@
     color-mix(in srgb, var(--success) 40%, var(--border))
   );
   --presence-ring-offline: var(--border);
+  --presence-ring-reachable: linear-gradient(
+    135deg,
+    var(--warning),
+    color-mix(in srgb, var(--warning) 35%, var(--border))
+  );
   --connection-live: var(--success);
+  --connection-reachable: var(--warning);
   --connection-away: var(--muted);
   --msg-inbound-bg: var(--surface);
   --msg-inbound-border: var(--border);
@@ -326,7 +332,11 @@ textarea {
   background: var(--presence-ring-online);
 }
 
-.presence-ring.offline {
+.presence-ring.reachable {
+  background: var(--presence-ring-reachable);
+}
+
+.presence-ring.away {
   background: var(--presence-ring-offline);
 }
 
@@ -335,7 +345,11 @@ textarea {
   color: var(--connection-live);
 }
 
-.connection-status.offline {
+.connection-status.reachable {
+  color: var(--connection-reachable);
+}
+
+.connection-status.away {
   color: var(--connection-away);
 }
 
@@ -411,6 +425,7 @@ textarea {
 }
 
 .badge-online { background: var(--badge-success-bg); color: var(--success); }
+.badge-reachable { background: var(--badge-pending-bg); color: var(--warning); }
 .badge-offline { background: var(--badge-offline-bg); color: var(--muted); }
 .badge-pending { background: var(--badge-pending-bg); color: var(--warning); }
 .badge-failed { background: var(--badge-failed-bg); color: var(--danger); }

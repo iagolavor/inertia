@@ -86,7 +86,7 @@
   </h1>
   <a class="head-action" href="/friends/add" aria-label="Add friend">+</a>
 </div>
-<p class="subtitle">Reachable now, then everyone else.</p>
+<p class="subtitle">Connected — active session. Reachable — seen in the last day.</p>
 
 {#if !identityState.apiOnline && identityState.identity}
   <p class="offline-hint muted">Thread list may be outdated while the API is offline.</p>

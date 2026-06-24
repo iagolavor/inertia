@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Contact } from '$lib/api';
   import Avatar from '$lib/components/Avatar.svelte';
-  import { connectionLabel, isContactOnline } from '$lib/dmThreads';
+  import { connectionLabel, presenceIndicator, presenceTier } from '$lib/dmThreads';
 
   interface Props {
     contact: Contact;
@@ -23,19 +23,30 @@
     avatarSize = 48
   }: Props = $props();
 
-  const online = $derived(isContactOnline(contact.connection_state));
+  const tier = $derived(presenceTier(contact.connection_state));
 </script>
 
 <div class="friend-presence-header">
   {#if href}
     <a class="presence-link" {href}>
-      <div class="presence-ring" class:offline={!online}>
+      <div
+        class="presence-ring"
+        class:connected={tier === 'connected'}
+        class:reachable={tier === 'reachable'}
+        class:away={tier === 'away'}
+      >
         <Avatar seed={contact.signing_pubkey} alt={contact.display_name} size={avatarSize} />
       </div>
       <div class="presence-meta">
         <h1 class="presence-name">{contact.display_name}</h1>
-        <div class="connection-status" class:offline={!online}>
-          {online ? '●' : '○'} {connectionLabel(contact.connection_state)}
+        <div
+          class="connection-status"
+          class:connected={tier === 'connected'}
+          class:reachable={tier === 'reachable'}
+          class:away={tier === 'away'}
+        >
+          {presenceIndicator(contact.connection_state)}
+          {connectionLabel(contact.connection_state)}
         </div>
         {#if detail}
           <p class="presence-detail">{detail}</p>
@@ -44,13 +55,24 @@
     </a>
   {:else}
     <div class="presence-link static">
-      <div class="presence-ring" class:offline={!online}>
+      <div
+        class="presence-ring"
+        class:connected={tier === 'connected'}
+        class:reachable={tier === 'reachable'}
+        class:away={tier === 'away'}
+      >
         <Avatar seed={contact.signing_pubkey} alt={contact.display_name} size={avatarSize} />
       </div>
       <div class="presence-meta">
         <h1 class="presence-name">{contact.display_name}</h1>
-        <div class="connection-status" class:offline={!online}>
-          {online ? '●' : '○'} {connectionLabel(contact.connection_state)}
+        <div
+          class="connection-status"
+          class:connected={tier === 'connected'}
+          class:reachable={tier === 'reachable'}
+          class:away={tier === 'away'}
+        >
+          {presenceIndicator(contact.connection_state)}
+          {connectionLabel(contact.connection_state)}
         </div>
         {#if detail}
           <p class="presence-detail">{detail}</p>
@@ -112,7 +134,11 @@
     color: var(--connection-live);
   }
 
-  .connection-status.offline {
+  .connection-status.reachable {
+    color: var(--connection-reachable);
+  }
+
+  .connection-status.away {
     color: var(--connection-away);
   }
 

@@ -3,7 +3,8 @@
   import type { DmThread } from '$lib/dmThreads';
   import {
     connectionLabel,
-    isContactOnline,
+    presenceIndicator,
+    presenceTier,
     messageTtlLabel,
     previewText
   } from '$lib/dmThreads';
@@ -16,11 +17,14 @@
 
   let { threads, loading = false }: Props = $props();
 
-  const onlineThreads = $derived(
-    threads.filter((t) => isContactOnline(t.contact.connection_state))
+  const connectedThreads = $derived(
+    threads.filter((t) => presenceTier(t.contact.connection_state) === 'connected')
   );
-  const offlineThreads = $derived(
-    threads.filter((t) => !isContactOnline(t.contact.connection_state))
+  const reachableThreads = $derived(
+    threads.filter((t) => presenceTier(t.contact.connection_state) === 'reachable')
+  );
+  const awayThreads = $derived(
+    threads.filter((t) => presenceTier(t.contact.connection_state) === 'away')
   );
 
   function openThread(contactId: string) {
@@ -29,16 +33,34 @@
 </script>
 
 {#snippet presenceRow(thread: DmThread)}
-  {@const online = isContactOnline(thread.contact.connection_state)}
+  {@const tier = presenceTier(thread.contact.connection_state)}
   <li>
-    <button type="button" class="presence-row" class:offline={!online} onclick={() => openThread(thread.contact.id)}>
-      <div class="presence-ring" class:offline={!online}>
+    <button
+      type="button"
+      class="presence-row"
+      class:connected={tier === 'connected'}
+      class:reachable={tier === 'reachable'}
+      class:away={tier === 'away'}
+      onclick={() => openThread(thread.contact.id)}
+    >
+      <div
+        class="presence-ring"
+        class:connected={tier === 'connected'}
+        class:reachable={tier === 'reachable'}
+        class:away={tier === 'away'}
+      >
         <Avatar seed={thread.contact.signing_pubkey} alt={thread.contact.display_name} size={48} />
       </div>
       <div class="presence-meta">
         <div class="presence-name">{thread.contact.display_name}</div>
-        <div class="presence-status connection-status" class:offline={!online}>
-          {online ? '●' : '○'} {connectionLabel(thread.contact.connection_state)}
+        <div
+          class="presence-status connection-status"
+          class:connected={tier === 'connected'}
+          class:reachable={tier === 'reachable'}
+          class:away={tier === 'away'}
+        >
+          {presenceIndicator(thread.contact.connection_state)}
+          {connectionLabel(thread.contact.connection_state)}
         </div>
         <p class="presence-preview">
           {#if thread.lastMessage}
@@ -63,19 +85,28 @@
     <a class="btn" href="/friends/add">Add a friend</a>
   </div>
 {:else}
-  {#if onlineThreads.length > 0}
-    <h2 class="group-label">Online now</h2>
+  {#if connectedThreads.length > 0}
+    <h2 class="group-label">Connected</h2>
     <ul class="presence-list">
-      {#each onlineThreads as thread (thread.contact.id)}
+      {#each connectedThreads as thread (thread.contact.id)}
         {@render presenceRow(thread)}
       {/each}
     </ul>
   {/if}
 
-  {#if offlineThreads.length > 0}
-    <h2 class="group-label">Offline</h2>
+  {#if reachableThreads.length > 0}
+    <h2 class="group-label">Reachable</h2>
     <ul class="presence-list">
-      {#each offlineThreads as thread (thread.contact.id)}
+      {#each reachableThreads as thread (thread.contact.id)}
+        {@render presenceRow(thread)}
+      {/each}
+    </ul>
+  {/if}
+
+  {#if awayThreads.length > 0}
+    <h2 class="group-label">Away</h2>
+    <ul class="presence-list">
+      {#each awayThreads as thread (thread.contact.id)}
         {@render presenceRow(thread)}
       {/each}
     </ul>

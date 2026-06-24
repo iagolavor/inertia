@@ -56,14 +56,29 @@ export function previewText(body: string, max = 72): string {
   return `${flat.slice(0, max - 1)}…`;
 }
 
+export type PresenceTier = 'connected' | 'reachable' | 'away';
+
+export function presenceTier(state: Contact['connection_state']): PresenceTier {
+  if (state === 'online') return 'connected';
+  if (state === 'reachable') return 'reachable';
+  return 'away';
+}
+
 export function isContactOnline(state: Contact['connection_state']): boolean {
   return state === 'online';
 }
 
 export function connectionLabel(state: Contact['connection_state']): string {
   if (state === 'online') return 'connected';
-  if (state === 'unreachable') return 'not reachable';
-  return 'offline';
+  if (state === 'reachable') return 'reachable';
+  if (state === 'unreachable') return 'no route yet';
+  return 'away';
+}
+
+export function presenceIndicator(state: Contact['connection_state']): string {
+  if (state === 'online') return '●';
+  if (state === 'reachable') return '◐';
+  return '○';
 }
 
 export function messageTtlLabel(expiresAt: string): string {
