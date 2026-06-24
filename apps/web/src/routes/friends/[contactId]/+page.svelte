@@ -1,10 +1,16 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { page } from '$app/state';
   import { api, type Contact, type ConversationMessage } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
   import FriendPresenceHeader from '$lib/components/FriendPresenceHeader.svelte';
   import FormattedText from '$lib/components/FormattedText.svelte';
+  import {
+    createOptimisticMessage,
+    isOptimisticMessageId,
+    mergeConversationMessages,
+    timeAgo
+  } from '$lib/dmThreads';
   import { identityState } from '$lib/identity.svelte';
   import {
     formatCacheAge,
@@ -12,8 +18,7 @@
     readCachedMessages,
     writeCachedConversation
   } from '$lib/local-cache';
-  import { timeAgo } from '$lib/dmThreads';
-  import { registerConversationRefresh } from '$lib/presence.svelte';
+  import { startConversationPolling, stopConversationPolling } from '$lib/presence.svelte';
 
   let contacts = $state<Contact[]>([]);
   let messages = $state<ConversationMessage[]>([]);
@@ -23,10 +28,17 @@
   let error = $state('');
   let showingCached = $state(false);
   let cacheAge = $state<string | null>(null);
+  let chatPanel = $state<HTMLDivElement | null>(null);
 
   const contactId = $derived(page.params.contactId);
 
   const contact = $derived(contacts.find((c) => c.id === contactId) ?? null);
+
+  async function scrollToLatest() {
+    await tick();
+    if (!chatPanel) return;
+    chatPanel.scrollTop = chatPanel.scrollHeight;
+  }
 
   async function hydrateFromCache() {
     if (!contactId) return false;
@@ -44,8 +56,10 @@
 
   async function loadConversation() {
     if (!contactId || !identityState.apiOnline) return;
-    messages = await api.listConversationMessages(contactId);
-    await writeCachedConversation(contactId, messages);
+    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
+    const serverMessages = await api.listConversationMessages(contactId);
+    messages = mergeConversationMessages(serverMessages, optimistic);
+    await writeCachedConversation(contactId, messages.filter((m) => !isOptimisticMessageId(m.content_id)));
     showingCached = false;
     cacheAge = null;
   }
@@ -68,6 +82,7 @@
       error = '';
       await hydrateFromCache();
       loading = false;
+      await scrollToLatest();
       return;
     }
 
@@ -83,24 +98,35 @@
       }
     } finally {
       loading = false;
+      await scrollToLatest();
     }
   }
 
   onMount(() => {
     void hydrateFromCache().then(() => load());
-    registerConversationRefresh(silentRefresh);
-    return () => registerConversationRefresh(null);
+    startConversationPolling(silentRefresh);
+    return () => stopConversationPolling();
   });
 
   async function send() {
     if (!contactId || !messageBody.trim() || sending || !identityState.apiOnline) return;
-    sending = true;
+
+    const body = messageBody.trim();
+    const optimistic = createOptimisticMessage(body);
+    messages = [...messages, optimistic];
+    messageBody = '';
     error = '';
+    sending = true;
+    await scrollToLatest();
+
     try {
-      await api.sendMessage(contactId, messageBody.trim());
-      messageBody = '';
+      await api.sendMessage(contactId, body);
       await loadConversation();
+      await scrollToLatest();
     } catch (e) {
+      messages = messages.map((m) =>
+        m.content_id === optimistic.content_id ? { ...m, delivery_status: 'failed' } : m
+      );
       error = e instanceof ApiRequestError ? e.message : 'Send failed';
     } finally {
       sending = false;
@@ -109,7 +135,7 @@
 
   function messageMeta(msg: ConversationMessage): string {
     const who = msg.is_own ? 'You' : (contact?.display_name ?? 'Them');
-    const time = timeAgo(msg.at);
+    const time = isOptimisticMessageId(msg.content_id) ? 'now' : timeAgo(msg.at);
     const delivery = deliveryLabel(msg.delivery_status);
     return delivery ? `${who} · ${time} · ${delivery}` : `${who} · ${time}`;
   }
@@ -142,13 +168,13 @@
 
   <p class="ephemeral-note">Messages auto-delete after 7 days</p>
 
-  <div class="chat-panel">
+  <div class="chat-panel" bind:this={chatPanel}>
     {#if messages.length === 0}
       <p class="empty chat-empty">No messages yet. Say hello.</p>
     {:else}
       <ul class="message-list">
         {#each messages as msg (msg.content_id)}
-          <li class="stack-msg" class:own={msg.is_own}>
+          <li class="stack-msg" class:own={msg.is_own} class:pending={msg.delivery_status === 'pending'}>
             <div class="msg-body" class:own={msg.is_own}>
               <FormattedText text={msg.body} />
             </div>
@@ -164,7 +190,7 @@
       class="composer-input"
       bind:value={messageBody}
       placeholder={identityState.apiOnline ? 'Message…' : 'API offline — reconnect to send'}
-      disabled={sending || !identityState.apiOnline}
+      disabled={!identityState.apiOnline}
       autocomplete="off"
     />
     <button
@@ -172,7 +198,7 @@
       class="btn btn-secondary"
       disabled={sending || !messageBody.trim() || !identityState.apiOnline}
     >
-      {sending ? '…' : 'Send'}
+      Send
     </button>
   </form>
 
@@ -219,6 +245,10 @@
   .stack-msg.own {
     align-self: flex-end;
     margin-left: auto;
+  }
+
+  .stack-msg.pending .msg-body.own {
+    opacity: 0.88;
   }
 
   .composer {

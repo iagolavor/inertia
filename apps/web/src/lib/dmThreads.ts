@@ -1,4 +1,4 @@
-import type { Contact, InboxEntry } from '$lib/api';
+import type { Contact, ConversationMessage, InboxEntry } from '$lib/api';
 
 export interface DmThread {
   contact: Contact;
@@ -71,4 +71,42 @@ export function messageTtlLabel(expiresAt: string): string {
   if (ms <= 0) return 'expired';
   const days = Math.ceil(ms / 86_400_000);
   return days <= 1 ? '<1d left' : `${days}d left`;
+}
+
+const PENDING_MESSAGE_PREFIX = 'pending-';
+
+export function isOptimisticMessageId(contentId: string): boolean {
+  return contentId.startsWith(PENDING_MESSAGE_PREFIX);
+}
+
+export function createOptimisticMessage(body: string): ConversationMessage {
+  const at = new Date().toISOString();
+  return {
+    content_id: `${PENDING_MESSAGE_PREFIX}${crypto.randomUUID()}`,
+    body,
+    at,
+    expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+    is_own: true,
+    delivery_status: 'pending'
+  };
+}
+
+/** Keep in-flight optimistic sends visible until the server returns a matching row. */
+export function mergeConversationMessages(
+  server: ConversationMessage[],
+  optimistic: ConversationMessage[]
+): ConversationMessage[] {
+  const merged = [...server];
+  for (const opt of optimistic) {
+    if (!isOptimisticMessageId(opt.content_id)) continue;
+    const duplicate = server.some(
+      (row) =>
+        row.is_own &&
+        row.body === opt.body &&
+        Math.abs(new Date(row.at).getTime() - new Date(opt.at).getTime()) < 60_000
+    );
+    if (!duplicate) merged.push(opt);
+  }
+  merged.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  return merged;
 }

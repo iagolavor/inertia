@@ -3,6 +3,8 @@ import { identityState } from '$lib/identity.svelte';
 
 const P2P_POLL_MS = 5_000;
 const FEED_POLL_MS = 12_000;
+const INBOX_POLL_MS = 8_000;
+const CONVERSATION_POLL_MS = 4_000;
 
 const MESSAGE_ACTIVITY_KINDS = new Set(['message_received', 'delivery_acked', 'outbox_flush']);
 
@@ -146,6 +148,46 @@ export function stopFeedPolling() {
 		feedPollTimer = null;
 	}
 	registerFeedRefresh(null);
+}
+
+let inboxPollTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startInboxPolling(refresh: InboxRefreshFn) {
+	registerInboxRefresh(refresh);
+	stopInboxPolling();
+	inboxPollTimer = setInterval(() => {
+		if (document.visibilityState === 'visible') {
+			void refresh();
+		}
+	}, INBOX_POLL_MS);
+}
+
+export function stopInboxPolling() {
+	if (inboxPollTimer) {
+		clearInterval(inboxPollTimer);
+		inboxPollTimer = null;
+	}
+	registerInboxRefresh(null);
+}
+
+let conversationPollTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startConversationPolling(refresh: ConversationRefreshFn) {
+	registerConversationRefresh(refresh);
+	stopConversationPolling();
+	conversationPollTimer = setInterval(() => {
+		if (document.visibilityState === 'visible') {
+			void refresh();
+		}
+	}, CONVERSATION_POLL_MS);
+}
+
+export function stopConversationPolling() {
+	if (conversationPollTimer) {
+		clearInterval(conversationPollTimer);
+		conversationPollTimer = null;
+	}
+	registerConversationRefresh(null);
 }
 
 export function formatActivityLine(event: P2pStatus['recent_activity'][number]): string {

@@ -6,7 +6,7 @@
   import { buildDmThreads } from '$lib/dmThreads';
   import { identityState } from '$lib/identity.svelte';
   import { formatCacheAge, readCachedMessages, writeCachedMessages } from '$lib/local-cache';
-  import { registerInboxRefresh } from '$lib/presence.svelte';
+  import { registerInboxRefresh, startInboxPolling, stopInboxPolling } from '$lib/presence.svelte';
 
   let contacts = $state<Contact[]>([]);
   let inbox = $state<InboxEntry[]>([]);
@@ -70,8 +70,8 @@
 
   onMount(() => {
     void hydrateFromCache().then(() => load());
-    registerInboxRefresh(silentLoad);
-    return () => registerInboxRefresh(null);
+    startInboxPolling(silentLoad);
+    return () => stopInboxPolling();
   });
 
   const threads = $derived(buildDmThreads(contacts, inbox));
