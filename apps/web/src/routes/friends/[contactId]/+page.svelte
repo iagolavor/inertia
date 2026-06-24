@@ -145,6 +145,7 @@
   <a class="chat-back-link" href="/friends">← Messages</a>
   <p class="error">Friend not found.</p>
 {:else}
+  <div class="chat-fill">
   <a class="chat-back-link" href="/friends">← Messages</a>
 
   <FriendPresenceHeader
@@ -204,6 +205,7 @@
   {#if error}
     <p class="error">{error}</p>
   {/if}
+  </div>
 {/if}
 
 <style>
@@ -216,9 +218,17 @@
     margin: 0 0 0.75rem;
   }
 
+  .chat-fill {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+  }
+
   .chat-panel {
-    min-height: 280px;
-    max-height: 55vh;
+    flex: 1;
+    min-height: 8rem;
     overflow-y: auto;
     margin-bottom: 0.75rem;
   }
@@ -254,6 +264,7 @@
 
   .composer {
     display: flex;
+    flex-shrink: 0;
     gap: 0.45rem;
   }
 
