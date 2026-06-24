@@ -55,3 +55,20 @@ export function previewText(body: string, max = 72): string {
   if (flat.length <= max) return flat;
   return `${flat.slice(0, max - 1)}…`;
 }
+
+export function isContactOnline(state: Contact['connection_state']): boolean {
+  return state === 'online';
+}
+
+export function connectionLabel(state: Contact['connection_state']): string {
+  if (state === 'online') return 'connected';
+  if (state === 'unreachable') return 'not reachable';
+  return 'offline';
+}
+
+export function messageTtlLabel(expiresAt: string): string {
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return 'expired';
+  const days = Math.ceil(ms / 86_400_000);
+  return days <= 1 ? '<1d left' : `${days}d left`;
+}

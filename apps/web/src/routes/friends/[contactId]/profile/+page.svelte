@@ -3,8 +3,7 @@
 	import { page } from '$app/state';
 	import { api, type Contact, type FeedItem } from '$lib/api';
 	import { ApiRequestError } from '$lib/api-errors';
-	import Avatar from '$lib/components/Avatar.svelte';
-	import FriendSectionTabs from '$lib/components/FriendSectionTabs.svelte';
+	import FriendPresenceHeader from '$lib/components/FriendPresenceHeader.svelte';
 	import PhotoGrid from '$lib/components/PhotoGrid.svelte';
 	import { identityState } from '$lib/identity.svelte';
 	import { feedPostsToProfilePhotos } from '$lib/profile-photos';
@@ -110,31 +109,19 @@
 	});
 </script>
 
-<a class="back-link" href="/friends">← Messages</a>
+<a class="chat-back-link" href="/friends">← Messages</a>
 
 {#if loading}
 	<p class="empty">Loading…</p>
 {:else if !contact}
 	<p class="error">Friend not found.</p>
 {:else}
-	<section class="profile-header">
-		<div class="avatar-wrap">
-			<Avatar seed={contact.signing_pubkey} alt={contact.display_name} size={72} />
-		</div>
-
-		<div class="profile-info">
-			<h1 class="profile-name">{contact.display_name}</h1>
-			<p class="profile-meta">
-				{photos.length} posts ·
-				<span class="badge badge-{contact.connection_state}">{contact.connection_state}</span>
-				{#if showingCached && cacheAge}
-					<span class="cache-badge">saved · {cacheAge}</span>
-				{/if}
-			</p>
-		</div>
-	</section>
-
-	<FriendSectionTabs contactId={contact.id} active="posts" />
+	<FriendPresenceHeader
+		{contact}
+		messageHref="/friends/{contact.id}"
+		detail="{photos.length} posts"
+		cacheAge={showingCached ? cacheAge : null}
+	/>
 
 	{#if !identityState.apiOnline}
 		<p class="offline-hint muted">Showing cached posts — reconnect the API to comment.</p>
@@ -158,61 +145,6 @@
 {/if}
 
 <style>
-	.back-link {
-		display: inline-block;
-		margin-bottom: 1rem;
-		font-size: 0.875rem;
-		font-weight: 600;
-		text-decoration: none;
-	}
-
-	.back-link:hover {
-		text-decoration: underline;
-	}
-
-	.profile-header {
-		display: flex;
-		align-items: flex-start;
-		gap: 1rem;
-		margin-bottom: 0;
-	}
-
-	.avatar-wrap {
-		flex-shrink: 0;
-		line-height: 0;
-	}
-
-	.profile-info {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.profile-name {
-		margin: 0;
-		font-size: 0.95rem;
-		font-weight: 700;
-		line-height: 1.35;
-	}
-
-	.profile-meta {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.45rem;
-		margin: 0.2rem 0 0;
-		font-size: 0.8rem;
-		color: var(--muted);
-	}
-
-	.cache-badge {
-		font-size: 0.68rem;
-		font-weight: 500;
-		padding: 0.12rem 0.4rem;
-		border-radius: 999px;
-		border: 1px solid var(--border);
-		color: var(--muted);
-	}
-
 	.offline-hint {
 		margin: 0.65rem 0 0;
 		font-size: 0.85rem;

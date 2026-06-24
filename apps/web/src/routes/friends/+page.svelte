@@ -71,7 +71,7 @@
   </h1>
   <a class="head-action" href="/friends/add" aria-label="Add friend">+</a>
 </div>
-<p class="subtitle">Direct messages with your circle — encrypted and ephemeral.</p>
+<p class="subtitle">Reachable now, then everyone else.</p>
 
 {#if !identityState.apiOnline && identityState.identity}
   <p class="offline-hint muted">Thread list may be outdated while the API is offline.</p>
@@ -129,7 +129,7 @@
   }
 
   .head-action:hover {
-    background: color-mix(in srgb, var(--border) 25%, var(--surface));
+    background: var(--hover-bg);
     text-decoration: none;
   }
 
