@@ -388,6 +388,9 @@ textarea {
   border: 1px solid var(--msg-inbound-border);
   font-size: 0.9rem;
   line-height: 1.45;
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .msg-body.own {
@@ -405,6 +408,11 @@ textarea {
 
 .msg-meta.own {
   text-align: right;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.1rem;
+  width: 100%;
 }
 
 .composer-input {
@@ -421,6 +429,7 @@ textarea {
 
 .badge-online { background: var(--badge-success-bg); color: var(--success); }
 .badge-reachable { background: var(--badge-pending-bg); color: var(--warning); }
+.badge-sent { background: var(--badge-pending-bg); color: var(--warning); }
 .badge-offline { background: var(--badge-offline-bg); color: var(--muted); }
 .badge-pending { background: var(--badge-pending-bg); color: var(--warning); }
 .badge-failed { background: var(--badge-failed-bg); color: var(--danger); }

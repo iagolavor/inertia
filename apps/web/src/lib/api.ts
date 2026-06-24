@@ -116,7 +116,7 @@ export interface ConversationMessage {
   at: string;
   expires_at: string;
   is_own: boolean;
-  delivery_status: 'pending' | 'failed' | 'delivered' | 'expired' | null;
+  delivery_status: 'pending' | 'sent' | 'failed' | 'delivered' | 'expired' | null;
 }
 
 export interface FeedItem {
@@ -190,7 +190,7 @@ export function blobUrl(hash: string): string {
 export interface OutboxEntry {
   content_id: string;
   recipient_id: string;
-  status: 'pending' | 'failed' | 'delivered' | 'expired';
+  status: 'pending' | 'sent' | 'failed' | 'delivered' | 'expired';
   expires_at: string;
   retry_count: number;
   ciphertext: number[];

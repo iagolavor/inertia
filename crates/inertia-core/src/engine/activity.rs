@@ -150,7 +150,12 @@ pub async fn count_pending_outbox(store: &StoreHandle) -> usize {
         .map(|entries| {
             entries
                 .iter()
-                .filter(|e| matches!(e.status, DeliveryStatus::Pending | DeliveryStatus::Failed))
+                .filter(|e| {
+                    matches!(
+                        e.status,
+                        DeliveryStatus::Pending | DeliveryStatus::Sent | DeliveryStatus::Failed
+                    )
+                })
                 .count()
         })
         .unwrap_or(0)

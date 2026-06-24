@@ -66,7 +66,7 @@
       <p style="color: var(--muted); font-size: 0.8rem; margin: 0.5rem 0;">
         Expires: {formatTime(entry.expires_at)}
       </p>
-      {#if entry.status === 'failed' || entry.status === 'pending'}
+      {#if entry.status === 'failed' || entry.status === 'pending' || entry.status === 'sent'}
         <button
           class="btn btn-secondary"
           onclick={() => retry(entry)}

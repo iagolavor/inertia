@@ -136,6 +136,22 @@ export function groupDmThreads(threads: DmThread[]): {
   return { connected, reachable, other };
 }
 
+export type DeliveryTickState = 'sending' | 'sent' | 'delivered' | 'failed';
+
+/** Map server delivery status to tick UI (own messages only). */
+export function deliveryTickState(
+  status: ConversationMessage['delivery_status'],
+  optimistic = false
+): DeliveryTickState | null {
+  if (status == null) return null;
+  if (optimistic && status === 'pending') return 'sending';
+  if (status === 'pending') return 'sending';
+  if (status === 'sent') return 'sent';
+  if (status === 'delivered') return 'delivered';
+  if (status === 'failed' || status === 'expired') return 'failed';
+  return null;
+}
+
 export function messageTtlLabel(expiresAt: string): string {
   const ms = new Date(expiresAt).getTime() - Date.now();
   if (ms <= 0) return 'expired';
