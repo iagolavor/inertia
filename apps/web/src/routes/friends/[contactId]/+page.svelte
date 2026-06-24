@@ -4,6 +4,7 @@
   import { api, type Contact, type ConversationMessage } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
   import FriendPresenceHeader from '$lib/components/FriendPresenceHeader.svelte';
+  import DeliveryTicks from '$lib/components/DeliveryTicks.svelte';
   import FormattedText from '$lib/components/FormattedText.svelte';
   import {
     createOptimisticMessage,
@@ -134,17 +135,9 @@
   }
 
   function messageMeta(msg: ConversationMessage): string {
-    const who = msg.is_own ? 'You' : (contact?.display_name ?? 'Them');
     const time = isOptimisticMessageId(msg.content_id) ? 'now' : timeAgo(msg.at);
-    const delivery = deliveryLabel(msg.delivery_status);
-    return delivery ? `${who} · ${time} · ${delivery}` : `${who} · ${time}`;
-  }
-
-  function deliveryLabel(status: ConversationMessage['delivery_status']): string | null {
-    if (!status || status === 'delivered') return null;
-    if (status === 'pending') return 'Sending…';
-    if (status === 'failed') return 'Not delivered';
-    return status;
+    if (msg.is_own) return time;
+    return `${contact?.display_name ?? 'Them'} · ${time}`;
   }
 </script>
 
@@ -178,7 +171,15 @@
             <div class="msg-body" class:own={msg.is_own}>
               <FormattedText text={msg.body} />
             </div>
-            <span class="msg-meta" class:own={msg.is_own}>{messageMeta(msg)}</span>
+            <span class="msg-meta" class:own={msg.is_own}>
+              {messageMeta(msg)}
+              {#if msg.is_own}
+                <DeliveryTicks
+                  status={msg.delivery_status}
+                  optimistic={isOptimisticMessageId(msg.content_id)}
+                />
+              {/if}
+            </span>
           </li>
         {/each}
       </ul>

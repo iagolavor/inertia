@@ -11,6 +11,7 @@ pub(super) const WEB_ORIGIN_KEY: &str = "web_origin";
 pub(super) fn status_str(status: DeliveryStatus) -> &'static str {
     match status {
         DeliveryStatus::Pending => "pending",
+        DeliveryStatus::Sent => "sent",
         DeliveryStatus::Failed => "failed",
         DeliveryStatus::Delivered => "delivered",
         DeliveryStatus::Expired => "expired",
@@ -20,6 +21,7 @@ pub(super) fn status_str(status: DeliveryStatus) -> &'static str {
 pub(super) fn parse_status(s: &str) -> DeliveryStatus {
     match s {
         "failed" => DeliveryStatus::Failed,
+        "sent" => DeliveryStatus::Sent,
         "delivered" => DeliveryStatus::Delivered,
         "expired" => DeliveryStatus::Expired,
         _ => DeliveryStatus::Pending,
