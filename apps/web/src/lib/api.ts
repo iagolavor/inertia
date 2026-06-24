@@ -29,7 +29,7 @@ export interface Contact {
   signing_pubkey: string;
   encryption_pubkey: string;
   last_seen: string | null;
-  connection_state: 'online' | 'reachable' | 'offline' | 'unreachable';
+  connection_state: 'online' | 'reachable' | 'unreachable' | 'offline';
   multiaddrs?: string[];
 }
 

@@ -41,7 +41,6 @@
   );
   --connection-live: var(--success);
   --connection-reachable: var(--warning);
-  --connection-away: var(--muted);
   --msg-inbound-bg: var(--surface);
   --msg-inbound-border: var(--border);
   --msg-outbound-bg: color-mix(in srgb, var(--accent) 12%, var(--surface));
@@ -336,7 +335,7 @@ textarea {
   background: var(--presence-ring-reachable);
 }
 
-.presence-ring.away {
+.presence-ring.muted {
   background: var(--presence-ring-offline);
 }
 
@@ -347,10 +346,6 @@ textarea {
 
 .connection-status.reachable {
   color: var(--connection-reachable);
-}
-
-.connection-status.away {
-  color: var(--connection-away);
 }
 
 .chat-back-link {

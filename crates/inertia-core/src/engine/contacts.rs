@@ -31,7 +31,7 @@ pub(crate) fn presence_for_contact(
     if recently_reachable(contact) {
         return ConnectionState::Reachable;
     }
-    ConnectionState::Offline
+    ConnectionState::Unreachable
 }
 
 impl Engine {
@@ -161,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn stale_last_seen_without_live_session_is_away() {
+    fn stale_last_seen_without_live_session_is_unreachable() {
         let contact = sample_contact(
             Some("12D3KooW"),
             vec!["/ip4/1.2.3.4/tcp/9000".into()],
@@ -169,7 +169,7 @@ mod tests {
         );
         assert_eq!(
             presence_for_contact(&contact, &HashSet::new()),
-            ConnectionState::Offline
+            ConnectionState::Unreachable
         );
     }
 

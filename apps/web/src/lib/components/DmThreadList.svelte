@@ -3,8 +3,10 @@
   import type { DmThread } from '$lib/dmThreads';
   import {
     connectionLabel,
+    groupDmThreads,
     presenceIndicator,
     presenceTier,
+    showsConnectionStatus,
     messageTtlLabel,
     previewText
   } from '$lib/dmThreads';
@@ -17,15 +19,7 @@
 
   let { threads, loading = false }: Props = $props();
 
-  const connectedThreads = $derived(
-    threads.filter((t) => presenceTier(t.contact.connection_state) === 'connected')
-  );
-  const reachableThreads = $derived(
-    threads.filter((t) => presenceTier(t.contact.connection_state) === 'reachable')
-  );
-  const awayThreads = $derived(
-    threads.filter((t) => presenceTier(t.contact.connection_state) === 'away')
-  );
+  const groups = $derived(groupDmThreads(threads));
 
   function openThread(contactId: string) {
     void goto(`/friends/${contactId}`);
@@ -33,35 +27,36 @@
 </script>
 
 {#snippet presenceRow(thread: DmThread)}
-  {@const tier = presenceTier(thread.contact.connection_state)}
+  {@const tier = presenceTier(thread.contact)}
+  {@const showStatus = showsConnectionStatus(thread.contact)}
   <li>
     <button
       type="button"
       class="presence-row"
       class:connected={tier === 'connected'}
       class:reachable={tier === 'reachable'}
-      class:away={tier === 'away'}
       onclick={() => openThread(thread.contact.id)}
     >
       <div
         class="presence-ring"
         class:connected={tier === 'connected'}
         class:reachable={tier === 'reachable'}
-        class:away={tier === 'away'}
+        class:muted={!tier}
       >
         <Avatar seed={thread.contact.signing_pubkey} alt={thread.contact.display_name} size={48} />
       </div>
       <div class="presence-meta">
         <div class="presence-name">{thread.contact.display_name}</div>
-        <div
-          class="presence-status connection-status"
-          class:connected={tier === 'connected'}
-          class:reachable={tier === 'reachable'}
-          class:away={tier === 'away'}
-        >
-          {presenceIndicator(thread.contact.connection_state)}
-          {connectionLabel(thread.contact.connection_state)}
-        </div>
+        {#if showStatus}
+          <div
+            class="presence-status connection-status"
+            class:connected={tier === 'connected'}
+            class:reachable={tier === 'reachable'}
+          >
+            {presenceIndicator(thread.contact)}
+            {connectionLabel(thread.contact)}
+          </div>
+        {/if}
         <p class="presence-preview">
           {#if thread.lastMessage}
             {previewText(thread.lastMessage.body)}
@@ -85,28 +80,27 @@
     <a class="btn" href="/friends/add">Add a friend</a>
   </div>
 {:else}
-  {#if connectedThreads.length > 0}
+  {#if groups.connected.length > 0}
     <h2 class="group-label">Connected</h2>
     <ul class="presence-list">
-      {#each connectedThreads as thread (thread.contact.id)}
+      {#each groups.connected as thread (thread.contact.id)}
         {@render presenceRow(thread)}
       {/each}
     </ul>
   {/if}
 
-  {#if reachableThreads.length > 0}
+  {#if groups.reachable.length > 0}
     <h2 class="group-label">Reachable</h2>
     <ul class="presence-list">
-      {#each reachableThreads as thread (thread.contact.id)}
+      {#each groups.reachable as thread (thread.contact.id)}
         {@render presenceRow(thread)}
       {/each}
     </ul>
   {/if}
 
-  {#if awayThreads.length > 0}
-    <h2 class="group-label">Away</h2>
-    <ul class="presence-list">
-      {#each awayThreads as thread (thread.contact.id)}
+  {#if groups.other.length > 0}
+    <ul class="presence-list" class:ungrouped={groups.connected.length > 0 || groups.reachable.length > 0}>
+      {#each groups.other as thread (thread.contact.id)}
         {@render presenceRow(thread)}
       {/each}
     </ul>
@@ -141,6 +135,10 @@
     list-style: none;
     margin: 0;
     padding: 0;
+  }
+
+  .presence-list.ungrouped {
+    margin-top: 0.85rem;
   }
 
   .presence-row {

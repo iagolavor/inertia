@@ -56,29 +56,84 @@ export function previewText(body: string, max = 72): string {
   return `${flat.slice(0, max - 1)}…`;
 }
 
-export type PresenceTier = 'connected' | 'reachable' | 'away';
+export type PresenceTier = 'connected' | 'reachable';
 
-export function presenceTier(state: Contact['connection_state']): PresenceTier {
+const REACHABLE_MS = 24 * 60 * 60 * 1000;
+
+/** API overlay state, with client fallback when the API still returns legacy `offline`. */
+export function effectiveConnectionState(
+  contact: Pick<Contact, 'connection_state' | 'last_seen' | 'peer_id' | 'multiaddrs'>
+): Contact['connection_state'] {
+  const { connection_state: state } = contact;
+  if (state === 'online' || state === 'reachable' || state === 'unreachable') return state;
+  const seenRecently =
+    contact.last_seen != null &&
+    Date.now() - new Date(contact.last_seen).getTime() <= REACHABLE_MS;
+  if (seenRecently) return 'reachable';
+  return 'unreachable';
+}
+
+export function hasContactRoute(contact: Pick<Contact, 'peer_id' | 'multiaddrs'>): boolean {
+  return Boolean(contact.peer_id) || (contact.multiaddrs?.length ?? 0) > 0;
+}
+
+export function presenceTier(
+  contact: Pick<Contact, 'connection_state' | 'last_seen' | 'peer_id' | 'multiaddrs'>
+): PresenceTier | null {
+  const state = effectiveConnectionState(contact);
   if (state === 'online') return 'connected';
   if (state === 'reachable') return 'reachable';
-  return 'away';
+  return null;
 }
 
-export function isContactOnline(state: Contact['connection_state']): boolean {
-  return state === 'online';
+export function isContactOnline(
+  contact: Pick<Contact, 'connection_state' | 'last_seen' | 'peer_id' | 'multiaddrs'>
+): boolean {
+  return effectiveConnectionState(contact) === 'online';
 }
 
-export function connectionLabel(state: Contact['connection_state']): string {
+export function connectionLabel(
+  contact: Pick<Contact, 'connection_state' | 'last_seen' | 'peer_id' | 'multiaddrs'>
+): string {
+  const state = effectiveConnectionState(contact);
   if (state === 'online') return 'connected';
   if (state === 'reachable') return 'reachable';
-  if (state === 'unreachable') return 'no route yet';
-  return 'away';
+  if (state === 'unreachable' && !hasContactRoute(contact)) return 'no route yet';
+  return '';
 }
 
-export function presenceIndicator(state: Contact['connection_state']): string {
+export function presenceIndicator(
+  contact: Pick<Contact, 'connection_state' | 'last_seen' | 'peer_id' | 'multiaddrs'>
+): string {
+  const state = effectiveConnectionState(contact);
   if (state === 'online') return '●';
   if (state === 'reachable') return '◐';
   return '○';
+}
+
+export function showsConnectionStatus(
+  contact: Pick<Contact, 'connection_state' | 'last_seen' | 'peer_id' | 'multiaddrs'>
+): boolean {
+  const tier = presenceTier(contact);
+  if (tier) return true;
+  return effectiveConnectionState(contact) === 'unreachable' && !hasContactRoute(contact);
+}
+
+export function groupDmThreads(threads: DmThread[]): {
+  connected: DmThread[];
+  reachable: DmThread[];
+  other: DmThread[];
+} {
+  const connected: DmThread[] = [];
+  const reachable: DmThread[] = [];
+  const other: DmThread[] = [];
+  for (const thread of threads) {
+    const tier = presenceTier(thread.contact);
+    if (tier === 'connected') connected.push(thread);
+    else if (tier === 'reachable') reachable.push(thread);
+    else other.push(thread);
+  }
+  return { connected, reachable, other };
 }
 
 export function messageTtlLabel(expiresAt: string): string {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Contact } from '$lib/api';
   import Avatar from '$lib/components/Avatar.svelte';
-  import { connectionLabel, presenceIndicator, presenceTier } from '$lib/dmThreads';
+  import { connectionLabel, presenceIndicator, presenceTier, showsConnectionStatus } from '$lib/dmThreads';
 
   interface Props {
     contact: Contact;
@@ -23,7 +23,8 @@
     avatarSize = 48
   }: Props = $props();
 
-  const tier = $derived(presenceTier(contact.connection_state));
+  const tier = $derived(presenceTier(contact));
+  const showStatus = $derived(showsConnectionStatus(contact));
 </script>
 
 <div class="friend-presence-header">
@@ -33,21 +34,22 @@
         class="presence-ring"
         class:connected={tier === 'connected'}
         class:reachable={tier === 'reachable'}
-        class:away={tier === 'away'}
+        class:muted={!tier}
       >
         <Avatar seed={contact.signing_pubkey} alt={contact.display_name} size={avatarSize} />
       </div>
       <div class="presence-meta">
         <h1 class="presence-name">{contact.display_name}</h1>
-        <div
-          class="connection-status"
-          class:connected={tier === 'connected'}
-          class:reachable={tier === 'reachable'}
-          class:away={tier === 'away'}
-        >
-          {presenceIndicator(contact.connection_state)}
-          {connectionLabel(contact.connection_state)}
-        </div>
+        {#if showStatus}
+          <div
+            class="connection-status"
+            class:connected={tier === 'connected'}
+            class:reachable={tier === 'reachable'}
+          >
+          {presenceIndicator(contact)}
+          {connectionLabel(contact)}
+          </div>
+        {/if}
         {#if detail}
           <p class="presence-detail">{detail}</p>
         {/if}
@@ -59,21 +61,22 @@
         class="presence-ring"
         class:connected={tier === 'connected'}
         class:reachable={tier === 'reachable'}
-        class:away={tier === 'away'}
+        class:muted={!tier}
       >
         <Avatar seed={contact.signing_pubkey} alt={contact.display_name} size={avatarSize} />
       </div>
       <div class="presence-meta">
         <h1 class="presence-name">{contact.display_name}</h1>
-        <div
-          class="connection-status"
-          class:connected={tier === 'connected'}
-          class:reachable={tier === 'reachable'}
-          class:away={tier === 'away'}
-        >
-          {presenceIndicator(contact.connection_state)}
-          {connectionLabel(contact.connection_state)}
-        </div>
+        {#if showStatus}
+          <div
+            class="connection-status"
+            class:connected={tier === 'connected'}
+            class:reachable={tier === 'reachable'}
+          >
+          {presenceIndicator(contact)}
+          {connectionLabel(contact)}
+          </div>
+        {/if}
         {#if detail}
           <p class="presence-detail">{detail}</p>
         {/if}
@@ -136,10 +139,6 @@
 
   .connection-status.reachable {
     color: var(--connection-reachable);
-  }
-
-  .connection-status.away {
-    color: var(--connection-away);
   }
 
   .presence-detail {
