@@ -25,8 +25,8 @@ use super::multiaddr::{
     ensure_peer_id_suffix, is_routable_multiaddr, peer_id_from_multiaddr, relay_circuit_listen_addr,
 };
 use super::protocol::{
-    BlobData, BlobRequest, FriendRequest, InertiaRequest, InertiaResponse, InviteRedemption,
-    SendEnvelope,
+    BlobChunkRequest, BlobData, BlobRequest, FriendRequest, InertiaRequest,
+    InertiaResponse, InviteRedemption, SendEnvelope,
 };
 
 
@@ -36,7 +36,10 @@ pub struct P2pNode {
     store: StoreHandle,
     identity: Arc<RwLock<Identity>>,
     event_tx: mpsc::UnboundedSender<P2pEvent>,
-    pending_responses: Arc<Mutex<HashMap<OutboundRequestId, mpsc::Sender<InertiaResponse>>>>,
+    pending_responses:
+        Arc<Mutex<HashMap<OutboundRequestId, mpsc::Sender<InertiaResponse>>>>,
+    /// Peers with at least one direct (non-relay-circuit) connection.
+    peer_direct: Arc<Mutex<std::collections::HashSet<PeerId>>>,
 }
 
 impl P2pNode {
@@ -94,6 +97,7 @@ impl P2pNode {
             identity,
             event_tx,
             pending_responses: Arc::new(Mutex::new(HashMap::new())),
+            peer_direct: Arc::new(Mutex::new(std::collections::HashSet::new())),
         };
 
         node.spawn_event_loop();
@@ -225,6 +229,76 @@ impl P2pNode {
         Ok(())
     }
 
+    pub async fn has_direct_connection(&self, peer_id: PeerId) -> bool {
+        self.peer_direct.lock().await.contains(&peer_id)
+    }
+
+    pub async fn wait_for_direct(&self, peer_id: PeerId, timeout: Duration) -> bool {
+        if self.has_direct_connection(peer_id).await {
+            return true;
+        }
+        let deadline = tokio::time::Instant::now() + timeout;
+        while tokio::time::Instant::now() < deadline {
+            if self.has_direct_connection(peer_id).await {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        false
+    }
+
+    pub async fn request_chunk_from_peer(
+        &self,
+        peer_id: PeerId,
+        root_hash: &str,
+        chunk_index: u32,
+        expected_hash: &str,
+    ) -> CoreResult<()> {
+        let (tx, mut rx) = mpsc::channel(1);
+        let request_id = {
+            let mut swarm = self.swarm.lock().await;
+            let id = swarm.behaviour_mut().request_response.send_request(
+                &peer_id,
+                InertiaRequest::BlobChunkRequest(BlobChunkRequest {
+                    root_hash: root_hash.to_string(),
+                    chunk_index,
+                }),
+            );
+            self.pending_responses.lock().await.insert(id, tx);
+            id
+        };
+
+        let response = tokio::time::timeout(Duration::from_secs(45), rx.recv())
+            .await
+            .map_err(|_| CoreError::P2p("chunk request timed out".into()))?
+            .ok_or_else(|| CoreError::P2p("chunk request channel closed".into()))?;
+
+        self.pending_responses.lock().await.remove(&request_id);
+
+        match response {
+            InertiaResponse::BlobChunkData(chunk) => {
+                self.store
+                    .with_mut(|s| {
+                        s.store_chunk_verified(
+                            &chunk.root_hash,
+                            chunk.chunk_index,
+                            expected_hash,
+                            &chunk.data,
+                        )
+                    })
+                    .await?;
+                Ok(())
+            }
+            InertiaResponse::BlobChunkNotFound => Err(CoreError::P2p(format!(
+                "peer missing chunk {root_hash}#{chunk_index}"
+            ))),
+            InertiaResponse::Error(msg) => Err(CoreError::P2p(msg)),
+            other => Err(CoreError::P2p(format!(
+                "unexpected chunk response: {other:?}"
+            ))),
+        }
+    }
+
     pub async fn request_blob_from_peer(&self, peer_id: PeerId, hash: &str) -> CoreResult<()> {
         let (tx, mut rx) = mpsc::channel(1);
         let request_id = {
@@ -305,6 +379,7 @@ impl P2pNode {
         let identity = Arc::clone(&self.identity);
         let event_tx = self.event_tx.clone();
         let pending_responses = Arc::clone(&self.pending_responses);
+        let peer_direct = Arc::clone(&self.peer_direct);
 
         tokio::spawn(async move {
             loop {
@@ -326,12 +401,16 @@ impl P2pNode {
                     } => {
                         info!(%peer_id, "peer connected");
                         let remote = endpoint.get_remote_address().to_string();
+                        if !remote.contains("/p2p-circuit/") {
+                            peer_direct.lock().await.insert(peer_id);
+                        }
                         persist_peer_multiaddrs(&store, &peer_id, &[remote]).await;
                         let _ = event_tx.send(P2pEvent::PeerConnected(peer_id));
                         update_contact_state(&store, &peer_id, ConnectionState::Online).await;
                     }
                     libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, .. } => {
                         info!(%peer_id, "peer disconnected");
+                        peer_direct.lock().await.remove(&peer_id);
                         let _ = event_tx.send(P2pEvent::PeerDisconnected(peer_id));
                         update_contact_state(&store, &peer_id, ConnectionState::Offline).await;
                     }
@@ -414,6 +493,7 @@ impl P2pNode {
                     ) => match result {
                         Ok(connection_id) => {
                             info!(%remote_peer_id, ?connection_id, "direct connection upgrade succeeded");
+                            peer_direct.lock().await.insert(remote_peer_id);
                         }
                         Err(error) => {
                             debug!(%remote_peer_id, ?error, "direct connection upgrade failed");

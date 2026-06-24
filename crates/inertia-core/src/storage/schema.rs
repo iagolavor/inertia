@@ -92,6 +92,20 @@ impl Store {
         self.ensure_profile_photo_content_id_column()?;
         self.ensure_contact_multiaddrs_column()?;
         self.ensure_sent_messages_table()?;
+        self.ensure_media_manifests_table()?;
+        Ok(())
+    }
+
+    fn ensure_media_manifests_table(&self) -> CoreResult<()> {
+        self.conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS media_manifests (
+                root_hash TEXT PRIMARY KEY,
+                manifest_json TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            );
+            ",
+        )?;
         Ok(())
     }
 

@@ -2,9 +2,9 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use inertia_core::{FeedItem, PostComment};
+use inertia_core::{FeedItem, PostComment, MAX_THUMB_BYTES, MAX_VIDEO_BYTES};
 
-use crate::dto::{AddCommentRequest, CreatePostRequest};
+use crate::dto::{AddCommentRequest, CreatePostRequest, CreateVideoPostRequest};
 use crate::error::{api_err, ApiError};
 use crate::state::AppState;
 use crate::util::{base64_decode, blob_too_large_err, MAX_BLOB_BYTES};
@@ -17,6 +17,10 @@ pub fn routes() -> Router<AppState> {
             "/posts/:id/comments",
             get(list_post_comments).post(add_post_comment),
         )
+}
+
+pub fn video_routes() -> Router<AppState> {
+    Router::new().route("/posts/video", post(create_video_post))
 }
 
 async fn create_post(
@@ -37,6 +41,47 @@ async fn create_post(
 
     let content_id = engine
         .send_post(&body.body, media_ref.as_deref())
+        .await
+        .map_err(api_err)?;
+    Ok(Json(serde_json::json!({ "content_id": content_id })))
+}
+
+async fn create_video_post(
+    State(state): State<AppState>,
+    Json(body): Json<CreateVideoPostRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+
+    let video = base64_decode(&body.video_base64)?;
+    if video.len() > MAX_VIDEO_BYTES {
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            Json(ApiError {
+                error: format!(
+                    "video exceeds {} MB limit",
+                    MAX_VIDEO_BYTES / (1024 * 1024)
+                ),
+                code: None,
+            }),
+        ));
+    }
+
+    let thumb = base64_decode(&body.thumb_base64)?;
+    if thumb.len() > MAX_THUMB_BYTES {
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            Json(ApiError {
+                error: format!(
+                    "thumbnail exceeds {} KB limit",
+                    MAX_THUMB_BYTES / 1024
+                ),
+                code: None,
+            }),
+        ));
+    }
+
+    let content_id = engine
+        .send_video_post(&body.body, &thumb, &video, body.duration_ms)
         .await
         .map_err(api_err)?;
     Ok(Json(serde_json::json!({ "content_id": content_id })))

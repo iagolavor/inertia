@@ -40,10 +40,36 @@ pub struct MessagePayload {
     pub thread_id: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MediaKind {
+    Photo,
+    Video,
+}
+
+/// Chunked video metadata (512 KiB chunks). `root_hash` content-addresses the manifest body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaManifest {
+    pub root_hash: String,
+    pub kind: MediaKind,
+    pub mime: String,
+    pub total_bytes: u64,
+    pub chunk_size: u32,
+    pub chunk_hashes: Vec<String>,
+    pub thumb_hash: String,
+    pub duration_ms: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostPayload {
     pub body: String,
     pub media_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media_kind: Option<MediaKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thumb_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest: Option<MediaManifest>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
