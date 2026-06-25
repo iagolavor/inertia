@@ -13,7 +13,7 @@ use crate::store_handle::StoreHandle;
 
 use super::events::P2pEvent;
 use super::protocol::{
-    BlobData, InertiaRequest, InertiaResponse, SendEnvelope,
+    BlobChunkData, BlobData, InertiaRequest, InertiaResponse, SendEnvelope,
 };
 
 pub async fn persist_peer_multiaddrs(store: &StoreHandle, peer_id: &PeerId, addrs: &[String]) {
@@ -136,6 +136,22 @@ pub async fn handle_inbound_request(
             info!(hash = %blob.hash, bytes = blob.data.len(), %peer, "stored pushed blob");
             Ok(InertiaResponse::Ok)
         }
+        InertiaRequest::BlobChunkRequest(req) => {
+            match store
+                .with(|s| s.read_chunk(&req.root_hash, req.chunk_index))
+                .await
+            {
+                Ok(data) if data.len() <= crate::storage::CHUNK_SIZE => {
+                    Ok(InertiaResponse::BlobChunkData(BlobChunkData {
+                        root_hash: req.root_hash,
+                        chunk_index: req.chunk_index,
+                        data,
+                    }))
+                }
+                _ => Ok(InertiaResponse::BlobChunkNotFound),
+            }
+        }
+        InertiaRequest::BlobHave(_) => Ok(InertiaResponse::Ok),
     }
 }
 
@@ -190,6 +206,7 @@ pub async fn handle_outbound_response(
             warn!(error = %msg, "peer returned error");
         }
         InertiaResponse::BlobData(_) | InertiaResponse::BlobNotFound => {}
+        InertiaResponse::BlobChunkData(_) | InertiaResponse::BlobChunkNotFound => {}
     }
     Ok(())
 }
@@ -218,14 +235,21 @@ async fn process_incoming_envelope(
     )?;
     drop(id);
 
-    let (body, media_ref) = match envelope.content_type {
+    let (body, media_ref, sync_hash) = match envelope.content_type {
         ContentType::Message => {
             let payload: MessagePayload = serde_json::from_slice(&plaintext)?;
-            (payload.body, None)
+            (payload.body, None, None)
         }
         ContentType::Post => {
             let payload: PostPayload = serde_json::from_slice(&plaintext)?;
-            (payload.body, payload.media_ref)
+            if let Some(ref manifest) = payload.manifest {
+                store
+                    .with_mut(|s| s.insert_manifest(manifest))
+                    .await?;
+            }
+            let media_ref = payload.media_ref;
+            let sync_hash = payload.thumb_ref.or_else(|| media_ref.clone());
+            (payload.body, media_ref, sync_hash)
         }
         ContentType::Comment => {
             let payload: crate::content::CommentPayload = serde_json::from_slice(&plaintext)?;
@@ -301,5 +325,5 @@ async fn process_incoming_envelope(
     }
 
     let _ = event_tx.send(P2pEvent::MessageReceived { sender_id, body });
-    Ok(media_ref)
+    Ok(sync_hash)
 }

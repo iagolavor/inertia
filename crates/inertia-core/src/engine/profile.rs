@@ -64,7 +64,7 @@ impl Engine {
     }
 
     pub async fn read_blob(&self, hash: &str) -> CoreResult<Vec<u8>> {
-        self.store.with(|store| store.read_blob(hash)).await
+        self.store.with(|store| store.read_blob_resolved(hash)).await
     }
 
     pub async fn store_blob(&self, data: &[u8]) -> CoreResult<String> {

@@ -5,6 +5,7 @@ mod contacts;
 mod feed;
 mod identity;
 mod invite;
+mod media;
 mod messaging;
 mod outbox;
 mod p2p;
@@ -12,6 +13,7 @@ mod p2p_status;
 mod profile;
 mod settings;
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -42,7 +44,10 @@ pub struct Engine {
     _p2p_event_task: tokio::task::JoinHandle<()>,
     pub(crate) event_tx: mpsc::UnboundedSender<P2pEvent>,
     pub(crate) activity: Arc<Mutex<activity::ActivityLog>>,
+    media_fetches: Arc<Mutex<HashMap<String, media::MediaFetchStatus>>>,
 }
+
+pub use media::{MediaFetchState, MediaFetchStatus};
 
 impl Engine {
     pub async fn open(data_dir: impl AsRef<Path>) -> CoreResult<Self> {
@@ -79,6 +84,7 @@ impl Engine {
             _p2p_event_task: p2p_event_task,
             event_tx,
             activity,
+            media_fetches: Arc::new(Mutex::new(HashMap::new())),
         };
 
         if engine.identity.read().await.is_initialized() {

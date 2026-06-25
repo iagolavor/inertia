@@ -64,6 +64,14 @@ pub struct CreatePostRequest {
 }
 
 #[derive(Deserialize)]
+pub struct CreateVideoPostRequest {
+    pub body: String,
+    pub video_base64: String,
+    pub thumb_base64: String,
+    pub duration_ms: u32,
+}
+
+#[derive(Deserialize)]
 pub struct AddCommentRequest {
     pub body: String,
 }

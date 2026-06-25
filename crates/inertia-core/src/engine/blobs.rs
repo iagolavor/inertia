@@ -56,7 +56,7 @@ pub async fn request_missing_blobs_for_peer(
     };
 
     let hashes = store
-        .with(|s| s.missing_media_refs_for_author(&author_key))
+        .with(|s| s.missing_sync_hashes_for_author(&author_key))
         .await?;
 
     for hash in hashes {
@@ -77,17 +77,23 @@ async fn push_blob_after_ack(
         .with(|s| Ok(s.get_local_post(content_id)?.and_then(|post| post.media_ref)))
         .await?;
 
-    let Some(hash) = media_ref else {
+    let Some(media_ref) = media_ref else {
         return Ok(());
     };
 
-    let data = store.with(|s| s.read_blob(&hash)).await?;
-    let guard = p2p.lock().await;
-    let node = guard
-        .as_ref()
-        .ok_or_else(|| crate::error::CoreError::P2p("p2p not started".into()))?;
-    node.push_blob_to_peer(peer_id, &hash, &data).await?;
-    info!(%content_id, %hash, %peer_id, bytes = data.len(), "pushed post blob after ack");
+    let sync_hash = store
+        .with(|s| s.sync_hash_for_media_ref(&media_ref))
+        .await?;
+
+    if store.with(|s| Ok(s.blob_exists(&sync_hash))).await? {
+        let data = store.with(|s| s.read_blob(&sync_hash)).await?;
+        let guard = p2p.lock().await;
+        let node = guard
+            .as_ref()
+            .ok_or_else(|| crate::error::CoreError::P2p("p2p not started".into()))?;
+        node.push_blob_to_peer(peer_id, &sync_hash, &data).await?;
+        info!(%content_id, %sync_hash, %peer_id, bytes = data.len(), "pushed post blob after ack");
+    }
     Ok(())
 }
 

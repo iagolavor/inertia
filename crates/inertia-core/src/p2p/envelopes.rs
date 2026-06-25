@@ -1,4 +1,4 @@
-use crate::content::ContentEnvelope;
+use crate::content::{ContentEnvelope, PostPayload};
 use crate::crypto::encrypt_for_recipient;
 use crate::error::CoreResult;
 use crate::identity::Identity;
@@ -8,14 +8,9 @@ pub fn build_post_envelope(
     identity: &Identity,
     recipient: &Contact,
     content_id: &str,
-    body: &str,
-    media_ref: Option<&str>,
+    payload: &PostPayload,
 ) -> CoreResult<ContentEnvelope> {
-    let payload = crate::content::PostPayload {
-        body: body.to_string(),
-        media_ref: media_ref.map(|s| s.to_string()),
-    };
-    let plaintext = serde_json::to_vec(&payload)?;
+    let plaintext = serde_json::to_vec(payload)?;
     let ciphertext = encrypt_for_recipient(
         identity.encryption_secret()?,
         &recipient.encryption_pubkey,

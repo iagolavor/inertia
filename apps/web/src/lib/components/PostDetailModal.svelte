@@ -2,6 +2,7 @@
   import { api, blobUrl, type FeedItem, type PostComment } from '$lib/api';
   import Avatar from '$lib/components/Avatar.svelte';
   import FormattedText from '$lib/components/FormattedText.svelte';
+  import VideoMedia from '$lib/components/VideoMedia.svelte';
 
   interface Props {
     open: boolean;
@@ -104,7 +105,13 @@
           </div>
         </div>
 
-        {#if post.media_ref}
+        {#if post.media_kind === 'video' && post.media_ref}
+          <VideoMedia
+            rootHash={post.media_ref}
+            thumbRef={post.thumb_ref ?? post.media_ref}
+            mediaReady={post.media_ready ?? false}
+          />
+        {:else if post.media_ref}
           <img class="post-media" src={blobUrl(post.media_ref)} alt="" />
         {/if}
 

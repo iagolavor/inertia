@@ -53,6 +53,26 @@ pub struct BlobData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlobChunkRequest {
+    pub root_hash: String,
+    pub chunk_index: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlobChunkData {
+    pub root_hash: String,
+    pub chunk_index: u32,
+    pub data: Vec<u8>,
+}
+
+/// Reserved for friend-graph multi-source seeding (Phase C).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlobHave {
+    pub root_hash: String,
+    pub chunk_bitmap: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InertiaRequest {
     FriendRequest(FriendRequest),
     FriendAccept(FriendAccept),
@@ -61,6 +81,9 @@ pub enum InertiaRequest {
     BlobRequest(BlobRequest),
     /// Sender pushes blob bytes after envelope delivery ack.
     BlobPush(BlobData),
+    BlobChunkRequest(BlobChunkRequest),
+    /// Reserved — advertise held chunks to friends (Phase C).
+    BlobHave(BlobHave),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +93,8 @@ pub enum InertiaResponse {
     DeliveryAck(DeliveryAck),
     BlobData(BlobData),
     BlobNotFound,
+    BlobChunkData(BlobChunkData),
+    BlobChunkNotFound,
     Error(String),
 }
 
