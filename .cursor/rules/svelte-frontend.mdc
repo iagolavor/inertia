@@ -44,6 +44,7 @@ Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chro
 
 - Keep components small; colocate route-specific styles in `+page.svelte`.
 - English copy by default; stay calm and direct.
+- **No em dashes (—) in user-facing copy** (UI strings, subtitles, hints, errors shown in the app). Use periods, commas, or colons instead. Split into two sentences when needed.
 - Run `npm run check` after non-trivial changes.
 
 ## Capacitor (future)

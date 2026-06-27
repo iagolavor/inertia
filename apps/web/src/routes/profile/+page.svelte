@@ -10,7 +10,7 @@
 
   import ProfileEditModal from '$lib/components/ProfileEditModal.svelte';
 
-  import { identityState, refreshIdentity, setIdentity, startP2pInBackground } from '$lib/identity.svelte';
+  import { identityState, setIdentity } from '$lib/identity.svelte';
 
   import {
 
@@ -26,10 +26,6 @@
   import { prepareImageForUpload } from '$lib/image';
 
 
-
-  let displayName = $state('');
-
-  let saving = $state(false);
 
   let error = $state('');
 
@@ -138,60 +134,6 @@
   onMount(() => {
     void loadProfile();
   });
-
-
-
-  async function createIdentity() {
-
-    if (!displayName.trim()) {
-
-      error = 'Display name is required';
-
-      return;
-
-    }
-
-
-
-    if (identityState.identity) {
-
-      error = 'A profile already exists on this device';
-
-      return;
-
-    }
-
-
-
-    saving = true;
-
-    error = '';
-
-
-
-    try {
-
-      const identity = await api.initIdentity(displayName.trim());
-
-      await setIdentity(identity);
-
-      void startP2pInBackground();
-
-    } catch (e) {
-
-      error = e instanceof Error ? e.message : 'Failed to create identity';
-
-      await refreshIdentity();
-
-    } finally {
-
-      saving = false;
-
-    }
-
-  }
-
-
 
   const avatarUrl = $derived(
     identityState.identity?.avatar_blob_hash
@@ -325,7 +267,7 @@
 
 
 
-{#if identityState.loading}
+{#if identityState.loading || !identityState.identity}
 
   <p class="empty">Loading...</p>
 
@@ -489,42 +431,6 @@
 
 
   {#if error}<p class="error">{error}</p>{/if}
-
-{:else if !identityState.apiOnline}
-
-  <p class="empty muted">Connect the API to create your profile — use the banner above.</p>
-
-{:else}
-
-  <div class="card">
-
-    <h2>Create your profile</h2>
-
-    <p class="muted">
-
-      Your cryptographic identity is generated on this device and saved locally. Each install gets
-
-      exactly one profile — it cannot be replaced without resetting local data.
-
-    </p>
-
-    <div class="field">
-
-      <label for="name">Display name</label>
-
-      <input id="name" bind:value={displayName} placeholder="Your name" />
-
-    </div>
-
-    {#if error}<p class="error">{error}</p>{/if}
-
-    <button class="btn" onclick={createIdentity} disabled={saving}>
-
-      {saving ? 'Creating...' : 'Create identity'}
-
-    </button>
-
-  </div>
 
 {/if}
 
