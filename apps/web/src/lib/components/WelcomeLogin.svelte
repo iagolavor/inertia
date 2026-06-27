@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { api, type Contact, type InvitePreview } from '$lib/api';
@@ -33,6 +34,33 @@
   let relayMessage = $state('');
   let relayError = $state('');
   let relaySkipped = $state(false);
+
+  let introDone = $state(false);
+  let introLeaving = $state(false);
+
+  const INTRO_HOLD_MS = 1200;
+  const INTRO_EXIT_MS = 450;
+
+  onMount(() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      introDone = true;
+      return;
+    }
+
+    const leaveTimer = window.setTimeout(() => {
+      introLeaving = true;
+    }, INTRO_HOLD_MS);
+
+    const doneTimer = window.setTimeout(() => {
+      introDone = true;
+    }, INTRO_HOLD_MS + INTRO_EXIT_MS);
+
+    return () => {
+      window.clearTimeout(leaveTimer);
+      window.clearTimeout(doneTimer);
+    };
+  });
 
   const hasProfile = $derived(!!identityState.identity);
   const relayOk = $derived(identityState.p2pStatus?.relay_connected === true);
@@ -184,13 +212,25 @@
 </script>
 
 <div class="welcome-login">
-  <header class="brand">
-    <InertiaLogo size={40} />
-    <h1 class="brand-title">Inertia</h1>
-    <p class="brand-tagline">
-      Distributed, local-first social network for the people you trust.
-    </p>
-  </header>
+  {#if !introDone}
+    <div class="intro-splash" class:intro-leaving={introLeaving} aria-hidden="true">
+      <div class="intro-brand">
+        <InertiaLogo size={44} />
+        <span class="intro-title">Inertia</span>
+      </div>
+    </div>
+  {/if}
+
+  <div class="welcome-content" class:visible={introDone}>
+    <header class="brand">
+      <div class="brand-row">
+        <InertiaLogo size={36} />
+        <h1 class="brand-title">Inertia</h1>
+      </div>
+      <p class="brand-tagline">
+        Distributed, local-first social network for the people you trust.
+      </p>
+    </header>
 
   {#if !identityState.apiOnline}
     <div class="panel api-panel">
@@ -433,6 +473,7 @@
       {/if}
     </div>
   {/if}
+  </div>
 </div>
 
 <style>
@@ -441,6 +482,91 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    position: relative;
+  }
+
+  .intro-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    animation: intro-enter 0.55s ease both;
+  }
+
+  .intro-splash.intro-leaving {
+    animation: intro-leave 0.45s ease forwards;
+  }
+
+  .intro-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    animation: intro-brand-in 0.65s ease 0.08s both;
+  }
+
+  .intro-title {
+    font-size: 1.85rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .welcome-content {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity 0.45s ease,
+      transform 0.45s ease;
+  }
+
+  .welcome-content.visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  @keyframes intro-enter {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes intro-leave {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes intro-brand-in {
+    from {
+      opacity: 0;
+      transform: scale(0.94) translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .intro-splash,
+    .intro-brand,
+    .welcome-content {
+      animation: none;
+      transition: none;
+    }
   }
 
   .brand {
@@ -450,6 +576,12 @@
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.25rem;
+  }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
   }
 
   .brand-title {
