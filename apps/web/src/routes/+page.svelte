@@ -126,12 +126,12 @@
   });
 </script>
 
-<h1 class="page-title">Feed</h1>
-<p class="subtitle">Ephemeral P2P social. No tracking, no ads, just your friends.</p>
-
-{#if identityState.loading}
+{#if identityState.loading || !identityState.identity}
   <p class="empty">Loading...</p>
-{:else if identityState.identity}
+{:else}
+  <h1 class="page-title">Feed</h1>
+  <p class="subtitle">Ephemeral P2P social. No tracking, no ads, just your friends.</p>
+
   {#if !identityState.apiOnline}
     <p class="offline-hint muted">
       You're viewing offline. Posting and comments are paused until the API is back.
@@ -170,30 +170,7 @@
     onclose={() => (detailOpen = false)}
     oncomment={onCommentAdded}
   />
-{:else if !identityState.apiOnline}
-  <div class="card">
-    <h2>Start the local API</h2>
-    <p class="muted">Inertia runs on your device — create a profile once the API bridge is running.</p>
-  </div>
-{:else}
-  <div class="card">
-    <h2>Get started</h2>
-    <p class="muted">Create a local profile to connect with people you trust.</p>
-    <p style="margin-top: 1rem;">
-      <a class="btn" href="/profile">Create your profile</a>
-    </p>
-  </div>
 {/if}
-
-<div class="card">
-  <h3>How it works</h3>
-  <ul class="muted list">
-    <li>Invite links expire in 15 minutes and work only once</li>
-    <li>Posts expire after 7 days — or keep history in <a href="/settings">Settings</a></li>
-    <li>Delivery is direct P2P when both of you are online</li>
-    <li>No ads, no algorithms, no doomscrolling</li>
-  </ul>
-</div>
 
 <style>
   .page-title {
@@ -224,10 +201,5 @@
   .feed-list {
     display: flex;
     flex-direction: column;
-  }
-
-  .list {
-    padding-left: 1.25rem;
-    margin: 0;
   }
 </style>
