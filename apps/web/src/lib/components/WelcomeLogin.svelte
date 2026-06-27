@@ -228,7 +228,7 @@
         <h1 class="brand-title">Inertia</h1>
       </div>
       <p class="brand-tagline">
-        Distributed, local-first social network for the people you trust.
+        Distributed, P2P, local-first social network for the people you trust.
       </p>
     </header>
 
@@ -249,7 +249,28 @@
 
       <div class="path-grid">
         <button type="button" class="path-card" onclick={() => choosePath('invite')}>
-          <span class="path-icon" aria-hidden="true">✉</span>
+          <span class="path-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect
+                x="3"
+                y="5"
+                width="18"
+                height="14"
+                rx="2"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M3 7l9 6 9-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
           <span class="path-label">I have an invite</span>
           <span class="path-desc muted">
             Someone sent you a link. Create your profile, paste the invite, and connect.
@@ -257,7 +278,12 @@
         </button>
 
         <button type="button" class="path-card" onclick={() => choosePath('host')}>
-          <span class="path-icon" aria-hidden="true">◎</span>
+          <span class="path-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" />
+              <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+            </svg>
+          </span>
           <span class="path-label">I'm starting a network</span>
           <span class="path-desc muted">
             Host a relay on your VPS, create your profile, then invite people you trust.
@@ -666,8 +692,15 @@
   }
 
   .path-icon {
-    font-size: 1.25rem;
-    line-height: 1;
+    display: flex;
+    line-height: 0;
+    color: var(--text);
+  }
+
+  .path-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: block;
   }
 
   .path-label {
