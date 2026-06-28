@@ -16,6 +16,8 @@ interface CacheEnvelope<T> {
 	data: T;
 }
 
+const fingerprintByKey = new Map<string, string>();
+
 function openDb(): Promise<IDBDatabase> {
 	return new Promise((resolve, reject) => {
 		const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -62,6 +64,42 @@ async function writeSnapshot<T>(key: string, data: T): Promise<void> {
 	}
 }
 
+async function writeSnapshotIfChanged<T>(
+	key: string,
+	data: T,
+	fingerprint: string
+): Promise<void> {
+	if (fingerprintByKey.get(key) === fingerprint) return;
+	await writeSnapshot(key, data);
+	fingerprintByKey.set(key, fingerprint);
+}
+
+function fingerprintFeed(items: FeedItem[]): string {
+	if (items.length === 0) return 'empty';
+	const newest = items[0];
+	return `${items.length}:${newest.content_id}:${newest.created_at}`;
+}
+
+function fingerprintMessages(contacts: Contact[], inbox: InboxEntry[]): string {
+	let maxReceived = '';
+	for (const entry of inbox) {
+		if (entry.received_at > maxReceived) maxReceived = entry.received_at;
+	}
+	const presence = contacts
+		.map(
+			(c) =>
+				`${c.id}:${c.connection_state}:${c.last_seen ?? ''}:${c.peer_id ?? ''}:${(c.multiaddrs ?? []).join(',')}`
+		)
+		.join('|');
+	return `${contacts.length}:${inbox.length}:${maxReceived}:${presence}`;
+}
+
+function fingerprintConversation(messages: ConversationMessage[]): string {
+	if (messages.length === 0) return 'empty';
+	const last = messages[messages.length - 1];
+	return `${messages.length}:${last.content_id}:${last.at}:${last.delivery_status ?? ''}`;
+}
+
 export async function readCachedFeed(): Promise<{ items: FeedItem[]; saved_at: string } | null> {
 	const snap = await readSnapshot<FeedItem[]>('feed');
 	if (!snap?.data?.length) return null;
@@ -70,7 +108,7 @@ export async function readCachedFeed(): Promise<{ items: FeedItem[]; saved_at: s
 
 export async function writeCachedFeed(items: FeedItem[]): Promise<void> {
 	if (items.length === 0) return;
-	await writeSnapshot('feed', items);
+	await writeSnapshotIfChanged('feed', items, fingerprintFeed(items));
 }
 
 export async function readCachedMessages(): Promise<{
@@ -84,7 +122,11 @@ export async function readCachedMessages(): Promise<{
 }
 
 export async function writeCachedMessages(contacts: Contact[], inbox: InboxEntry[]): Promise<void> {
-	await writeSnapshot('messages', { contacts, inbox });
+	await writeSnapshotIfChanged(
+		'messages',
+		{ contacts, inbox },
+		fingerprintMessages(contacts, inbox)
+	);
 }
 
 export async function readCachedConversation(
@@ -99,7 +141,8 @@ export async function writeCachedConversation(
 	contactId: string,
 	messages: ConversationMessage[]
 ): Promise<void> {
-	await writeSnapshot(`conversation:${contactId}`, messages);
+	const key = `conversation:${contactId}`;
+	await writeSnapshotIfChanged(key, messages, fingerprintConversation(messages));
 }
 
 export interface ProfileSnapshot {

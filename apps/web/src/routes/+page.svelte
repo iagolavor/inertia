@@ -6,8 +6,9 @@
   import PostCard from '$lib/components/PostCard.svelte';
   import PostDetailModal from '$lib/components/PostDetailModal.svelte';
   import { identityState } from '$lib/identity.svelte';
-  import { formatCacheAge, readCachedFeed, writeCachedFeed } from '$lib/local-cache';
-  import { startFeedPolling, stopFeedPolling } from '$lib/presence.svelte';
+import { formatCacheAge, readCachedFeed, writeCachedFeed } from '$lib/local-cache';
+import { refreshFeedSilently, seedFeedSnapshot, subscribeFeedSync } from '$lib/feed-sync';
+import { startFeedPolling, stopFeedPolling } from '$lib/presence.svelte';
 
   type FeedRow = FeedItem & {
     local_media_preview?: string;
@@ -28,6 +29,7 @@
     feed = cached.items;
     cacheAge = formatCacheAge(cached.saved_at);
     showingCached = true;
+    seedFeedSnapshot(cached.items);
     return true;
   }
 
@@ -59,7 +61,7 @@
       feed = items;
       showingCached = false;
       cacheAge = null;
-      await writeCachedFeed(items);
+      seedFeedSnapshot(items);
       if (selectedPost) {
         const updated = feed.find((p) => p.content_id === selectedPost!.content_id);
         if (updated) selectedPost = updated;
@@ -111,7 +113,16 @@
 
   onMount(() => {
     void hydrateFromCache().then(() => loadFeed());
-    startFeedPolling(loadFeed);
+    startFeedPolling(refreshFeedSilently);
+    const unsub = subscribeFeedSync((items) => {
+      feed = items;
+      showingCached = false;
+      cacheAge = null;
+      if (selectedPost) {
+        const updated = items.find((p) => p.content_id === selectedPost!.content_id);
+        if (updated) selectedPost = updated;
+      }
+    });
 
     function onVisible() {
       if (document.visibilityState === 'visible') {
@@ -121,6 +132,7 @@
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       stopFeedPolling();
+      unsub();
       document.removeEventListener('visibilitychange', onVisible);
     };
   });
