@@ -3,14 +3,10 @@ use tracing::{info, warn};
 use crate::error::CoreResult;
 use crate::storage::{AppSettings, ArchivedFeedItem};
 
-use super::p2p::validate_relay_multiaddr;
+use super::relay_list::{merge_relay, relays_from_env, validate_relay_list};
 use super::{Engine, DEFAULT_P2P_LISTEN_PORT};
 
 impl Engine {
-    pub async fn relay_multiaddr(&self) -> Option<String> {
-        self.effective_relay().await
-    }
-
     pub async fn get_settings(&self) -> CoreResult<AppSettings> {
         self.store.with(|store| store.get_settings()).await
     }
@@ -37,7 +33,7 @@ impl Engine {
         &self,
         feed_history_enabled: Option<bool>,
         p2p_listen_port: Option<u16>,
-        relay_multiaddr: Option<Option<String>>,
+        relay_multiaddrs: Option<Vec<String>>,
         p2p_announce: Option<Option<String>>,
         web_origin: Option<Option<String>>,
     ) -> CoreResult<AppSettings> {
@@ -45,19 +41,17 @@ impl Engine {
             self.set_feed_history_enabled(enabled).await?;
         }
 
-        if let Some(Some(ref relay)) = relay_multiaddr {
-            if !relay.trim().is_empty() {
-                validate_relay_multiaddr(relay)?;
-            }
+        if let Some(ref relays) = relay_multiaddrs {
+            validate_relay_list(relays)?;
         }
 
-        let relay_updated = relay_multiaddr.is_some();
+        let relay_updated = relay_multiaddrs.is_some();
 
         self.store
             .with_mut(|store| {
                 store.update_connection_settings(
                     p2p_listen_port,
-                    relay_multiaddr,
+                    relay_multiaddrs,
                     p2p_announce,
                     web_origin,
                 )?;
@@ -65,9 +59,14 @@ impl Engine {
             })
             .await?;
 
-        if relay_updated && self.p2p.lock().await.is_some() {
-            if let Err(e) = self.redial_known_peers().await {
-                warn!(error = %e, "redial after relay settings change failed");
+        if relay_updated {
+            if let Err(e) = self.apply_relay_list_to_p2p().await {
+                warn!(error = %e, "apply relay list after settings change failed");
+            }
+            if self.p2p.lock().await.is_some() {
+                if let Err(e) = self.redial_known_peers().await {
+                    warn!(error = %e, "redial after relay settings change failed");
+                }
             }
         }
 
@@ -85,39 +84,40 @@ impl Engine {
             .unwrap_or(DEFAULT_P2P_LISTEN_PORT)
     }
 
-    pub(super) async fn effective_relay(&self) -> Option<String> {
-        if let Ok(raw) = std::env::var("INERTIA_RELAY") {
-            let trimmed = raw.trim();
-            if !trimmed.is_empty() {
-                return Some(trimmed.to_string());
-            }
+    pub(super) async fn effective_relays(&self) -> Vec<String> {
+        let env_relays = relays_from_env();
+        if !env_relays.is_empty() {
+            return env_relays;
         }
         self.store
             .with(|s| s.get_settings())
             .await
-            .ok()
-            .and_then(|s| s.relay_multiaddr)
+            .map(|s| s.relay_multiaddrs)
+            .unwrap_or_default()
     }
 
     /// Apply relay from a signed invite when env override is not set.
     pub(super) async fn apply_relay_from_invite(&self, relay: &str) -> CoreResult<()> {
-        if std::env::var("INERTIA_RELAY")
-            .ok()
-            .filter(|s| !s.trim().is_empty())
-            .is_some()
-        {
+        if !relays_from_env().is_empty() {
             return Ok(());
         }
-        validate_relay_multiaddr(relay)?;
-        self.update_settings(
-            None,
-            None,
-            Some(Some(relay.to_string())),
-            None,
-            None,
-        )
-        .await?;
-        info!("applied relay multiaddr from invite");
+        let current = self.effective_relays().await;
+        let merged = merge_relay(&current, relay);
+        if merged.len() == current.len() {
+            return Ok(());
+        }
+        self.update_settings(None, None, Some(merged), None, None)
+            .await?;
+        info!("merged relay multiaddr from invite");
+        Ok(())
+    }
+
+    pub(super) async fn apply_relay_list_to_p2p(&self) -> CoreResult<()> {
+        let relays = self.effective_relays().await;
+        let guard = self.p2p.lock().await;
+        if let Some(p2p) = guard.as_ref() {
+            p2p.ensure_relay_circuits(&relays).await;
+        }
         Ok(())
     }
 

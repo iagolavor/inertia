@@ -88,7 +88,7 @@ pub struct UpdateSettingsRequest {
     #[serde(default)]
     pub p2p_listen_port: Option<u16>,
     #[serde(default)]
-    pub relay_multiaddr: Option<String>,
+    pub relay_multiaddrs: Option<Vec<String>>,
     #[serde(default)]
     pub p2p_announce: Option<String>,
     #[serde(default)]
