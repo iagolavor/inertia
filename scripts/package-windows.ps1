@@ -14,10 +14,10 @@ $apiExe = Join-Path $root 'target/release/inertia-api.exe'
 $webBuild = Join-Path $root 'apps/web/build'
 
 if (-not (Test-Path $apiExe)) {
-    throw 'Missing target/release/inertia-api.exe — run: cargo build --release -p inertia-api'
+    throw 'Missing target/release/inertia-api.exe - run: cargo build --release -p inertia-api'
 }
 if (-not (Test-Path (Join-Path $webBuild 'index.html'))) {
-    throw 'Missing apps/web/build — run: npm run web:build'
+    throw 'Missing apps/web/build - run: npm run web:build'
 }
 
 $stage = Join-Path $env:TEMP "inertia-pack-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
