@@ -39,7 +39,7 @@ function Get-ReleaseAsset {
     $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest"
     $asset = $release.assets | Where-Object { $_.name -eq $PrebuiltAsset } | Select-Object -First 1
     if (-not $asset) {
-        throw "No $PrebuiltAsset on latest release — wait for CI or download manually from GitHub Releases"
+        throw "No $PrebuiltAsset on latest release - wait for CI or download manually from GitHub Releases"
     }
     return @{
         Tag = $release.tag_name

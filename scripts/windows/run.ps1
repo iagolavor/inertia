@@ -15,7 +15,7 @@ $env:INERTIA_WEB_DIR = Join-Path $root 'web'
 $env:RUST_LOG = 'info'
 
 $url = 'http://127.0.0.1:4783'
-Write-Host "Starting Inertia — open $url"
+Write-Host "Starting Inertia - open $url"
 Write-Host 'Close this window to stop.'
 Write-Host ''
 
