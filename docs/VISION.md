@@ -151,7 +151,7 @@ Each user runs **local-first** software on their own device. A small **VPS relay
 +-----------------------------+
 ```
 
-See [VPS-RELAY.md](./VPS-RELAY.md) for relay deployment and [MILESTONE-VPS-RELAY.md](./MILESTONE-VPS-RELAY.md) for the connectivity milestone.
+See [inertia-relay README](../crates/inertia-relay/README.md) for relay deployment and [MILESTONE-VPS-RELAY.md](./MILESTONE-VPS-RELAY.md) for the connectivity milestone.
 
 ---
 
@@ -222,7 +222,7 @@ This is **not** global user discovery. It is a directory of **connectivity helpe
 
 ### What a community relay host provides
 
-- Runs **`inertia-relay`** on a VPS (see [VPS-RELAY.md](./VPS-RELAY.md)).
+- Runs **`inertia-relay`** on a VPS (see [inertia-relay README](../crates/inertia-relay/README.md)).
 - Stable libp2p peer id, one TCP port, no SQLite, no decrypted payloads.
 - Enough bandwidth for **peak** circuit relay when NAT blocks direct paths; most sessions should upgrade to direct connections via DCUtR.
 

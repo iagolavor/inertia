@@ -4,8 +4,6 @@ libp2p **circuit relay v2** for Inertia. Run it on a small VPS you control so fr
 
 **Connectivity only.** No SQLite, no user profiles, no posts, no keys, no decrypted content. The relay never sees message payloads.
 
-Full operations guide (client setup, invite flow, troubleshooting): [`docs/VPS-RELAY.md`](../../docs/VPS-RELAY.md).
-
 ---
 
 ## What you need
@@ -139,8 +137,6 @@ Run with systemd or your process manager, pointing `INERTIA_RELAY_DATA_DIR` at a
 | Port closed | `ufw`, cloud security group, `docker compose ps` |
 | Relay peer id changed | Volume was wiped; update every client's relay multiaddr |
 | **Relay OK** never appears | API running on the device, relay reachable on `:9000`, multiaddr pasted exactly |
-
-More detail: [`docs/VPS-RELAY.md`](../../docs/VPS-RELAY.md).
 
 ---
 

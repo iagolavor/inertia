@@ -76,7 +76,7 @@ These gaps block *any* real-world test, relay or not.
 | 1.1 | New crate `inertia-relay` — libp2p relay listener on `0.0.0.0:<port>`      | `crates/inertia-relay` | Add `relay` (+ `autonat` if useful) to libp2p features. |
 | 1.2 | Relay identity persisted to disk (stable peer id across restarts)          | relay                  | Clients pin a known relay peer id in config.            |
 | 1.3 | `docker compose` + `Dockerfile` for VPS deploy                             | `docker/`              | Single service, one published port.                     |
-| 1.4 | VPS ops doc: firewall (`ufw allow <port>/tcp`), systemd or compose restart | `docs/VPS-RELAY.md`    | Ubuntu 22.04+ assumed.                                  |
+| 1.4 | VPS ops doc: firewall (`ufw allow <port>/tcp`), systemd or compose restart | `crates/inertia-relay/README.md` | Ubuntu 22.04+ assumed.                                  |
 | 1.5 | Health/log: `tracing` lines for relay reservations, not payload content    | relay                  |                                                         |
 
 
@@ -104,9 +104,9 @@ These gaps block *any* real-world test, relay or not.
 
 | #   | Task                                                                                                      | Area                | Notes                                                   |
 | --- | --------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------- |
-| 3.1 | Written test script: deploy relay → both install → both set relay URL → invite → post → DM → restart test | `docs/VPS-RELAY.md` |                                                         |
+| 3.1 | Written test script: deploy relay → both install → both set relay URL → invite → post → DM → restart test | `crates/inertia-relay/README.md` |                                                         |
 | 3.2 | Prebuilt web `adapter-static` option (brother may not run `npm run dev`)                                  | `apps/web`          | `npm run build` + serve `build/` or tiny static server. |
-| 3.3 | Windows + Linux build notes for `inertia-api`                                                             | README or VPS-RELAY | You on Windows; brother’s OS may differ.                |
+| 3.3 | Windows + Linux build notes for `inertia-api`                                                             | README or inertia-relay README | You on Windows; brother’s OS may differ.                |
 | 3.4 | Invite link uses HTTPS origin you control **or** `inertia://` deep link + copy payload                    | invites             | For remote open without localhost in URL.               |
 
 

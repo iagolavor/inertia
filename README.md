@@ -14,7 +14,7 @@
   <a href="docs/VISION.md">Vision</a> ·
   <a href="docs/WINDOWS-SETUP.md">Windows</a> ·
   <a href="docs/CAPACITOR.md">Android</a> ·
-  <a href="docs/VPS-RELAY.md">Relay</a> ·
+  <a href="crates/inertia-relay/README.md">Relay</a> ·
   <a href="https://github.com/iagolavor/inertia/releases">Releases</a>
 </p>
 
@@ -24,7 +24,7 @@
 
 **Inertia** is a small, chronological social app for a closed circle of friends. Each person runs the stack on their own machine: a Rust API, embedded database, and libp2p networking. Posts and messages expire after seven days unless you keep a local archive.
 
-Identity is cryptographic. There is no signup server. You add friends with signed invite links (and optional QR codes). When both sides are online, content travels peer-to-peer; an optional [VPS relay](docs/VPS-RELAY.md) you control helps with NAT.
+Identity is cryptographic. There is no signup server. You add friends with signed invite links (and optional QR codes). When both sides are online, content travels peer-to-peer; an optional [VPS relay](crates/inertia-relay/README.md) you control helps with NAT.
 
 > **Status:** Active prototype. Expect rough edges. Default branch is `development`.
 
@@ -75,7 +75,7 @@ npm run web                  # terminal 2, :5173
 </tr>
 </table>
 
-**First launch:** create a profile, set your relay in **Settings → Connection** ([relay guide](docs/VPS-RELAY.md)), invite a friend, post on **Feed**.
+**First launch:** create a profile, set your relay in **Settings → Connection** ([relay guide](crates/inertia-relay/README.md)), invite a friend, post on **Feed**.
 
 In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`** task (debug + Vite).
 
@@ -88,7 +88,7 @@ In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`**
 | Product & architecture | [docs/VISION.md](docs/VISION.md) |
 | UI philosophy | [docs/DESIGN.md](docs/DESIGN.md) |
 | Windows install & updates | [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) |
-| VPS relay deploy | [docs/VPS-RELAY.md](docs/VPS-RELAY.md) |
+| VPS relay deploy | [crates/inertia-relay/README.md](crates/inertia-relay/README.md) |
 | Releases & tagging | [docs/RELEASE.md](docs/RELEASE.md) |
 | Git workflow | [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md) |
 
