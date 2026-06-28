@@ -23,13 +23,27 @@ winget install Google.AndroidStudio --accept-package-agreements --accept-source-
 npm run android:sdk
 ```
 
+### Android Studio + SDK (Linux)
+
+Install [Android Studio](https://developer.android.com/studio) (or OpenJDK 17+), then from repo root:
+
+```bash
+npm run android:sdk
+```
+
+Default SDK path: `~/Android/Sdk` (override with `ANDROID_HOME`).
+
+**JDK:** Gradle needs **Java 17 or 21**. Fedora’s default Java 25 will fail (`Unsupported class file major version 69`). `~/.bashrc.d/android.sh` prefers OpenJDK 21 or Android Studio’s bundled JBR.
+
+`npm run android:open` auto-detects Android Studio (tarball paths and Flatpak). Override only if needed: `CAPACITOR_ANDROID_STUDIO_PATH`.
+
 `android:sdk` installs **platform-tools**, **Android 35**, **build-tools 35.0.0**, **NDK 26.3**, writes `local.properties`, and sets `ANDROID_HOME` / `JAVA_HOME`.
 
 Stage B requires **minSdk 24** (Android 7.0) because libp2p uses `getifaddrs`, which Bionic only exposes from API 24. `android:api:build` passes `-P 24` to `cargo-ndk`.
 
 Restart terminals after the script.
 
-SDK path: `%LOCALAPPDATA%\Android\Sdk`
+SDK path: `%LOCALAPPDATA%\Android\Sdk` (Windows) or `~/Android/Sdk` (Linux).
 
 ## Stage B — build and run (API on device)
 

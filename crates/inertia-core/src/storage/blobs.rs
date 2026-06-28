@@ -3,7 +3,6 @@ use sha2::{Digest, Sha256};
 use crate::error::{CoreError, CoreResult};
 use crate::identity::encode_hex;
 
-use super::sql::FEED_HISTORY_KEY;
 use super::Store;
 
 /// Max blob size accepted over P2P (matches web client compression cap with headroom).
@@ -43,36 +42,9 @@ impl Store {
     }
 
     /// Media hashes referenced in inbox/feed for a given author signing key, missing on disk.
+    /// Prefer [`Store::missing_sync_hashes_for_author`] for P2P sync (thumb-only for video).
     pub fn missing_media_refs_for_author(&self, author_signing_key: &str) -> CoreResult<Vec<String>> {
-        let mut missing = Vec::new();
-        let mut seen = std::collections::HashSet::new();
-
-        let inbox = self.list_inbox()?;
-        for entry in inbox {
-            if entry.sender_id != author_signing_key {
-                continue;
-            }
-            if let Some(ref hash) = entry.media_ref {
-                if seen.insert(hash.clone()) && !self.blob_exists(hash) {
-                    missing.push(hash.clone());
-                }
-            }
-        }
-
-        if self.get_bool_setting(FEED_HISTORY_KEY)?.unwrap_or(false) {
-            for item in self.list_feed_archive()? {
-                if item.author_id != author_signing_key {
-                    continue;
-                }
-                if let Some(ref hash) = item.media_ref {
-                    if seen.insert(hash.clone()) && !self.blob_exists(hash) {
-                        missing.push(hash.clone());
-                    }
-                }
-            }
-        }
-
-        Ok(missing)
+        self.missing_sync_hashes_for_author(author_signing_key)
     }
 
     pub fn read_blob(&self, hash: &str) -> CoreResult<Vec<u8>> {

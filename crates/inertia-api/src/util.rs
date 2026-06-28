@@ -29,6 +29,8 @@ pub fn blob_content_type(data: &[u8]) -> &'static str {
         "image/gif"
     } else if data.len() >= 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP" {
         "image/webp"
+    } else if data.len() >= 12 && &data[4..8] == b"ftyp" {
+        "video/mp4"
     } else {
         "application/octet-stream"
     }

@@ -2,6 +2,15 @@
   import { api } from '$lib/api';
   import { prepareImageForUpload } from '$lib/image';
   import {
+    assertVideoUploadAllowed,
+    isVideoUploadFile,
+    prepareVideoForUpload,
+    formatVideoDuration,
+    processingLabel,
+    type PreparedVideo,
+    type VideoPrepareStage
+  } from '$lib/video';
+  import {
     applyInlineFormat,
     prefixSelectedLines,
     type InlineFormat
@@ -9,7 +18,13 @@
 
   interface Props {
     disabled?: boolean;
-    onposted?: (result: { content_id: string; body: string; local_media_preview?: string }) => void;
+    onposted?: (result: {
+      content_id: string;
+      body: string;
+      local_media_preview?: string;
+      media_kind?: 'photo' | 'video';
+      media_ready?: boolean;
+    }) => void;
   }
 
   let { disabled = false, onposted }: Props = $props();
@@ -17,13 +32,46 @@
   let body = $state('');
   let mediaPreview = $state<string | null>(null);
   let mediaBase64 = $state<string | null>(null);
+  let pendingVideo = $state<PreparedVideo | null>(null);
+  let mediaKind = $state<'photo' | 'video' | null>(null);
+  let processingStage = $state<VideoPrepareStage | null>(null);
+  let pendingDurationMs = $state<number | null>(null);
   let posting = $state(false);
   let error = $state('');
   let fileInput = $state<HTMLInputElement | null>(null);
   let textareaEl = $state<HTMLTextAreaElement | null>(null);
 
-  const canSend = $derived(!posting && !disabled && (body.trim().length > 0 || mediaBase64 !== null));
-  const hasDraft = $derived(body.trim().length > 0 || mediaPreview !== null || posting);
+  const canSend = $derived(
+    !posting &&
+      !processingStage &&
+      !disabled &&
+      (body.trim().length > 0 || mediaBase64 !== null || pendingVideo !== null)
+  );
+  const hasDraft = $derived(
+    body.trim().length > 0 ||
+      mediaPreview !== null ||
+      pendingVideo !== null ||
+      posting ||
+      processingStage !== null
+  );
+
+  const videoDurationLabel = $derived(
+    pendingVideo
+      ? formatVideoDuration(pendingVideo.durationMs)
+      : pendingDurationMs
+        ? formatVideoDuration(pendingDurationMs)
+        : null
+  );
+
+  const processingMedia = $derived(processingStage !== null);
+  const previewBusy = $derived(processingMedia || (posting && mediaKind === 'video'));
+  const previewStatus = $derived(
+    processingStage
+      ? processingLabel(processingStage)
+      : posting && mediaKind === 'video'
+        ? 'Uploading video…'
+        : null
+  );
 
   let composerFocused = $state(false);
   const toolbarVisible = $derived(composerFocused || hasDraft);
@@ -49,32 +97,57 @@
     body = prefixSelectedLines(textareaEl, '- ');
   }
 
-  function onFileSelect(e: Event) {
+  async function onFileSelect(e: Event) {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
+    input.value = '';
     if (!file) return;
 
     error = '';
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        mediaPreview = reader.result as string;
+    clearMedia();
+    try {
+      if (isVideoUploadFile(file)) {
+        assertVideoUploadAllowed(file);
+        processingStage = 'loading';
+        const prepared = await prepareVideoForUpload(file, (progress) => {
+          processingStage = progress.stage;
+          if (progress.previewUrl) {
+            mediaPreview = progress.previewUrl;
+            mediaKind = 'video';
+          }
+          if (progress.durationMs) {
+            pendingDurationMs = progress.durationMs;
+          }
+        });
+        pendingVideo = prepared;
+        mediaKind = 'video';
+        mediaPreview = prepared.previewUrl;
+        pendingDurationMs = prepared.durationMs;
+      } else {
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Failed to read image'));
+          reader.readAsDataURL(file);
+        });
+        mediaPreview = dataUrl;
         mediaBase64 = await prepareImageForUpload(file);
-      } catch (e) {
-        error = e instanceof Error ? e.message : 'Falha ao processar imagem';
-        clearMedia();
+        mediaKind = 'photo';
       }
-    };
-    reader.onerror = () => {
-      error = 'Falha ao ler imagem';
-    };
-    reader.readAsDataURL(file);
-    input.value = '';
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to process media';
+      clearMedia();
+    } finally {
+      processingStage = null;
+    }
   }
 
   function clearMedia() {
     mediaPreview = null;
     mediaBase64 = null;
+    pendingVideo = null;
+    pendingDurationMs = null;
+    mediaKind = null;
   }
 
   function openFilePicker() {
@@ -91,18 +164,28 @@
 
     try {
       let content_id: string;
-      if (mediaBase64) {
+      if (pendingVideo) {
+        ({ content_id } = await api.createVideoPost(
+          text,
+          pendingVideo.videoBase64,
+          pendingVideo.thumbBase64,
+          pendingVideo.durationMs
+        ));
+      } else if (mediaBase64) {
         ({ content_id } = await api.createPost(text, mediaBase64));
       } else {
         ({ content_id } = await api.createPost(text));
       }
       body = '';
       const preview = mediaPreview;
+      const kind = mediaKind;
       clearMedia();
       onposted?.({
         content_id,
         body: text,
-        local_media_preview: preview ?? undefined
+        local_media_preview: preview ?? undefined,
+        media_kind: kind ?? undefined,
+        media_ready: kind === 'video' ? true : undefined
       });
     } catch (e) {
       error = e instanceof Error ? e.message : 'Falha ao publicar';
@@ -156,15 +239,33 @@
       onkeydown={onKeydown}
     ></textarea>
 
-    {#if mediaPreview}
+    {#if processingMedia && !mediaPreview}
+      <div class="preview-wrap preview-placeholder" aria-busy="true" aria-label="Processing video">
+        <div class="preview-overlay">
+          <span class="overlay-spinner" aria-hidden="true"></span>
+          <span class="overlay-label">Processing video…</span>
+        </div>
+      </div>
+    {:else if mediaPreview}
       <div class="preview-wrap">
-        <img class="preview" src={mediaPreview} alt="Preview" />
+        <img class="preview" src={mediaPreview} alt="Video preview" />
+        {#if mediaKind === 'video'}
+          <span class="video-badge" aria-hidden="true">
+            {#if videoDurationLabel}{videoDurationLabel}{:else}Video{/if}
+          </span>
+        {/if}
+        {#if previewBusy && previewStatus}
+          <div class="preview-overlay" aria-live="polite">
+            <span class="overlay-spinner" aria-hidden="true"></span>
+            <span class="overlay-label">{previewStatus}</span>
+          </div>
+        {/if}
         <button
           type="button"
           class="remove-media"
           onclick={clearMedia}
-          disabled={posting}
-          aria-label="Remove photo"
+          disabled={posting || processingMedia}
+          aria-label="Remove media"
         >
           ×
         </button>
@@ -266,8 +367,8 @@
           class="format-btn attach-btn"
           onclick={openFilePicker}
           disabled={posting || disabled}
-          aria-label="Add photo"
-          title="Add photo"
+          aria-label="Add photo or video"
+          title="Add photo or video"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -284,7 +385,7 @@
         <input
           bind:this={fileInput}
           type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp,image/*"
+          accept="image/jpeg,image/png,image/gif,image/webp,image/*,video/mp4,video/webm,video/quicktime,video/*"
           class="file-input"
           disabled={posting || disabled}
           onchange={onFileSelect}
@@ -466,6 +567,41 @@
     max-width: calc(100% - 1.5rem);
   }
 
+  .preview-placeholder {
+    width: min(100%, 280px);
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--border) 35%, var(--bg));
+  }
+
+  .preview-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border-radius: inherit;
+  }
+
+  .overlay-spinner {
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  .overlay-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
   .preview {
     display: block;
     max-width: 100%;
@@ -487,6 +623,20 @@
     font-size: 1rem;
     line-height: 1;
     cursor: pointer;
+  }
+
+  .video-badge {
+    position: absolute;
+    left: 0.45rem;
+    bottom: 0.45rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
   }
 
   .attach-btn:hover:not(:disabled) {

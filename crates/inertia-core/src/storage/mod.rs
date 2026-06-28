@@ -4,6 +4,7 @@ mod feed;
 mod identity;
 mod inbox;
 mod invites;
+mod media;
 mod outbox;
 mod purge;
 mod schema;
@@ -17,10 +18,11 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
-use crate::content::{ContentType, DeliveryStatus};
+use crate::content::{ContentType, DeliveryStatus, MediaKind};
 use crate::error::CoreResult;
 
 pub use blobs::MAX_BLOB_BYTES;
+pub use media::{CHUNK_SIZE, MAX_THUMB_BYTES, MAX_VIDEO_BYTES};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
@@ -104,6 +106,12 @@ pub struct FeedItem {
     pub author_name: String,
     pub body: String,
     pub media_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thumb_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media_kind: Option<MediaKind>,
+    #[serde(default)]
+    pub media_ready: bool,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub is_own: bool,
@@ -180,6 +188,9 @@ impl ArchivedFeedItem {
             author_name: self.author_name.clone(),
             body: self.body.clone(),
             media_ref: self.media_ref.clone(),
+            thumb_ref: None,
+            media_kind: None,
+            media_ready: false,
             created_at: self.created_at,
             expires_at: archived_expires_at(),
             is_own: self.is_own,
