@@ -6,6 +6,7 @@
   import { ApiRequestError } from '$lib/api-errors';
   import DevSetupActions from '$lib/components/DevSetupActions.svelte';
   import InertiaLogo from '$lib/components/InertiaLogo.svelte';
+  import RelayMultiaddrList from '$lib/components/RelayMultiaddrList.svelte';
   import ProfileHeader from '$lib/components/ProfileHeader.svelte';
   import { normalizeInviteInput } from '$lib/invite-input';
   import {
@@ -29,7 +30,8 @@
   let accepting = $state(false);
   let inviteError = $state('');
 
-  let relayMultiaddr = $state('');
+  let relayList = $state<string[]>([]);
+  let relayAddError = $state('');
   let relaySaving = $state(false);
   let relayMessage = $state('');
   let relayError = $state('');
@@ -191,7 +193,7 @@
     relayMessage = '';
     relayError = '';
     try {
-      await api.updateSettings({ relay_multiaddr: relayMultiaddr.trim() });
+      await api.updateSettings({ relay_multiaddrs: relayList });
       relayMessage = 'Saved. Waiting for relay connection…';
       await refreshIdentity({ silent: true });
       await new Promise((r) => setTimeout(r, 1500));
@@ -440,13 +442,12 @@
         </p>
         <div class="field">
           <label for="welcome-relay">Relay multiaddr</label>
-          <textarea
-            id="welcome-relay"
-            bind:value={relayMultiaddr}
-            rows="3"
-            placeholder="/ip4/YOUR_VPS_IP/tcp/9000/p2p/12D3Koo…"
+          <RelayMultiaddrList
+            bind:relays={relayList}
+            bind:addError={relayAddError}
+            inputId="welcome-relay"
             disabled={!identityState.apiOnline || relaySaving}
-          ></textarea>
+          />
         </div>
         {#if relayError}<p class="error">{relayError}</p>{/if}
         {#if relayMessage}<p class="success-msg">{relayMessage}</p>{/if}
@@ -456,7 +457,7 @@
         <button
           class="btn btn-block"
           onclick={saveRelay}
-          disabled={!identityState.apiOnline || relaySaving || !relayMultiaddr.trim()}
+          disabled={!identityState.apiOnline || relaySaving || relayList.length === 0}
         >
           {relaySaving ? 'Saving…' : 'Save relay'}
         </button>

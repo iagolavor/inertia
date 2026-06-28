@@ -4,7 +4,9 @@ use super::ConnectionState;
 
 pub(super) const FEED_HISTORY_KEY: &str = "feed_history_enabled";
 pub(super) const P2P_LISTEN_PORT_KEY: &str = "p2p_listen_port";
-pub(super) const RELAY_MULTIADDR_KEY: &str = "relay_multiaddr";
+pub(super) const RELAY_MULTIADDRS_KEY: &str = "relay_multiaddrs";
+/// Legacy key migrated once on read; no longer written.
+pub(super) const RELAY_MULTIADDR_LEGACY_KEY: &str = "relay_multiaddr";
 pub(super) const P2P_ANNOUNCE_KEY: &str = "p2p_announce";
 pub(super) const WEB_ORIGIN_KEY: &str = "web_origin";
 

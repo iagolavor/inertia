@@ -51,20 +51,8 @@ async fn p2p_addresses(
 async fn p2p_status(
     State(state): State<AppState>,
 ) -> Result<Json<inertia_core::P2pStatus>, (StatusCode, Json<ApiError>)> {
-    let relay = {
-        let engine = state.engine.lock().await;
-        engine.relay_multiaddr().await
-    };
-    let relay_tcp_reachable = if let Some(ref addr) = relay {
-        Some(inertia_core::probe_relay_tcp(addr).await)
-    } else {
-        None
-    };
-    let status = {
-        let engine = state.engine.lock().await;
-        engine.p2p_status_snapshot(relay, relay_tcp_reachable).await
-    };
-    Ok(Json(status))
+    let engine = state.engine.lock().await;
+    Ok(Json(engine.p2p_status().await))
 }
 
 async fn p2p_activity(

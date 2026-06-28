@@ -3,12 +3,25 @@ use rusqlite::params;
 use crate::error::CoreResult;
 
 use super::sql::{
-    FEED_HISTORY_KEY, P2P_ANNOUNCE_KEY, P2P_LISTEN_PORT_KEY, RELAY_MULTIADDR_KEY, WEB_ORIGIN_KEY,
+    decode_multiaddrs, encode_multiaddrs, FEED_HISTORY_KEY, P2P_ANNOUNCE_KEY,
+    P2P_LISTEN_PORT_KEY, RELAY_MULTIADDR_LEGACY_KEY, RELAY_MULTIADDRS_KEY, WEB_ORIGIN_KEY,
 };
 use super::{AppSettings, Store};
 
 impl Store {
     pub fn get_settings(&self) -> CoreResult<AppSettings> {
+        let mut relay_multiaddrs = self.get_relay_multiaddrs()?;
+        if relay_multiaddrs.is_empty() {
+            if let Some(legacy) = self
+                .get_string_setting(RELAY_MULTIADDR_LEGACY_KEY)?
+                .filter(|s| !s.trim().is_empty())
+            {
+                relay_multiaddrs = vec![legacy.trim().to_string()];
+                self.set_relay_multiaddrs(&relay_multiaddrs)?;
+                self.delete_setting(RELAY_MULTIADDR_LEGACY_KEY)?;
+            }
+        }
+
         Ok(AppSettings {
             feed_history_enabled: self.get_bool_setting(FEED_HISTORY_KEY)?.unwrap_or(false),
             p2p_listen_port: self
@@ -16,9 +29,7 @@ impl Store {
                 .and_then(|s| s.parse().ok())
                 .filter(|&port| port > 0)
                 .unwrap_or(4784),
-            relay_multiaddr: self
-                .get_string_setting(RELAY_MULTIADDR_KEY)?
-                .filter(|s| !s.trim().is_empty()),
+            relay_multiaddrs,
             p2p_announce: self
                 .get_string_setting(P2P_ANNOUNCE_KEY)?
                 .filter(|s| !s.trim().is_empty()),
@@ -38,18 +49,15 @@ impl Store {
     pub fn update_connection_settings(
         &self,
         p2p_listen_port: Option<u16>,
-        relay_multiaddr: Option<Option<String>>,
+        relay_multiaddrs: Option<Vec<String>>,
         p2p_announce: Option<Option<String>>,
         web_origin: Option<Option<String>>,
     ) -> CoreResult<()> {
         if let Some(port) = p2p_listen_port.filter(|&p| p > 0) {
             self.set_string_setting(P2P_LISTEN_PORT_KEY, &port.to_string())?;
         }
-        if let Some(relay) = relay_multiaddr {
-            match relay.filter(|s| !s.trim().is_empty()) {
-                Some(value) => self.set_string_setting(RELAY_MULTIADDR_KEY, value.trim())?,
-                None => self.delete_setting(RELAY_MULTIADDR_KEY)?,
-            }
+        if let Some(relays) = relay_multiaddrs {
+            self.set_relay_multiaddrs(&relays)?;
         }
         if let Some(announce) = p2p_announce {
             match announce.filter(|s| !s.trim().is_empty()) {
@@ -62,6 +70,28 @@ impl Store {
                 Some(value) => self.set_string_setting(WEB_ORIGIN_KEY, value.trim())?,
                 None => self.delete_setting(WEB_ORIGIN_KEY)?,
             }
+        }
+        Ok(())
+    }
+
+    fn get_relay_multiaddrs(&self) -> CoreResult<Vec<String>> {
+        Ok(self
+            .get_string_setting(RELAY_MULTIADDRS_KEY)?
+            .map(|raw| decode_multiaddrs(&raw))
+            .unwrap_or_default())
+    }
+
+    fn set_relay_multiaddrs(&self, relays: &[String]) -> CoreResult<()> {
+        let trimmed: Vec<String> = relays
+            .iter()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect();
+        if trimmed.is_empty() {
+            self.delete_setting(RELAY_MULTIADDRS_KEY)?;
+        } else {
+            self.set_string_setting(RELAY_MULTIADDRS_KEY, &encode_multiaddrs(&trimmed))?;
         }
         Ok(())
     }

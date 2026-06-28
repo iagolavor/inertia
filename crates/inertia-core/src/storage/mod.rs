@@ -123,7 +123,7 @@ pub struct FeedItem {
 pub struct AppSettings {
     pub feed_history_enabled: bool,
     pub p2p_listen_port: u16,
-    pub relay_multiaddr: Option<String>,
+    pub relay_multiaddrs: Vec<String>,
     pub p2p_announce: Option<String>,
     pub web_origin: Option<String>,
 }
