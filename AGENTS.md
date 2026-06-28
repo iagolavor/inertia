@@ -9,6 +9,10 @@ This repo has two specialized agent contexts. Cursor rules activate them automat
 
 Read `docs/VISION.md` for product/architecture and `docs/DESIGN.md` for UI philosophy.
 
+## Copy (repo-wide)
+
+**Never use em dashes (`—`).** Not in UI, docs, scripts (especially `scripts/windows/*.ps1`), errors, commits, or PRs. Use ASCII `-`, periods, commas, or colons. Unicode dashes break Windows PowerShell and are not project style.
+
 ## Architecture (short)
 
 ```
