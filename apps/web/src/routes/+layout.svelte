@@ -11,9 +11,11 @@
   import {
     refreshMessagesOnVisible,
     refreshP2pLive,
+    registerConversationEventPatch,
     startPresencePolling,
     stopPresencePolling
   } from '$lib/presence.svelte';
+  import { startP2pEventStream, stopP2pEventStream } from '$lib/p2p-events.svelte';
   import { initTheme } from '$lib/theme.svelte';
 
   let { children } = $props();
@@ -38,6 +40,7 @@
     initTheme();
     refreshIdentity();
     startPresencePolling();
+    startP2pEventStream();
 
     function onVisible() {
       if (document.visibilityState === 'visible') {
@@ -50,6 +53,7 @@
 
     return () => {
       stopPresencePolling();
+      stopP2pEventStream();
       document.removeEventListener('visibilitychange', onVisible);
     };
   });

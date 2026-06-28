@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use libp2p::PeerId;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{broadcast, mpsc, Mutex};
 use tracing::{info, warn};
 
 use crate::content::{ContentEnvelope, DeliveryStatus};
@@ -9,26 +9,28 @@ use crate::error::{CoreError, CoreResult};
 use crate::p2p::{P2pEvent, P2pNode};
 use crate::store_handle::StoreHandle;
 
-use super::activity::{self, ActivityLog};
+use super::activity::{self, ActivityLog, P2pUiEvent};
 
 pub async fn run_p2p_event_loop(
     mut events: mpsc::UnboundedReceiver<P2pEvent>,
     store: StoreHandle,
     p2p: Arc<Mutex<Option<P2pNode>>>,
     activity: Arc<Mutex<ActivityLog>>,
+    ui_event_tx: broadcast::Sender<P2pUiEvent>,
 ) {
     while let Some(event) = events.recv().await {
-        activity::log_p2p_event(&activity, &store, &event).await;
+        activity::log_p2p_event(&activity, &store, &event, &ui_event_tx).await;
 
         if let P2pEvent::PeerConnected(peer_id) = event {
             info!(%peer_id, "peer connected — flushing pending outbox");
             let flushed = flush_outbox_for_peer(&store, &p2p, peer_id).await;
             match flushed {
                 Ok(count) if count > 0 => {
-                    activity
+                    let ui_event = activity
                         .lock()
                         .await
                         .push("outbox_flush", format!("Sent {count} pending item(s)"));
+                    activity::emit_ui_event(&ui_event_tx, ui_event);
                 }
                 Err(e) => warn!(error = %e, "outbox flush on peer connect failed"),
                 _ => {}

@@ -11,7 +11,7 @@ pub mod store_handle;
 mod user_error;
 
 pub use content::{CommentPayload, ContentEnvelope, ContentType, DeliveryStatus, MediaKind, MediaManifest, MessagePayload, PostPayload};
-pub use engine::{default_p2p_listen_port, probe_relay_tcp, spawn_relay_maintenance, ConversationMessage, Engine, InvitePreview, InviteResponse, MediaFetchState, MediaFetchStatus, P2pActivityEvent, P2pActivitySnapshot, P2pStatus, PublishPhotoResult, DEFAULT_P2P_LISTEN_PORT};
+pub use engine::{default_p2p_listen_port, probe_relay_tcp, spawn_relay_maintenance, ConversationMessage, Engine, InvitePreview, InviteResponse, MediaFetchState, MediaFetchStatus, P2pActivityEvent, P2pActivitySnapshot, P2pStatus, P2pUiEvent, PublishPhotoResult, DEFAULT_P2P_LISTEN_PORT};
 pub use error::{CoreError, CoreResult};
 pub use user_error::{ErrorCode, UserFacingError};
 pub use identity::{Identity, MESSAGE_TTL_SECS, POST_TTL_SECS};

@@ -7,6 +7,7 @@
   import DeliveryTicks from '$lib/components/DeliveryTicks.svelte';
   import FormattedText from '$lib/components/FormattedText.svelte';
   import {
+    contactWithLivePresence,
     createOptimisticMessage,
     isOptimisticMessageId,
     mergeConversationMessages,
@@ -19,7 +20,12 @@
     readCachedMessages,
     writeCachedConversation
   } from '$lib/local-cache';
-  import { startConversationPolling, stopConversationPolling } from '$lib/presence.svelte';
+  import { startConversationPolling, stopConversationPolling, registerConversationEventPatch } from '$lib/presence.svelte';
+  import {
+    appendConversationMessage,
+    conversationMessageFromUiEvent,
+    type P2pUiEvent
+  } from '$lib/p2p-event-handlers';
 
   let contacts = $state<Contact[]>([]);
   let messages = $state<ConversationMessage[]>([]);
@@ -30,10 +36,16 @@
   let showingCached = $state(false);
   let cacheAge = $state<string | null>(null);
   let chatPanel = $state<HTMLDivElement | null>(null);
+  let loadSeq = 0;
 
   const contactId = $derived(page.params.contactId);
 
   const contact = $derived(contacts.find((c) => c.id === contactId) ?? null);
+  const displayContact = $derived(
+    contact && identityState.p2pStatus
+      ? contactWithLivePresence(contact, identityState.p2pStatus.connected_peer_ids)
+      : contact
+  );
 
   async function scrollToLatest() {
     await tick();
@@ -57,18 +69,27 @@
 
   async function loadConversation() {
     if (!contactId || !identityState.apiOnline) return;
-    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
+    const seq = ++loadSeq;
     const serverMessages = await api.listConversationMessages(contactId);
-    messages = mergeConversationMessages(serverMessages, optimistic);
+    if (seq !== loadSeq) return;
+    const prevCount = messages.length;
+    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
+    const serverIds = new Set(serverMessages.map((m) => m.content_id));
+    const ssePatches = messages.filter(
+      (m) => !isOptimisticMessageId(m.content_id) && !serverIds.has(m.content_id)
+    );
+    messages = mergeConversationMessages([...serverMessages, ...ssePatches], optimistic);
     await writeCachedConversation(contactId, messages.filter((m) => !isOptimisticMessageId(m.content_id)));
     showingCached = false;
     cacheAge = null;
+    if (messages.length > prevCount) {
+      await scrollToLatest();
+    }
   }
 
   async function silentRefresh() {
     if (!contactId || !identityState.apiOnline) return;
     try {
-      contacts = await api.listContacts();
       await loadConversation();
     } catch {
       // background refresh — keep last good snapshot
@@ -103,10 +124,29 @@
     }
   }
 
+  function patchFromP2pEvent(event: P2pUiEvent): boolean {
+    const incoming = conversationMessageFromUiEvent(event);
+    if (!incoming) return false;
+    const next = appendConversationMessage(
+      messages.filter((m) => !isOptimisticMessageId(m.content_id)),
+      incoming
+    );
+    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
+    messages = mergeConversationMessages(next, optimistic);
+    void writeCachedConversation(contactId!, next);
+    void scrollToLatest();
+    return true;
+  }
+
   onMount(() => {
     void hydrateFromCache().then(() => load());
     startConversationPolling(silentRefresh);
     return () => stopConversationPolling();
+  });
+
+  $effect(() => {
+    registerConversationEventPatch(contactId ?? null, patchFromP2pEvent);
+    return () => registerConversationEventPatch(null, null);
   });
 
   async function send() {
@@ -141,7 +181,7 @@
 
 {#if loading}
   <p class="empty">Loading…</p>
-{:else if !contact}
+{:else if !displayContact}
   <a class="chat-back-link" href="/friends">← Messages</a>
   <p class="error">Friend not found.</p>
 {:else}
@@ -149,8 +189,8 @@
   <a class="chat-back-link" href="/friends">← Messages</a>
 
   <FriendPresenceHeader
-    {contact}
-    href="/friends/{contact.id}/profile"
+    contact={displayContact}
+    href="/friends/{displayContact.id}/profile"
     cacheAge={showingCached ? cacheAge : null}
   />
 

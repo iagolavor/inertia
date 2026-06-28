@@ -37,6 +37,7 @@ export interface P2pActivityEvent {
   at: string;
   kind: string;
   detail: string;
+  content_type?: 'message' | 'post' | 'comment';
 }
 
 export interface P2pActivitySnapshot {
