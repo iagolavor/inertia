@@ -214,8 +214,9 @@ export function stopP2pLiveRecovery() {
 
 export function handleP2pUiEvent(event: P2pUiEvent) {
 	if (event.kind === 'catch_up') {
-		void refreshP2pLive();
+		void refreshP2pLive({ force: true });
 		notifyMessageRefresh();
+		notifyFeedRefresh();
 		return;
 	}
 
@@ -247,16 +248,19 @@ export function handleP2pUiEvent(event: P2pUiEvent) {
 	}
 
 	const incoming = conversationMessageFromUiEvent(event);
-	if (
-		incoming &&
-		canPatchOpenConversation(event, getOpenConversationId()) &&
-		patchConversationFromEvent(event)
-	) {
+	const openContactId = getOpenConversationId();
+	const forOpenChat =
+		incoming !== null && canPatchOpenConversation(event, openContactId);
+
+	if (forOpenChat && patchConversationFromEvent(event)) {
 		patchInboxFromEvent(event);
 		return;
 	}
 
-	if (patchInboxFromEvent(event)) return;
+	if (patchInboxFromEvent(event)) {
+		if (forOpenChat) notifyConversationRefresh();
+		return;
+	}
 
 	notifyMessageRefresh();
 }
@@ -322,10 +326,7 @@ export async function refreshP2pLive(options: { force?: boolean } = {}) {
 			resetP2pRecoveryBackoff();
 		}
 	} catch (error) {
-		if (
-			error instanceof ApiRequestError &&
-			(error.kind === 'offline' || error.kind === 'timeout')
-		) {
+		if (error instanceof ApiRequestError && error.kind === 'offline') {
 			markApiTransportOffline(error);
 			return;
 		}

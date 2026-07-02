@@ -255,7 +255,8 @@ impl Engine {
         self.p2p_status_snapshot(relay, relay_tcp_reachable).await
     }
 
-    async fn relay_tcp_reachable_cached(&self, relay_addr: &str) -> bool {
+    /// Cached or session-derived relay reachability, or None when a TCP probe is needed.
+    pub async fn relay_tcp_reachable_precheck(&self, relay_addr: &str) -> Option<bool> {
         use std::time::{Duration, Instant};
 
         const TTL: Duration = Duration::from_secs(60);
@@ -265,23 +266,33 @@ impl Engine {
             if let Some(p2p) = guard.as_ref() {
                 let connected = p2p.connected_peer_ids().await;
                 if connected.iter().any(|id| id == &relay_peer_id) {
-                    return true;
+                    return Some(true);
                 }
             }
         }
 
         let now = Instant::now();
-        {
-            let cache = self.relay_probe_cache.lock().await;
-            if let Some((reachable, at)) = *cache {
-                if now.duration_since(at) < TTL {
-                    return reachable;
-                }
+        let cache = self.relay_probe_cache.lock().await;
+        if let Some((reachable, at)) = *cache {
+            if now.duration_since(at) < TTL {
+                return Some(reachable);
             }
+        }
+        None
+    }
+
+    pub async fn store_relay_tcp_probe(&self, reachable: bool) {
+        use std::time::Instant;
+        *self.relay_probe_cache.lock().await = Some((reachable, Instant::now()));
+    }
+
+    async fn relay_tcp_reachable_cached(&self, relay_addr: &str) -> bool {
+        if let Some(reachable) = self.relay_tcp_reachable_precheck(relay_addr).await {
+            return reachable;
         }
 
         let reachable = super::probe_relay_tcp(relay_addr).await;
-        *self.relay_probe_cache.lock().await = Some((reachable, now));
+        self.store_relay_tcp_probe(reachable).await;
         reachable
     }
 

@@ -94,10 +94,14 @@ function fingerprintMessages(contacts: Contact[], inbox: InboxEntry[]): string {
 	return `${contacts.length}:${inbox.length}:${maxReceived}:${presence}`;
 }
 
-function fingerprintConversation(messages: ConversationMessage[]): string {
+export function fingerprintConversation(messages: ConversationMessage[]): string {
 	if (messages.length === 0) return 'empty';
 	const last = messages[messages.length - 1];
-	return `${messages.length}:${last.content_id}:${last.at}:${last.delivery_status ?? ''}`;
+	const ownDelivery = messages
+		.filter((message) => message.is_own)
+		.map((message) => `${message.content_id}:${message.delivery_status ?? ''}`)
+		.join(',');
+	return `${messages.length}:${last.content_id}:${last.at}:${ownDelivery}`;
 }
 
 export async function readCachedFeed(): Promise<{ items: FeedItem[]; saved_at: string } | null> {

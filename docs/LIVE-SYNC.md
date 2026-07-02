@@ -199,7 +199,7 @@ List and feed data update through **SSE inline patches** first. A **debounced HT
 
 ### P2P status refresh
 
-The header P2P pill no longer polls on a fixed interval. Status loads on **app open** and **tab visible** (`refreshP2pOnAppOpen`). If the status call fails because the API is down, the UI marks the API offline, **stops SSE**, and **stops retries** until `refreshIdentity` succeeds again. While the API is up but P2P looks unhealthy (relay unreachable, `tone` error/off), a **backoff retry** (15s to 60s) runs while the tab is visible.
+The header P2P pill no longer polls on a fixed interval. Status loads on **app open** and **tab visible** (`refreshP2pOnAppOpen`). If `/p2p/status` fails with a transport **offline** error, the UI marks the API offline, stops SSE, and stops retries until `refreshIdentity` succeeds again. Timeouts only schedule a coalesced retry and do not flip `apiOnline`. While the API is up but P2P looks unhealthy (relay unreachable, `tone` error/off), a **backoff retry** (15s to 60s) runs while the tab is visible.
 
 ```mermaid
 flowchart TD
