@@ -207,6 +207,21 @@ pub async fn log_p2p_event(
                 ..base
             }
         }
+        P2pEvent::DeliveryAcked {
+            content_id,
+            peer_id,
+        } => {
+            let contact_id =
+                delivery_ack_contact_id(store, content_id, &peer_id.to_string()).await;
+            let mut log = activity.lock().await;
+            let base = log.push_with_content_type(kind, detail, Some("message".to_string()));
+            P2pUiEvent {
+                contact_id,
+                content_id: Some(content_id.clone()),
+                content_type: Some("message".to_string()),
+                ..base
+            }
+        }
         _ => activity.lock().await.push(kind, detail),
     };
     emit_ui_event(ui_event_tx, ui_event);
@@ -218,6 +233,40 @@ fn content_type_to_str(content_type: ContentType) -> &'static str {
         ContentType::Post => "post",
         ContentType::Comment => "comment",
     }
+}
+
+async fn delivery_ack_contact_id(
+    store: &StoreHandle,
+    content_id: &str,
+    peer_id: &str,
+) -> Option<String> {
+    let from_outbox = store
+        .with(|s| s.list_outbox())
+        .await
+        .ok()
+        .and_then(|entries| {
+            entries
+                .into_iter()
+                .find(|entry| entry.content_id == content_id)
+                .map(|entry| entry.recipient_id)
+        });
+    if from_outbox.is_some() {
+        return from_outbox;
+    }
+    contact_id_for_peer(store, peer_id).await
+}
+
+async fn contact_id_for_peer(store: &StoreHandle, peer_id: &str) -> Option<String> {
+    store
+        .with(|s| s.list_contacts())
+        .await
+        .ok()
+        .and_then(|contacts| {
+            contacts
+                .into_iter()
+                .find(|contact| contact.peer_id.as_deref() == Some(peer_id))
+                .map(|contact| contact.id)
+        })
 }
 
 async fn contact_label(store: &StoreHandle, peer_or_signing_id: &str) -> String {
@@ -290,6 +339,26 @@ mod tests {
         assert_eq!(ui.contact_id.as_deref(), Some("contact-456"));
         assert_eq!(ui.content_id.as_deref(), Some("content-123"));
         assert_eq!(ui.body.as_deref(), Some("hello there"));
+        assert_eq!(ui.content_type.as_deref(), Some("message"));
+    }
+
+    #[tokio::test]
+    async fn log_p2p_event_broadcasts_delivery_ack_payload() {
+        let dir = tempdir().expect("tempdir");
+        let store = StoreHandle::open(dir.path()).expect("open store");
+        let activity = Arc::new(Mutex::new(ActivityLog::new()));
+        let (tx, mut rx) = broadcast::channel(4);
+
+        let event = P2pEvent::DeliveryAcked {
+            content_id: "content-789".into(),
+            peer_id: libp2p::PeerId::random(),
+        };
+
+        log_p2p_event(&activity, &store, &event, &tx).await;
+
+        let ui = rx.recv().await.expect("ui event");
+        assert_eq!(ui.kind, "delivery_acked");
+        assert_eq!(ui.content_id.as_deref(), Some("content-789"));
         assert_eq!(ui.content_type.as_deref(), Some("message"));
     }
 

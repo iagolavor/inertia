@@ -5,7 +5,7 @@
   import DmThreadList from '$lib/components/DmThreadList.svelte';
   import { buildDmThreads } from '$lib/dmThreads';
   import { identityState } from '$lib/identity.svelte';
-import { formatCacheAge, readCachedMessages, writeCachedMessages } from '$lib/local-cache';
+import { formatCacheAge, readCachedMessages } from '$lib/local-cache';
 import { subscribeInboxSync, seedInboxSnapshot } from '$lib/messages-sync';
 
   let contacts = $state<Contact[]>([]);
@@ -46,7 +46,6 @@ import { subscribeInboxSync, seedInboxSnapshot } from '$lib/messages-sync';
       [contacts, inbox] = await Promise.all([api.listContacts(), api.listInbox()]);
       showingCached = false;
       cacheAge = null;
-      await writeCachedMessages(contacts, inbox);
       seedInboxSnapshot({ contacts, inbox });
     } catch (e) {
       const hadCache = await hydrateFromCache();

@@ -10,6 +10,11 @@ import {
 } from '$lib/p2p-event-handlers';
 import { patchFeedFromEvent } from '$lib/feed-sync';
 import { patchInboxFromEvent } from '$lib/messages-sync';
+import {
+	getOpenConversationId,
+	patchConversationFromEvent,
+	patchDeliveryFromEvent
+} from '$lib/conversation-sync';
 
 const P2P_HEARTBEAT_MS = 60_000;
 const FEED_POLL_MS = 12_000;
@@ -25,7 +30,6 @@ const MESSAGE_ACTIVITY_KINDS = new Set(['message_received', 'delivery_acked', 'o
 type FeedRefreshFn = () => void | Promise<void>;
 type InboxRefreshFn = () => void | Promise<void>;
 type ConversationRefreshFn = () => void | Promise<void>;
-type ConversationPatchFn = (event: P2pUiEvent) => boolean;
 type RefreshChannel = 'feed' | 'inbox' | 'conversation';
 
 type ChannelState = {
@@ -42,8 +46,6 @@ let lastPendingOutbox: number | null = null;
 let feedRefresh: FeedRefreshFn | null = null;
 let inboxRefresh: InboxRefreshFn | null = null;
 let conversationRefresh: ConversationRefreshFn | null = null;
-let conversationPatch: ConversationPatchFn | null = null;
-let openConversationContactId: string | null = null;
 let pulseUntil = 0;
 
 const channelState: Record<RefreshChannel, ChannelState> = {
@@ -66,14 +68,6 @@ export function registerInboxRefresh(fn: InboxRefreshFn | null) {
 
 export function registerConversationRefresh(fn: ConversationRefreshFn | null) {
 	conversationRefresh = fn;
-}
-
-export function registerConversationEventPatch(
-	contactId: string | null,
-	fn: ConversationPatchFn | null
-) {
-	openConversationContactId = contactId;
-	conversationPatch = fn;
 }
 
 function refreshFnForChannel(channel: RefreshChannel): (() => void | Promise<void>) | null {
@@ -187,11 +181,15 @@ export function handleP2pUiEvent(event: P2pUiEvent) {
 
 	pulseUntil = Date.now() + 2_500;
 
+	if (patchDeliveryFromEvent(event)) {
+		return;
+	}
+
 	const incoming = conversationMessageFromUiEvent(event);
 	if (
 		incoming &&
-		canPatchOpenConversation(event, openConversationContactId) &&
-		conversationPatch?.(event)
+		canPatchOpenConversation(event, getOpenConversationId()) &&
+		patchConversationFromEvent(event)
 	) {
 		patchInboxFromEvent(event);
 		return;

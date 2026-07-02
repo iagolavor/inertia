@@ -11,7 +11,6 @@
   import {
     refreshMessagesOnVisible,
     refreshP2pLive,
-    registerConversationEventPatch,
     startPresencePolling,
     stopPresencePolling
   } from '$lib/presence.svelte';

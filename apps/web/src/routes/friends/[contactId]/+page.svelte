@@ -16,20 +16,22 @@
   import { identityState } from '$lib/identity.svelte';
   import { takeConversationPrefetch, type ConversationPrefetch } from '$lib/conversation-open';
   import {
+    applyServerConversation,
+    refreshConversationSilently,
+    seedConversationSnapshot,
+    setOpenConversation,
+    subscribeConversationSync
+  } from '$lib/conversation-sync';
+  import {
     formatCacheAge,
     readCachedConversation,
-    readCachedMessages,
-    writeCachedConversation
+    readCachedMessages
   } from '$lib/local-cache';
-  import { startConversationPolling, stopConversationPolling, registerConversationEventPatch } from '$lib/presence.svelte';
-  import {
-    appendConversationMessage,
-    conversationMessageFromUiEvent,
-    type P2pUiEvent
-  } from '$lib/p2p-event-handlers';
+  import { startConversationPolling, stopConversationPolling } from '$lib/presence.svelte';
 
   let contact = $state<Contact | null>(null);
-  let messages = $state<ConversationMessage[]>([]);
+  let durable = $state<ConversationMessage[]>([]);
+  let optimistics = $state<ConversationMessage[]>([]);
   let loading = $state(true);
   let sending = $state(false);
   let messageBody = $state('');
@@ -40,6 +42,7 @@
   let loadSeq = 0;
 
   const contactId = $derived(page.params.contactId);
+  const messages = $derived(mergeConversationMessages(durable, optimistics));
 
   const displayContact = $derived(
     contact && identityState.p2pStatus
@@ -47,13 +50,19 @@
       : contact
   );
 
-  function applyServerMessages(serverMessages: ConversationMessage[]) {
-    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
-    const serverIds = new Set(serverMessages.map((m) => m.content_id));
-    const ssePatches = messages.filter(
-      (m) => !isOptimisticMessageId(m.content_id) && !serverIds.has(m.content_id)
-    );
-    messages = mergeConversationMessages([...serverMessages, ...ssePatches], optimistic);
+  function pruneOptimistics(
+    nextDurable: ConversationMessage[],
+    pending: ConversationMessage[]
+  ): ConversationMessage[] {
+    return pending.filter((opt) => {
+      if (!isOptimisticMessageId(opt.content_id)) return false;
+      return !nextDurable.some(
+        (row) =>
+          row.is_own &&
+          row.body === opt.body &&
+          Math.abs(new Date(row.at).getTime() - new Date(opt.at).getTime()) < 60_000
+      );
+    });
   }
 
   async function scrollToLatest() {
@@ -72,7 +81,7 @@
       contact = rosterCache.contacts.find((c) => c.id === contactId) ?? contact;
     }
     if (!msgCache) return false;
-    messages = msgCache.messages;
+    seedConversationSnapshot(contactId, msgCache.messages);
     cacheAge = formatCacheAge(msgCache.saved_at);
     showingCached = true;
     return true;
@@ -84,17 +93,9 @@
     const resolved =
       serverMessages ?? (await api.listConversationMessages(contactId));
     if (seq !== loadSeq) return;
-    const prevCount = messages.length;
-    applyServerMessages(resolved);
-    await writeCachedConversation(
-      contactId,
-      messages.filter((m) => !isOptimisticMessageId(m.content_id))
-    );
+    applyServerConversation(contactId, resolved);
     showingCached = false;
     cacheAge = null;
-    if (messages.length > prevCount) {
-      await scrollToLatest();
-    }
   }
 
   async function fetchContactAndMessages(prefetch?: ConversationPrefetch) {
@@ -121,9 +122,9 @@
   }
 
   async function silentRefresh() {
-    if (!contactId || !identityState.apiOnline) return;
+    if (!contactId) return;
     try {
-      await loadConversation();
+      await refreshConversationSilently(contactId);
     } catch {
       // background refresh — keep last good snapshot
     }
@@ -157,20 +158,6 @@
     }
   }
 
-  function patchFromP2pEvent(event: P2pUiEvent): boolean {
-    const incoming = conversationMessageFromUiEvent(event);
-    if (!incoming) return false;
-    const next = appendConversationMessage(
-      messages.filter((m) => !isOptimisticMessageId(m.content_id)),
-      incoming
-    );
-    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
-    messages = mergeConversationMessages(next, optimistic);
-    void writeCachedConversation(contactId!, next);
-    void scrollToLatest();
-    return true;
-  }
-
   onMount(() => {
     startConversationPolling(silentRefresh);
     return () => stopConversationPolling();
@@ -179,12 +166,24 @@
   $effect(() => {
     const id = contactId;
     if (!id) return;
-    void hydrateFromCache().then(() => load());
-  });
 
-  $effect(() => {
-    registerConversationEventPatch(contactId ?? null, patchFromP2pEvent);
-    return () => registerConversationEventPatch(null, null);
+    optimistics = [];
+    setOpenConversation(id);
+    let lastCount = 0;
+
+    const unsub = subscribeConversationSync((next) => {
+      const grew = next.length > lastCount;
+      lastCount = next.length;
+      durable = next;
+      if (grew) void scrollToLatest();
+    });
+
+    void hydrateFromCache().then(() => load());
+
+    return () => {
+      unsub();
+      setOpenConversation(null);
+    };
   });
 
   async function send() {
@@ -192,7 +191,7 @@
 
     const body = messageBody.trim();
     const optimistic = createOptimisticMessage(body);
-    messages = [...messages, optimistic];
+    optimistics = [...optimistics, optimistic];
     messageBody = '';
     error = '';
     sending = true;
@@ -200,10 +199,11 @@
 
     try {
       await api.sendMessage(contactId, body);
-      await loadConversation();
+      await refreshConversationSilently(contactId);
+      optimistics = pruneOptimistics(durable, optimistics);
       await scrollToLatest();
     } catch (e) {
-      messages = messages.map((m) =>
+      optimistics = optimistics.map((m) =>
         m.content_id === optimistic.content_id ? { ...m, delivery_status: 'failed' } : m
       );
       error = e instanceof ApiRequestError ? e.message : 'Send failed';
