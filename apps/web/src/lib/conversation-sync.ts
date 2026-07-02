@@ -91,6 +91,29 @@ export function patchConversationFromEvent(event: P2pUiEvent): boolean {
 	return true;
 }
 
+/** Patch sent ticks on one own message when the outbox delivers. */
+export function patchSentFromEvent(event: P2pUiEvent): boolean {
+	if (event.kind !== 'message_sent' || !event.content_id) return false;
+	if (!openContactId || !durableMessages) return false;
+	if (event.contact_id && event.contact_id !== openContactId) return false;
+
+	const index = durableMessages.findIndex(
+		(message) => message.content_id === event.content_id
+	);
+	if (index < 0) return false;
+
+	const row = durableMessages[index];
+	if (!row.is_own) return false;
+	if (row.delivery_status === 'sent' || row.delivery_status === 'delivered') {
+		return true;
+	}
+
+	const next = [...durableMessages];
+	next[index] = { ...row, delivery_status: 'sent' };
+	emit(openContactId, next);
+	return true;
+}
+
 /** Patch delivery ticks on one own message when the recipient acks. */
 export function patchDeliveryFromEvent(event: P2pUiEvent): boolean {
 	if (event.kind !== 'delivery_acked' || !event.content_id) return false;

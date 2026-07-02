@@ -8,17 +8,28 @@ export interface P2pUiEvent {
 	contact_id?: string;
 	content_id?: string;
 	body?: string;
-	content_type?: 'message' | 'post';
+	content_type?: 'message' | 'post' | 'comment';
 	expires_at?: string;
+	post_id?: string;
+	connected_peer_ids?: string[];
+	tone?: string;
+	pending_outbox_count?: number;
+	dial_in_progress?: boolean;
+	layers?: import('$lib/api').P2pLayers;
+	labels?: import('$lib/api').P2pLayerLabels;
 }
 
 const MESSAGE_REFRESH_KINDS = new Set([
 	'message_received',
-	'delivery_acked',
-	'outbox_flush'
+	'message_sent',
+	'delivery_acked'
 ]);
 
 const PEER_REFRESH_KINDS = new Set(['peer_connected', 'peer_disconnected']);
+
+const CONTACT_REFRESH_KINDS = new Set(['friend_request']);
+
+const FEED_REFRESH_KINDS = new Set(['comment_received', 'blob_sync']);
 
 export function shouldRefreshMessagesFromEvent(event: P2pUiEvent): boolean {
 	if (event.kind === 'catch_up') return true;
@@ -29,8 +40,17 @@ export function shouldRefreshPeersFromEvent(event: P2pUiEvent): boolean {
 	return PEER_REFRESH_KINDS.has(event.kind);
 }
 
+export function shouldRefreshContactsFromEvent(event: P2pUiEvent): boolean {
+	return CONTACT_REFRESH_KINDS.has(event.kind);
+}
+
 export function shouldRefreshFeedFromEvent(event: P2pUiEvent): boolean {
+	if (FEED_REFRESH_KINDS.has(event.kind)) return true;
 	return event.kind === 'message_received' && event.content_type === 'post';
+}
+
+export function isP2pStatusChangedEvent(event: P2pUiEvent): boolean {
+	return event.kind === 'p2p_status_changed';
 }
 
 export function conversationMessageFromUiEvent(event: P2pUiEvent): ConversationMessage | null {

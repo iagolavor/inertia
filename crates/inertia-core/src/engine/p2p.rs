@@ -60,6 +60,7 @@ impl Engine {
         self.activity.lock().await.set_dial_in_progress(true);
         let result = self.redial_known_peers_inner().await;
         self.activity.lock().await.set_dial_in_progress(false);
+        self.emit_p2p_status_changed().await;
         result
     }
 
@@ -210,6 +211,16 @@ impl Engine {
         );
         let labels = p2p_status::build_labels(&layers);
         let tone = p2p_status::visual_tone_str(p2p_status::visual_tone(&layers)).to_string();
+
+        {
+            let mut hints = self.relay_status_hints.lock().await;
+            activity::refresh_relay_hints_from_store(
+                &self.store,
+                &mut hints,
+                relay_tcp_reachable,
+            )
+            .await;
+        }
 
         P2pStatus {
             running,

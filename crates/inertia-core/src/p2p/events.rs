@@ -22,6 +22,12 @@ pub enum P2pEvent {
         hash: String,
         peer_id: PeerId,
     },
+    CommentReceived {
+        post_id: String,
+        content_id: String,
+        author_id: String,
+        body: String,
+    },
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
 }

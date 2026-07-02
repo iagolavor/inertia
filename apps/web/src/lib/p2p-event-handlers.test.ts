@@ -4,6 +4,7 @@ import {
 	appendConversationMessage,
 	canPatchOpenConversation,
 	conversationMessageFromUiEvent,
+	isP2pStatusChangedEvent,
 	shouldRefreshFeedFromEvent,
 	shouldRefreshMessagesFromEvent,
 	shouldRefreshPeersFromEvent,
@@ -25,8 +26,16 @@ const baseEvent: P2pUiEvent = {
 describe('p2p event handlers', () => {
 	it('flags message refresh kinds', () => {
 		expect(shouldRefreshMessagesFromEvent({ ...baseEvent, kind: 'message_received' })).toBe(true);
+		expect(shouldRefreshMessagesFromEvent({ ...baseEvent, kind: 'message_sent' })).toBe(true);
 		expect(shouldRefreshMessagesFromEvent({ ...baseEvent, kind: 'delivery_acked' })).toBe(true);
 		expect(shouldRefreshMessagesFromEvent({ ...baseEvent, kind: 'dial' })).toBe(false);
+	});
+
+	it('flags feed refresh for comments and blob sync', () => {
+		expect(
+			shouldRefreshFeedFromEvent({ ...baseEvent, kind: 'comment_received', content_type: 'comment' })
+		).toBe(true);
+		expect(shouldRefreshFeedFromEvent({ ...baseEvent, kind: 'blob_sync' })).toBe(true);
 	});
 
 	it('flags peer refresh kinds', () => {
@@ -59,5 +68,10 @@ describe('p2p event handlers', () => {
 		const merged = appendConversationMessage([], first);
 		expect(merged).toHaveLength(1);
 		expect(appendConversationMessage(merged, first)).toHaveLength(1);
+	});
+
+	it('detects p2p status changed events', () => {
+		expect(isP2pStatusChangedEvent({ ...baseEvent, kind: 'p2p_status_changed' })).toBe(true);
+		expect(isP2pStatusChangedEvent(baseEvent)).toBe(false);
 	});
 });

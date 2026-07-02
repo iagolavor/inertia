@@ -16,6 +16,7 @@ import {
 	applyServerConversation,
 	patchConversationFromEvent,
 	patchDeliveryFromEvent,
+	patchSentFromEvent,
 	seedConversationSnapshot,
 	setOpenConversation,
 	subscribeConversationSync
@@ -105,6 +106,24 @@ describe('conversation-sync', () => {
 		};
 
 		expect(patchConversationFromEvent(event)).toBe(true);
+	});
+
+	it('patches sent status for one own message', () => {
+		setOpenConversation('contact-1');
+		seedConversationSnapshot('contact-1', [
+			{ ...ownMessage, delivery_status: 'pending' }
+		]);
+
+		const event: P2pUiEvent = {
+			at: '2026-06-27T12:01:30.000Z',
+			kind: 'message_sent',
+			detail: 'Sent msg-own-1 to Alice',
+			contact_id: 'contact-1',
+			content_id: 'msg-own-1',
+			content_type: 'message'
+		};
+
+		expect(patchSentFromEvent(event)).toBe(true);
 	});
 
 	it('patches delivery status for one own message', () => {

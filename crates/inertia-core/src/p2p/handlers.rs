@@ -277,6 +277,12 @@ async fn process_incoming_envelope(
             store
                 .with_mut(|s| s.insert_post_comment(&comment))
                 .await?;
+            let _ = event_tx.send(P2pEvent::CommentReceived {
+                post_id: comment.post_id.clone(),
+                content_id: comment.id.clone(),
+                author_id: comment.author_id.clone(),
+                body: comment.body.clone(),
+            });
             return Ok(None);
         }
     };

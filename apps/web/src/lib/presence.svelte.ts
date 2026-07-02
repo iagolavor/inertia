@@ -4,9 +4,11 @@ import { identityState } from '$lib/identity.svelte';
 import {
 	canPatchOpenConversation,
 	conversationMessageFromUiEvent,
+	shouldRefreshContactsFromEvent,
 	shouldRefreshFeedFromEvent,
 	shouldRefreshMessagesFromEvent,
 	shouldRefreshPeersFromEvent,
+	isP2pStatusChangedEvent,
 	type P2pUiEvent
 } from '$lib/p2p-event-handlers';
 import { patchFeedFromEvent } from '$lib/feed-sync';
@@ -14,7 +16,8 @@ import { patchInboxFromEvent } from '$lib/messages-sync';
 import {
 	getOpenConversationId,
 	patchConversationFromEvent,
-	patchDeliveryFromEvent
+	patchDeliveryFromEvent,
+	patchSentFromEvent
 } from '$lib/conversation-sync';
 
 const REFRESH_DEBOUNCE_MS = 400;
@@ -24,7 +27,11 @@ const P2P_REFRESH_MIN_GAP_MS = 15_000;
 
 export type P2pUiEventPayload = P2pUiEvent;
 
-const MESSAGE_ACTIVITY_KINDS = new Set(['message_received', 'delivery_acked', 'outbox_flush']);
+const MESSAGE_ACTIVITY_KINDS = new Set([
+	'message_received',
+	'message_sent',
+	'delivery_acked'
+]);
 
 type FeedRefreshFn = () => void | Promise<void>;
 type InboxRefreshFn = () => void | Promise<void>;
@@ -212,7 +219,63 @@ export function stopP2pLiveRecovery() {
 	resetP2pRecoveryBackoff();
 }
 
+function applyP2pStatusFromEvent(event: P2pUiEvent) {
+	if (!identityState.p2pStatus) return;
+
+	const status = identityState.p2pStatus;
+	if (event.connected_peer_ids) {
+		status.connected_peer_ids = event.connected_peer_ids;
+		lastConnectedKey = event.connected_peer_ids.slice().sort().join(',');
+	}
+	if (event.tone) {
+		status.tone = event.tone;
+		lastTone = event.tone;
+	}
+	if (event.pending_outbox_count !== undefined) {
+		status.pending_outbox_count = event.pending_outbox_count;
+		status.layers.pending_outbox_count = event.pending_outbox_count;
+		lastPendingOutbox = event.pending_outbox_count;
+	}
+	if (event.dial_in_progress !== undefined) {
+		status.dial_in_progress = event.dial_in_progress;
+	}
+	if (event.layers) {
+		status.layers = event.layers;
+	}
+	if (event.labels) {
+		status.labels = event.labels;
+	}
+	if (event.at) {
+		status.last_activity_at = event.at;
+		lastActivityAt = event.at;
+	}
+
+	const peersChanged = Boolean(event.connected_peer_ids);
+	const outboxChanged = event.pending_outbox_count !== undefined;
+	if (peersChanged || outboxChanged || event.tone) {
+		pulseUntil = Date.now() + 2_500;
+	}
+	if (peersChanged) {
+		notifyInboxRefresh();
+		notifyConversationRefresh();
+	}
+	if (outboxChanged) {
+		notifyMessageRefresh();
+	}
+
+	if (p2pStatusNeedsRecovery(status)) {
+		scheduleP2pRecoveryRetry();
+	} else {
+		resetP2pRecoveryBackoff();
+	}
+}
+
 export function handleP2pUiEvent(event: P2pUiEvent) {
+	if (isP2pStatusChangedEvent(event)) {
+		applyP2pStatusFromEvent(event);
+		return;
+	}
+
 	if (event.kind === 'catch_up') {
 		void refreshP2pLive({ force: true });
 		notifyMessageRefresh();
@@ -229,7 +292,11 @@ export function handleP2pUiEvent(event: P2pUiEvent) {
 		pulseUntil = Date.now() + 2_500;
 		notifyInboxRefresh();
 		notifyConversationRefresh();
-		void refreshP2pLive();
+		return;
+	}
+
+	if (shouldRefreshContactsFromEvent(event)) {
+		notifyInboxRefresh();
 		return;
 	}
 
@@ -242,6 +309,10 @@ export function handleP2pUiEvent(event: P2pUiEvent) {
 	if (!shouldRefreshMessagesFromEvent(event)) return;
 
 	pulseUntil = Date.now() + 2_500;
+
+	if (patchSentFromEvent(event)) {
+		return;
+	}
 
 	if (patchDeliveryFromEvent(event)) {
 		return;
@@ -349,6 +420,14 @@ export function formatActivityLine(event: P2pStatus['recent_activity'][number]):
 		case 'blob_sync':
 			return event.detail;
 		case 'outbox_flush':
+			return event.detail;
+		case 'message_sent':
+			return event.detail;
+		case 'p2p_status_changed':
+			return event.detail;
+		case 'comment_received':
+			return event.detail;
+		case 'friend_request':
 			return event.detail;
 		case 'dial':
 		case 'dial_failed':
