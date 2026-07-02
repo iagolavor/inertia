@@ -10,7 +10,6 @@
   import { identityState, refreshIdentity } from '$lib/identity.svelte';
   import {
     refreshMessagesOnVisible,
-    refreshP2pLive,
     refreshP2pOnAppOpen,
     stopP2pLiveRecovery
   } from '$lib/presence.svelte';
@@ -33,11 +32,19 @@
     }
   });
 
+  $effect(() => {
+    if (!identityState.apiOnline || !identityState.identity) {
+      stopP2pEventStream();
+      stopP2pLiveRecovery();
+      return;
+    }
+    startP2pEventStream();
+  });
+
   onMount(() => {
     initTheme();
     refreshIdentity();
     refreshP2pOnAppOpen();
-    startP2pEventStream();
 
     function onVisible() {
       if (document.visibilityState === 'visible') {

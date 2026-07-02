@@ -1,6 +1,7 @@
 import { getApiBase } from '$lib/api-base';
 import {
 	handleP2pUiEvent,
+	notifyP2pStreamDisconnected,
 	refreshMessagesOnVisible,
 	refreshP2pLive,
 	type P2pUiEventPayload
@@ -43,7 +44,7 @@ export function startP2pEventStream() {
 	};
 
 	source.onerror = () => {
-		void refreshP2pLive();
+		notifyP2pStreamDisconnected();
 	};
 }
 

@@ -1,4 +1,5 @@
 import { api, type P2pStatus } from '$lib/api';
+import { ApiRequestError } from '$lib/api-errors';
 import { identityState } from '$lib/identity.svelte';
 import {
 	canPatchOpenConversation,
@@ -17,8 +18,9 @@ import {
 } from '$lib/conversation-sync';
 
 const REFRESH_DEBOUNCE_MS = 400;
-const P2P_RECOVERY_INITIAL_MS = 5_000;
+const P2P_RECOVERY_INITIAL_MS = 15_000;
 const P2P_RECOVERY_MAX_MS = 60_000;
+const P2P_REFRESH_MIN_GAP_MS = 15_000;
 
 export type P2pUiEventPayload = P2pUiEvent;
 
@@ -44,6 +46,8 @@ let conversationRefresh: ConversationRefreshFn | null = null;
 let pulseUntil = 0;
 let p2pRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
 let p2pRecoveryDelayMs = P2P_RECOVERY_INITIAL_MS;
+let p2pRefreshInFlight = false;
+let lastP2pRefreshAttemptAt = 0;
 
 const channelState: Record<RefreshChannel, ChannelState> = {
 	feed: { inFlight: false, debounceTimer: null },
@@ -173,6 +177,7 @@ function resetP2pRecoveryBackoff() {
 }
 
 function scheduleP2pRecoveryRetry() {
+	if (!identityState.apiOnline || !identityState.identity) return;
 	if (p2pRecoveryTimer) return;
 	if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
 
@@ -183,11 +188,24 @@ function scheduleP2pRecoveryRetry() {
 	p2pRecoveryDelayMs = Math.min(p2pRecoveryDelayMs * 2, P2P_RECOVERY_MAX_MS);
 }
 
+function markApiTransportOffline(error: ApiRequestError) {
+	identityState.apiOnline = false;
+	identityState.apiError = { kind: error.kind, message: error.message };
+	identityState.p2pInfo = null;
+	identityState.p2pStatus = null;
+	resetP2pRecoveryBackoff();
+}
+
+/** SSE disconnect while the API is still thought to be online. */
+export function notifyP2pStreamDisconnected() {
+	scheduleP2pRecoveryRetry();
+}
+
 /** Refresh P2P status when the app opens or the tab becomes visible again. */
 export function refreshP2pOnAppOpen() {
 	lastPendingOutbox = null;
 	resetP2pRecoveryBackoff();
-	void refreshP2pLive();
+	void refreshP2pLive({ force: true });
 }
 
 export function stopP2pLiveRecovery() {
@@ -248,8 +266,18 @@ export function refreshMessagesOnVisible() {
 	notifyMessageRefresh();
 }
 
-export async function refreshP2pLive() {
+export async function refreshP2pLive(options: { force?: boolean } = {}) {
 	if (!identityState.apiOnline || !identityState.identity) return;
+
+	const now = Date.now();
+	if (!options.force) {
+		if (p2pRefreshInFlight) return;
+		if (now - lastP2pRefreshAttemptAt < P2P_REFRESH_MIN_GAP_MS) return;
+	}
+	if (p2pRefreshInFlight) return;
+
+	p2pRefreshInFlight = true;
+	lastP2pRefreshAttemptAt = now;
 
 	try {
 		const status = await api.p2pStatus();
@@ -293,8 +321,17 @@ export async function refreshP2pLive() {
 		} else {
 			resetP2pRecoveryBackoff();
 		}
-	} catch {
+	} catch (error) {
+		if (
+			error instanceof ApiRequestError &&
+			(error.kind === 'offline' || error.kind === 'timeout')
+		) {
+			markApiTransportOffline(error);
+			return;
+		}
 		scheduleP2pRecoveryRetry();
+	} finally {
+		p2pRefreshInFlight = false;
 	}
 }
 
