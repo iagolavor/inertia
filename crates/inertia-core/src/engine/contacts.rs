@@ -69,6 +69,16 @@ impl Engine {
         Ok(contacts)
     }
 
+    pub async fn get_contact(&self, contact_id: &str) -> CoreResult<Contact> {
+        let mut contact = self
+            .store
+            .with(|store| store.get_contact(contact_id))
+            .await?;
+        let connected = self.connected_friend_peer_ids().await;
+        contact.connection_state = presence_for_contact(&contact, &connected);
+        Ok(contact)
+    }
+
     pub async fn list_conversation_messages(
         &self,
         contact_id: &str,

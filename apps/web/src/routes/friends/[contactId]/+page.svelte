@@ -14,6 +14,7 @@
     timeAgo
   } from '$lib/dmThreads';
   import { identityState } from '$lib/identity.svelte';
+  import { takeConversationPrefetch, type ConversationPrefetch } from '$lib/conversation-open';
   import {
     formatCacheAge,
     readCachedConversation,
@@ -27,7 +28,7 @@
     type P2pUiEvent
   } from '$lib/p2p-event-handlers';
 
-  let contacts = $state<Contact[]>([]);
+  let contact = $state<Contact | null>(null);
   let messages = $state<ConversationMessage[]>([]);
   let loading = $state(true);
   let sending = $state(false);
@@ -40,12 +41,20 @@
 
   const contactId = $derived(page.params.contactId);
 
-  const contact = $derived(contacts.find((c) => c.id === contactId) ?? null);
   const displayContact = $derived(
     contact && identityState.p2pStatus
       ? contactWithLivePresence(contact, identityState.p2pStatus.connected_peer_ids)
       : contact
   );
+
+  function applyServerMessages(serverMessages: ConversationMessage[]) {
+    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
+    const serverIds = new Set(serverMessages.map((m) => m.content_id));
+    const ssePatches = messages.filter(
+      (m) => !isOptimisticMessageId(m.content_id) && !serverIds.has(m.content_id)
+    );
+    messages = mergeConversationMessages([...serverMessages, ...ssePatches], optimistic);
+  }
 
   async function scrollToLatest() {
     await tick();
@@ -59,7 +68,9 @@
       readCachedConversation(contactId),
       readCachedMessages()
     ]);
-    if (rosterCache) contacts = rosterCache.contacts;
+    if (rosterCache) {
+      contact = rosterCache.contacts.find((c) => c.id === contactId) ?? contact;
+    }
     if (!msgCache) return false;
     messages = msgCache.messages;
     cacheAge = formatCacheAge(msgCache.saved_at);
@@ -67,24 +78,46 @@
     return true;
   }
 
-  async function loadConversation() {
+  async function loadConversation(serverMessages?: ConversationMessage[]) {
     if (!contactId || !identityState.apiOnline) return;
     const seq = ++loadSeq;
-    const serverMessages = await api.listConversationMessages(contactId);
+    const resolved =
+      serverMessages ?? (await api.listConversationMessages(contactId));
     if (seq !== loadSeq) return;
     const prevCount = messages.length;
-    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
-    const serverIds = new Set(serverMessages.map((m) => m.content_id));
-    const ssePatches = messages.filter(
-      (m) => !isOptimisticMessageId(m.content_id) && !serverIds.has(m.content_id)
+    applyServerMessages(resolved);
+    await writeCachedConversation(
+      contactId,
+      messages.filter((m) => !isOptimisticMessageId(m.content_id))
     );
-    messages = mergeConversationMessages([...serverMessages, ...ssePatches], optimistic);
-    await writeCachedConversation(contactId, messages.filter((m) => !isOptimisticMessageId(m.content_id)));
     showingCached = false;
     cacheAge = null;
     if (messages.length > prevCount) {
       await scrollToLatest();
     }
+  }
+
+  async function fetchContactAndMessages(prefetch?: ConversationPrefetch) {
+    if (!contactId) return;
+
+    if (prefetch) {
+      contact = prefetch.contact;
+      await scrollToLatest();
+      const [freshContact, serverMessages] = await Promise.all([
+        prefetch.contactPromise,
+        prefetch.messagesPromise
+      ]);
+      contact = freshContact;
+      await loadConversation(serverMessages);
+      return;
+    }
+
+    const [freshContact, serverMessages] = await Promise.all([
+      api.getContact(contactId),
+      api.listConversationMessages(contactId)
+    ]);
+    contact = freshContact;
+    await loadConversation(serverMessages);
   }
 
   async function silentRefresh() {
@@ -111,8 +144,8 @@
     loading = true;
     error = '';
     try {
-      contacts = await api.listContacts();
-      await loadConversation();
+      const prefetch = takeConversationPrefetch(contactId);
+      await fetchContactAndMessages(prefetch ?? undefined);
     } catch (e) {
       const hadCache = await hydrateFromCache();
       if (!hadCache) {
@@ -139,9 +172,14 @@
   }
 
   onMount(() => {
-    void hydrateFromCache().then(() => load());
     startConversationPolling(silentRefresh);
     return () => stopConversationPolling();
+  });
+
+  $effect(() => {
+    const id = contactId;
+    if (!id) return;
+    void hydrateFromCache().then(() => load());
   });
 
   $effect(() => {

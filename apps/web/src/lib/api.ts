@@ -334,6 +334,8 @@ export const api = {
       ACCEPT_INVITE_TIMEOUT_MS
     ),
   listContacts: () => request<Contact[]>('/contacts'),
+  getContact: (contactId: string) =>
+    request<Contact>(`/contacts/${encodeURIComponent(contactId)}`),
   listConversationMessages: (contactId: string) =>
     request<ConversationMessage[]>(`/contacts/${encodeURIComponent(contactId)}/messages`),
   listInbox: () => request<InboxEntry[]>('/inbox'),
