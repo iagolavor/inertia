@@ -64,7 +64,7 @@ export function applyServerConversation(
 	emit(contactId, merged);
 }
 
-/** Background fetch used by SSE + polling while a conversation route is open. */
+/** Background fetch used by SSE fallback while a conversation route is open. */
 export async function refreshConversationSilently(contactId: string): Promise<void> {
 	if (!identityState.identity || !identityState.apiOnline) return;
 	if (contactId !== openContactId) return;

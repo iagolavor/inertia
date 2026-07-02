@@ -29,7 +29,7 @@ function emit(snapshot: InboxSnapshot) {
 	for (const listener of listeners) listener(snapshot);
 }
 
-/** Background fetch used by SSE + polling while any /friends route is open. */
+/** Background fetch used by SSE fallback while any /friends route is open. */
 export async function refreshInboxSilently(): Promise<void> {
 	if (!identityState.identity || !identityState.apiOnline) return;
 	try {

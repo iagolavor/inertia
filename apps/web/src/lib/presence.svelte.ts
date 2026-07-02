@@ -16,12 +16,9 @@ import {
 	patchDeliveryFromEvent
 } from '$lib/conversation-sync';
 
-const P2P_HEARTBEAT_MS = 60_000;
-const FEED_POLL_MS = 12_000;
-const INBOX_POLL_MS = 30_000;
-const CONVERSATION_POLL_MS = 15_000;
 const REFRESH_DEBOUNCE_MS = 400;
-const TIMER_MIN_GAP_MS = 2_000;
+const P2P_RECOVERY_INITIAL_MS = 5_000;
+const P2P_RECOVERY_MAX_MS = 60_000;
 
 export type P2pUiEventPayload = P2pUiEvent;
 
@@ -35,10 +32,8 @@ type RefreshChannel = 'feed' | 'inbox' | 'conversation';
 type ChannelState = {
 	inFlight: boolean;
 	debounceTimer: ReturnType<typeof setTimeout> | null;
-	lastFetchedAt: number;
 };
 
-let pollTimer: ReturnType<typeof setInterval> | null = null;
 let lastConnectedKey = '';
 let lastActivityAt: string | null = null;
 let lastTone = '';
@@ -47,11 +42,13 @@ let feedRefresh: FeedRefreshFn | null = null;
 let inboxRefresh: InboxRefreshFn | null = null;
 let conversationRefresh: ConversationRefreshFn | null = null;
 let pulseUntil = 0;
+let p2pRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+let p2pRecoveryDelayMs = P2P_RECOVERY_INITIAL_MS;
 
 const channelState: Record<RefreshChannel, ChannelState> = {
-	feed: { inFlight: false, debounceTimer: null, lastFetchedAt: 0 },
-	inbox: { inFlight: false, debounceTimer: null, lastFetchedAt: 0 },
-	conversation: { inFlight: false, debounceTimer: null, lastFetchedAt: 0 }
+	feed: { inFlight: false, debounceTimer: null },
+	inbox: { inFlight: false, debounceTimer: null },
+	conversation: { inFlight: false, debounceTimer: null }
 };
 
 export function presencePulseActive(): boolean {
@@ -89,21 +86,19 @@ function clearChannelDebounce(channel: RefreshChannel) {
 	}
 }
 
-async function executeChannelRefresh(channel: RefreshChannel, timerDriven: boolean) {
+async function executeChannelRefresh(channel: RefreshChannel) {
 	const fn = refreshFnForChannel(channel);
 	if (!fn) return;
 
 	const state = channelState[channel];
 	if (state.inFlight) {
-		scheduleChannelRefresh(channel, timerDriven);
+		scheduleChannelRefresh(channel);
 		return;
 	}
-	if (timerDriven && Date.now() - state.lastFetchedAt < TIMER_MIN_GAP_MS) return;
 
 	state.inFlight = true;
 	try {
 		await fn();
-		state.lastFetchedAt = Date.now();
 	} catch {
 		// pages swallow errors for background refresh
 	} finally {
@@ -111,13 +106,13 @@ async function executeChannelRefresh(channel: RefreshChannel, timerDriven: boole
 	}
 }
 
-function scheduleChannelRefresh(channel: RefreshChannel, timerDriven: boolean) {
+function scheduleChannelRefresh(channel: RefreshChannel) {
 	if (!refreshFnForChannel(channel)) return;
 
 	clearChannelDebounce(channel);
 	channelState[channel].debounceTimer = setTimeout(() => {
 		channelState[channel].debounceTimer = null;
-		void executeChannelRefresh(channel, timerDriven);
+		void executeChannelRefresh(channel);
 	}, REFRESH_DEBOUNCE_MS);
 }
 
@@ -140,15 +135,15 @@ function hasNewPostReceived(status: P2pStatus, previousActivityAt: string | null
 }
 
 function notifyInboxRefresh() {
-	scheduleChannelRefresh('inbox', false);
+	scheduleChannelRefresh('inbox');
 }
 
 function notifyConversationRefresh() {
-	scheduleChannelRefresh('conversation', false);
+	scheduleChannelRefresh('conversation');
 }
 
 function notifyFeedRefresh() {
-	scheduleChannelRefresh('feed', false);
+	scheduleChannelRefresh('feed');
 }
 
 function notifyMessageRefresh() {
@@ -156,10 +151,58 @@ function notifyMessageRefresh() {
 	notifyConversationRefresh();
 }
 
+function p2pStatusNeedsRecovery(status: P2pStatus | null): boolean {
+	if (!status) return true;
+	if (!status.running) return true;
+	if (status.tone === 'error' || status.tone === 'off') return true;
+	if (status.relay_configured && !status.relay_connected) return true;
+	if (status.relay_tcp_reachable === false) return true;
+	return false;
+}
+
+function clearP2pRecoveryTimer() {
+	if (p2pRecoveryTimer) {
+		clearTimeout(p2pRecoveryTimer);
+		p2pRecoveryTimer = null;
+	}
+}
+
+function resetP2pRecoveryBackoff() {
+	p2pRecoveryDelayMs = P2P_RECOVERY_INITIAL_MS;
+	clearP2pRecoveryTimer();
+}
+
+function scheduleP2pRecoveryRetry() {
+	if (p2pRecoveryTimer) return;
+	if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+
+	p2pRecoveryTimer = setTimeout(() => {
+		p2pRecoveryTimer = null;
+		void refreshP2pLive();
+	}, p2pRecoveryDelayMs);
+	p2pRecoveryDelayMs = Math.min(p2pRecoveryDelayMs * 2, P2P_RECOVERY_MAX_MS);
+}
+
+/** Refresh P2P status when the app opens or the tab becomes visible again. */
+export function refreshP2pOnAppOpen() {
+	lastPendingOutbox = null;
+	resetP2pRecoveryBackoff();
+	void refreshP2pLive();
+}
+
+export function stopP2pLiveRecovery() {
+	resetP2pRecoveryBackoff();
+}
+
 export function handleP2pUiEvent(event: P2pUiEvent) {
 	if (event.kind === 'catch_up') {
 		void refreshP2pLive();
 		notifyMessageRefresh();
+		return;
+	}
+
+	if (event.kind === 'dial' || event.kind === 'dial_failed') {
+		void refreshP2pLive();
 		return;
 	}
 
@@ -244,93 +287,15 @@ export async function refreshP2pLive() {
 		lastTone = tone;
 		lastPendingOutbox = pendingOutbox;
 		identityState.p2pStatus = status;
+
+		if (p2pStatusNeedsRecovery(status)) {
+			scheduleP2pRecoveryRetry();
+		} else {
+			resetP2pRecoveryBackoff();
+		}
 	} catch {
-		// keep last snapshot on transient errors
+		scheduleP2pRecoveryRetry();
 	}
-}
-
-async function pollTick() {
-	if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-		return;
-	}
-	await refreshP2pLive();
-}
-
-export function startPresencePolling() {
-	stopPresencePolling();
-	lastPendingOutbox = null;
-	void pollTick();
-	pollTimer = setInterval(() => void pollTick(), P2P_HEARTBEAT_MS);
-}
-
-export function stopPresencePolling() {
-	if (pollTimer) {
-		clearInterval(pollTimer);
-		pollTimer = null;
-	}
-}
-
-let feedPollTimer: ReturnType<typeof setInterval> | null = null;
-
-export function startFeedPolling(refresh: FeedRefreshFn) {
-	registerFeedRefresh(refresh);
-	stopFeedPolling();
-	feedPollTimer = setInterval(() => {
-		if (document.visibilityState === 'visible') {
-			scheduleChannelRefresh('feed', true);
-		}
-	}, FEED_POLL_MS);
-}
-
-export function stopFeedPolling() {
-	if (feedPollTimer) {
-		clearInterval(feedPollTimer);
-		feedPollTimer = null;
-	}
-	clearChannelDebounce('feed');
-	registerFeedRefresh(null);
-}
-
-let inboxPollTimer: ReturnType<typeof setInterval> | null = null;
-
-export function startInboxPolling(refresh: InboxRefreshFn) {
-	registerInboxRefresh(refresh);
-	stopInboxPolling();
-	inboxPollTimer = setInterval(() => {
-		if (document.visibilityState === 'visible') {
-			scheduleChannelRefresh('inbox', true);
-		}
-	}, INBOX_POLL_MS);
-}
-
-export function stopInboxPolling() {
-	if (inboxPollTimer) {
-		clearInterval(inboxPollTimer);
-		inboxPollTimer = null;
-	}
-	clearChannelDebounce('inbox');
-	registerInboxRefresh(null);
-}
-
-let conversationPollTimer: ReturnType<typeof setInterval> | null = null;
-
-export function startConversationPolling(refresh: ConversationRefreshFn) {
-	registerConversationRefresh(refresh);
-	stopConversationPolling();
-	conversationPollTimer = setInterval(() => {
-		if (document.visibilityState === 'visible') {
-			scheduleChannelRefresh('conversation', true);
-		}
-	}, CONVERSATION_POLL_MS);
-}
-
-export function stopConversationPolling() {
-	if (conversationPollTimer) {
-		clearInterval(conversationPollTimer);
-		conversationPollTimer = null;
-	}
-	clearChannelDebounce('conversation');
-	registerConversationRefresh(null);
 }
 
 export function formatActivityLine(event: P2pStatus['recent_activity'][number]): string {

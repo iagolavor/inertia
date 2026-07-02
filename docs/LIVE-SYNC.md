@@ -2,7 +2,7 @@
 
 The Svelte UI stays up to date with local P2P activity through **Server-Sent Events (SSE)** and three **sync modules** that own durable snapshots and IndexedDB cache writes.
 
-This doc describes the current web architecture after the event-driven P2P UI work (`GET /api/p2p/events`). Polling heartbeats remain as fallbacks until inline patches cover every path.
+This doc describes the current web architecture: SSE (`GET /api/p2p/events`) plus sync modules for durable UI state. Interval polling has been removed; reconciliation runs on SSE events, tab visibility, and targeted fallbacks.
 
 ---
 
@@ -185,18 +185,42 @@ When the API is offline, pages hydrate from cache (`readCachedMessages`, `readCa
 
 ---
 
-## Fallback polling (current)
+## Reconciliation (no interval polling)
 
-SSE is primary; intervals in `presence.svelte.ts` still reconcile if an event is missed:
+List and feed data update through **SSE inline patches** first. A **debounced HTTP refresh** runs only when a patch cannot apply (for example `outbox_flush` without per-message ids) or when the SSE stream reconnects (`catch_up`).
 
-| Channel | Interval | Registered by |
-|---------|----------|---------------|
-| P2P status | 60s | root `+layout.svelte` |
-| Inbox | 30s | `friends/+layout.svelte` |
-| Open conversation | 15s | `friends/[contactId]/+page.svelte` |
-| Feed | 12s | `+page.svelte` |
+| Trigger | What refreshes |
+|---------|----------------|
+| SSE `message_received` / `delivery_acked` | Inline patch via sync module `emit()` |
+| SSE `catch_up` (stream reconnect) | `refreshP2pLive` + debounced inbox/feed/conversation fetch |
+| Tab visible | `refreshIdentity`, `refreshP2pOnAppOpen`, `refreshMessagesOnVisible`, page `load*` |
+| Page mount | Initial `loadFeed` / `refreshInboxSilently` / `load` conversation |
+| SSE `peer_*` / `dial` / `dial_failed` | `refreshP2pLive` |
 
-Tab visibility and SSE `catch_up` also trigger debounced refresh. Reducing or removing these polls is planned once inline patches are proven in production.
+### P2P status refresh
+
+The header P2P pill no longer polls on a fixed interval. Status loads on **app open** and **tab visible** (`refreshP2pOnAppOpen`). If the API call fails or the status looks unhealthy (node off, relay unreachable, `tone` error/off), a **backoff retry** (5s to 60s) runs while the tab is visible until connectivity recovers.
+
+```mermaid
+flowchart TD
+  OPEN["App open / tab visible"]
+  SSE_ERR["SSE onerror"]
+  DIAL["SSE dial / dial_failed"]
+  FETCH["refreshP2pLive"]
+  OK{"Healthy status?"}
+  RETRY["Backoff retry while visible"]
+  UI["identityState.p2pStatus"]
+
+  OPEN --> FETCH
+  SSE_ERR --> FETCH
+  DIAL --> FETCH
+  FETCH --> OK
+  OK -->|yes| UI
+  OK -->|no| RETRY
+  RETRY --> FETCH
+```
+
+Registered routes still expose refresh callbacks (`registerInboxRefresh`, etc.) so SSE fallbacks can debounce a full fetch for the active view only.
 
 ---
 

@@ -1,14 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { refreshInboxSilently } from '$lib/messages-sync';
-  import { startInboxPolling, stopInboxPolling } from '$lib/presence.svelte';
+  import { registerInboxRefresh } from '$lib/presence.svelte';
 
   let { children } = $props();
 
   onMount(() => {
     void refreshInboxSilently();
-    startInboxPolling(refreshInboxSilently);
-    return () => stopInboxPolling();
+    registerInboxRefresh(refreshInboxSilently);
+    return () => registerInboxRefresh(null);
   });
 </script>
 

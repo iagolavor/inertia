@@ -43,7 +43,7 @@ export function startP2pEventStream() {
 	};
 
 	source.onerror = () => {
-		// Browser reconnects automatically; onopen triggers resync after the first connect.
+		void refreshP2pLive();
 	};
 }
 

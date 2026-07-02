@@ -8,7 +8,7 @@
   import { identityState } from '$lib/identity.svelte';
 import { formatCacheAge, readCachedFeed, writeCachedFeed } from '$lib/local-cache';
 import { refreshFeedSilently, seedFeedSnapshot, subscribeFeedSync } from '$lib/feed-sync';
-import { startFeedPolling, stopFeedPolling } from '$lib/presence.svelte';
+import { registerFeedRefresh } from '$lib/presence.svelte';
 
   type FeedRow = FeedItem & {
     local_media_preview?: string;
@@ -113,7 +113,7 @@ import { startFeedPolling, stopFeedPolling } from '$lib/presence.svelte';
 
   onMount(() => {
     void hydrateFromCache().then(() => loadFeed());
-    startFeedPolling(refreshFeedSilently);
+    registerFeedRefresh(refreshFeedSilently);
     const unsub = subscribeFeedSync((items) => {
       feed = items;
       showingCached = false;
@@ -131,7 +131,7 @@ import { startFeedPolling, stopFeedPolling } from '$lib/presence.svelte';
     }
     document.addEventListener('visibilitychange', onVisible);
     return () => {
-      stopFeedPolling();
+      registerFeedRefresh(null);
       unsub();
       document.removeEventListener('visibilitychange', onVisible);
     };

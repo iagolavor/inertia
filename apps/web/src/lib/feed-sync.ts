@@ -24,7 +24,7 @@ function emit(items: FeedItem[]) {
 	for (const listener of listeners) listener(items);
 }
 
-/** Background fetch used by SSE + polling while the feed page is open. */
+/** Background fetch used by SSE fallback while the feed page is open. */
 export async function refreshFeedSilently(): Promise<void> {
 	if (!identityState.identity || !identityState.apiOnline) return;
 	try {

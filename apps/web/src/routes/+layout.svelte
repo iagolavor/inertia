@@ -11,8 +11,8 @@
   import {
     refreshMessagesOnVisible,
     refreshP2pLive,
-    startPresencePolling,
-    stopPresencePolling
+    refreshP2pOnAppOpen,
+    stopP2pLiveRecovery
   } from '$lib/presence.svelte';
   import { startP2pEventStream, stopP2pEventStream } from '$lib/p2p-events.svelte';
   import { initTheme } from '$lib/theme.svelte';
@@ -36,20 +36,20 @@
   onMount(() => {
     initTheme();
     refreshIdentity();
-    startPresencePolling();
+    refreshP2pOnAppOpen();
     startP2pEventStream();
 
     function onVisible() {
       if (document.visibilityState === 'visible') {
         void refreshIdentity({ silent: true });
-        void refreshP2pLive();
+        refreshP2pOnAppOpen();
         refreshMessagesOnVisible();
       }
     }
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
-      stopPresencePolling();
+      stopP2pLiveRecovery();
       stopP2pEventStream();
       document.removeEventListener('visibilitychange', onVisible);
     };

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { tick } from 'svelte';
   import { page } from '$app/state';
   import { api, type Contact, type ConversationMessage } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
@@ -27,7 +27,7 @@
     readCachedConversation,
     readCachedMessages
   } from '$lib/local-cache';
-  import { startConversationPolling, stopConversationPolling } from '$lib/presence.svelte';
+  import { registerConversationRefresh } from '$lib/presence.svelte';
 
   let contact = $state<Contact | null>(null);
   let durable = $state<ConversationMessage[]>([]);
@@ -121,15 +121,6 @@
     await loadConversation(serverMessages);
   }
 
-  async function silentRefresh() {
-    if (!contactId) return;
-    try {
-      await refreshConversationSilently(contactId);
-    } catch {
-      // background refresh — keep last good snapshot
-    }
-  }
-
   async function load() {
     if (!contactId) return;
 
@@ -158,11 +149,6 @@
     }
   }
 
-  onMount(() => {
-    startConversationPolling(silentRefresh);
-    return () => stopConversationPolling();
-  });
-
   $effect(() => {
     const id = contactId;
     if (!id) return;
@@ -170,6 +156,8 @@
     optimistics = [];
     setOpenConversation(id);
     let lastCount = 0;
+
+    registerConversationRefresh(() => refreshConversationSilently(id));
 
     const unsub = subscribeConversationSync((next) => {
       const grew = next.length > lastCount;
@@ -182,6 +170,7 @@
 
     return () => {
       unsub();
+      registerConversationRefresh(null);
       setOpenConversation(null);
     };
   });
