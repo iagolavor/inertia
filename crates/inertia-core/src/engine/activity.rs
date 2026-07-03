@@ -365,7 +365,7 @@ pub async fn count_pending_outbox(store: &StoreHandle) -> usize {
 #[derive(Debug, Clone, Default)]
 pub struct P2pStatusRelayHints {
     pub relay_configured: bool,
-    pub relay_peer_id: Option<String>,
+    pub relay_peer_ids: Vec<String>,
     pub relay_tcp_reachable: Option<bool>,
 }
 
@@ -409,12 +409,12 @@ pub async fn emit_p2p_status_changed(
     let guard = p2p.lock().await;
     let status_core = if let Some(node) = guard.as_ref() {
         let connected_peer_ids = node.connected_peer_ids().await;
-        let relay_connected = relay_hints.relay_peer_id.as_ref().is_some_and(|id| {
+        let relay_connected = relay_hints.relay_peer_ids.iter().any(|id| {
             connected_peer_ids.iter().any(|peer| peer == id)
         });
         let friends_online_count = connected_peer_ids
             .iter()
-            .filter(|id| relay_hints.relay_peer_id.as_ref() != Some(id))
+            .filter(|id| !relay_hints.relay_peer_ids.iter().any(|relay_id| relay_id == *id))
             .count();
         (
             true,
@@ -461,16 +461,17 @@ pub async fn refresh_relay_hints_from_store(
     relay_hints: &mut P2pStatusRelayHints,
     relay_tcp_reachable: Option<bool>,
 ) {
-    let relay = store
+    let relays = store
         .with(|s| s.get_settings())
         .await
         .ok()
-        .and_then(|settings| settings.relay_multiaddr)
-        .filter(|addr| !addr.trim().is_empty());
-    relay_hints.relay_configured = relay.is_some();
-    relay_hints.relay_peer_id = relay
-        .as_deref()
-        .and_then(super::p2p::peer_id_from_multiaddr_str);
+        .map(|settings| settings.relay_multiaddrs)
+        .unwrap_or_default();
+    relay_hints.relay_configured = !relays.is_empty();
+    relay_hints.relay_peer_ids = relays
+        .iter()
+        .filter_map(|relay| super::p2p::peer_id_from_multiaddr_str(relay))
+        .collect();
     if let Some(reachable) = relay_tcp_reachable {
         relay_hints.relay_tcp_reachable = Some(reachable);
     }
