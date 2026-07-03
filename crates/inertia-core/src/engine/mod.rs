@@ -19,7 +19,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use tracing::{info, warn};
 
 use crate::content::DeliveryStatus;
@@ -30,7 +30,7 @@ use crate::p2p::{P2pEvent, P2pNode};
 use crate::storage::ProfilePhoto;
 use crate::store_handle::StoreHandle;
 
-pub use activity::{P2pActivityEvent, P2pActivitySnapshot};
+pub use activity::{P2pActivityEvent, P2pActivitySnapshot, P2pUiEvent};
 pub use outbox::deliver_outbox_entry;
 
 /// Default libp2p TCP listen port when `INERTIA_P2P_LISTEN_PORT` is unset.
@@ -45,6 +45,8 @@ pub struct Engine {
     _p2p_event_task: tokio::task::JoinHandle<()>,
     pub(crate) event_tx: mpsc::UnboundedSender<P2pEvent>,
     pub(crate) activity: Arc<Mutex<activity::ActivityLog>>,
+    ui_event_tx: broadcast::Sender<activity::P2pUiEvent>,
+    relay_probe_cache: Arc<Mutex<Option<(bool, std::time::Instant)>>>,
     media_fetches: Arc<Mutex<HashMap<String, media::MediaFetchStatus>>>,
 }
 
@@ -62,17 +64,20 @@ impl Engine {
         let expiry_handle = Some(expiry.spawn());
 
         let (event_tx, p2p_events) = mpsc::unbounded_channel();
+        let (ui_event_tx, _) = broadcast::channel(64);
         let p2p = Arc::new(Mutex::new(None));
         let activity = Arc::new(Mutex::new(activity::ActivityLog::new()));
         let p2p_for_events = Arc::clone(&p2p);
         let store_for_events = store.clone();
         let activity_for_events = Arc::clone(&activity);
+        let ui_events_for_loop = ui_event_tx.clone();
         let p2p_event_task = tokio::spawn(async move {
             outbox::run_p2p_event_loop(
                 p2p_events,
                 store_for_events,
                 p2p_for_events,
                 activity_for_events,
+                ui_events_for_loop,
             )
             .await;
         });
@@ -85,6 +90,8 @@ impl Engine {
             _p2p_event_task: p2p_event_task,
             event_tx,
             activity,
+            ui_event_tx,
+            relay_probe_cache: Arc::new(Mutex::new(None)),
             media_fetches: Arc::new(Mutex::new(HashMap::new())),
         };
 
@@ -111,6 +118,16 @@ impl Engine {
 
     pub async fn run_expiry_sweep(&self) -> CoreResult<crate::storage::PurgeReport> {
         self.store.with(|store| store.purge_expired()).await
+    }
+
+    pub fn subscribe_ui_events(&self) -> broadcast::Receiver<activity::P2pUiEvent> {
+        self.ui_event_tx.subscribe()
+    }
+
+    /// Push a UI-visible activity row and broadcast it to SSE subscribers.
+    pub async fn push_ui_activity(&self, kind: &str, detail: &str) {
+        let event = self.activity.lock().await.push(kind, detail);
+        activity::emit_ui_event(&self.ui_event_tx, event);
     }
 }
 

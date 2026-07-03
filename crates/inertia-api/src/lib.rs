@@ -1,6 +1,6 @@
 mod dto;
 mod error;
-mod routes;
+pub mod routes;
 mod state;
 mod util;
 

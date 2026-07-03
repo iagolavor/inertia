@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { tick } from 'svelte';
   import { page } from '$app/state';
   import { api, type Contact, type ConversationMessage } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
@@ -7,22 +7,31 @@
   import DeliveryTicks from '$lib/components/DeliveryTicks.svelte';
   import FormattedText from '$lib/components/FormattedText.svelte';
   import {
+    contactWithLivePresence,
     createOptimisticMessage,
     isOptimisticMessageId,
     mergeConversationMessages,
     timeAgo
   } from '$lib/dmThreads';
   import { identityState } from '$lib/identity.svelte';
+  import { takeConversationPrefetch, type ConversationPrefetch } from '$lib/conversation-open';
+  import {
+    applyServerConversation,
+    refreshConversationSilently,
+    seedConversationSnapshot,
+    setOpenConversation,
+    subscribeConversationSync
+  } from '$lib/conversation-sync';
   import {
     formatCacheAge,
     readCachedConversation,
-    readCachedMessages,
-    writeCachedConversation
+    readCachedMessages
   } from '$lib/local-cache';
-  import { startConversationPolling, stopConversationPolling } from '$lib/presence.svelte';
+  import { registerConversationRefresh } from '$lib/presence.svelte';
 
-  let contacts = $state<Contact[]>([]);
-  let messages = $state<ConversationMessage[]>([]);
+  let contact = $state<Contact | null>(null);
+  let durable = $state<ConversationMessage[]>([]);
+  let optimistics = $state<ConversationMessage[]>([]);
   let loading = $state(true);
   let sending = $state(false);
   let messageBody = $state('');
@@ -30,10 +39,31 @@
   let showingCached = $state(false);
   let cacheAge = $state<string | null>(null);
   let chatPanel = $state<HTMLDivElement | null>(null);
+  let loadSeq = 0;
 
   const contactId = $derived(page.params.contactId);
+  const messages = $derived(mergeConversationMessages(durable, optimistics));
 
-  const contact = $derived(contacts.find((c) => c.id === contactId) ?? null);
+  const displayContact = $derived(
+    contact && identityState.p2pStatus
+      ? contactWithLivePresence(contact, identityState.p2pStatus.connected_peer_ids)
+      : contact
+  );
+
+  function pruneOptimistics(
+    nextDurable: ConversationMessage[],
+    pending: ConversationMessage[]
+  ): ConversationMessage[] {
+    return pending.filter((opt) => {
+      if (!isOptimisticMessageId(opt.content_id)) return false;
+      return !nextDurable.some(
+        (row) =>
+          row.is_own &&
+          row.body === opt.body &&
+          Math.abs(new Date(row.at).getTime() - new Date(opt.at).getTime()) < 60_000
+      );
+    });
+  }
 
   async function scrollToLatest() {
     await tick();
@@ -47,32 +77,48 @@
       readCachedConversation(contactId),
       readCachedMessages()
     ]);
-    if (rosterCache) contacts = rosterCache.contacts;
+    if (rosterCache) {
+      contact = rosterCache.contacts.find((c) => c.id === contactId) ?? contact;
+    }
     if (!msgCache) return false;
-    messages = msgCache.messages;
+    seedConversationSnapshot(contactId, msgCache.messages);
     cacheAge = formatCacheAge(msgCache.saved_at);
     showingCached = true;
     return true;
   }
 
-  async function loadConversation() {
+  async function loadConversation(serverMessages?: ConversationMessage[]) {
     if (!contactId || !identityState.apiOnline) return;
-    const optimistic = messages.filter((m) => isOptimisticMessageId(m.content_id));
-    const serverMessages = await api.listConversationMessages(contactId);
-    messages = mergeConversationMessages(serverMessages, optimistic);
-    await writeCachedConversation(contactId, messages.filter((m) => !isOptimisticMessageId(m.content_id)));
+    const seq = ++loadSeq;
+    const resolved =
+      serverMessages ?? (await api.listConversationMessages(contactId));
+    if (seq !== loadSeq) return;
+    applyServerConversation(contactId, resolved);
     showingCached = false;
     cacheAge = null;
   }
 
-  async function silentRefresh() {
-    if (!contactId || !identityState.apiOnline) return;
-    try {
-      contacts = await api.listContacts();
-      await loadConversation();
-    } catch {
-      // background refresh — keep last good snapshot
+  async function fetchContactAndMessages(prefetch?: ConversationPrefetch) {
+    if (!contactId) return;
+
+    if (prefetch) {
+      contact = prefetch.contact;
+      await scrollToLatest();
+      const [freshContact, serverMessages] = await Promise.all([
+        prefetch.contactPromise,
+        prefetch.messagesPromise
+      ]);
+      contact = freshContact;
+      await loadConversation(serverMessages);
+      return;
     }
+
+    const [freshContact, serverMessages] = await Promise.all([
+      api.getContact(contactId),
+      api.listConversationMessages(contactId)
+    ]);
+    contact = freshContact;
+    await loadConversation(serverMessages);
   }
 
   async function load() {
@@ -90,8 +136,8 @@
     loading = true;
     error = '';
     try {
-      contacts = await api.listContacts();
-      await loadConversation();
+      const prefetch = takeConversationPrefetch(contactId);
+      await fetchContactAndMessages(prefetch ?? undefined);
     } catch (e) {
       const hadCache = await hydrateFromCache();
       if (!hadCache) {
@@ -103,10 +149,30 @@
     }
   }
 
-  onMount(() => {
+  $effect(() => {
+    const id = contactId;
+    if (!id) return;
+
+    optimistics = [];
+    setOpenConversation(id);
+    let lastCount = 0;
+
+    registerConversationRefresh(() => refreshConversationSilently(id));
+
+    const unsub = subscribeConversationSync((next) => {
+      const grew = next.length > lastCount;
+      lastCount = next.length;
+      durable = next;
+      if (grew) void scrollToLatest();
+    });
+
     void hydrateFromCache().then(() => load());
-    startConversationPolling(silentRefresh);
-    return () => stopConversationPolling();
+
+    return () => {
+      unsub();
+      registerConversationRefresh(null);
+      setOpenConversation(null);
+    };
   });
 
   async function send() {
@@ -114,7 +180,7 @@
 
     const body = messageBody.trim();
     const optimistic = createOptimisticMessage(body);
-    messages = [...messages, optimistic];
+    optimistics = [...optimistics, optimistic];
     messageBody = '';
     error = '';
     sending = true;
@@ -122,10 +188,11 @@
 
     try {
       await api.sendMessage(contactId, body);
-      await loadConversation();
+      await refreshConversationSilently(contactId);
+      optimistics = pruneOptimistics(durable, optimistics);
       await scrollToLatest();
     } catch (e) {
-      messages = messages.map((m) =>
+      optimistics = optimistics.map((m) =>
         m.content_id === optimistic.content_id ? { ...m, delivery_status: 'failed' } : m
       );
       error = e instanceof ApiRequestError ? e.message : 'Send failed';
@@ -141,7 +208,7 @@
 
 {#if loading}
   <p class="empty">Loading…</p>
-{:else if !contact}
+{:else if !displayContact}
   <a class="chat-back-link" href="/friends">← Messages</a>
   <p class="error">Friend not found.</p>
 {:else}
@@ -149,8 +216,8 @@
   <a class="chat-back-link" href="/friends">← Messages</a>
 
   <FriendPresenceHeader
-    {contact}
-    href="/friends/{contact.id}/profile"
+    contact={displayContact}
+    href="/friends/{displayContact.id}/profile"
     cacheAge={showingCached ? cacheAge : null}
   />
 

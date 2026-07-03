@@ -110,4 +110,29 @@ mod tests {
         let parsed = parse_relay_multiaddrs(&raw);
         assert_eq!(parsed.len(), 2);
     }
+
+    #[test]
+    fn single_relay_list_uses_primary_for_invite() {
+        let relays = vec![RELAY_A.to_string()];
+        let peer_a = relay_peer_id(RELAY_A).unwrap();
+        let chosen = select_invite_relay(&relays, &[peer_a]);
+        assert_eq!(chosen.as_deref(), Some(RELAY_A));
+    }
+
+    #[test]
+    fn merge_relay_keeps_primary_first_when_adding_second() {
+        let merged = merge_relay(&[RELAY_A.to_string()], RELAY_B);
+        assert_eq!(merged, vec![RELAY_A.to_string(), RELAY_B.to_string()]);
+    }
+
+    #[test]
+    fn merge_relay_on_empty_list_sets_primary() {
+        let merged = merge_relay(&[], RELAY_A);
+        assert_eq!(merged, vec![RELAY_A.to_string()]);
+    }
+
+    #[test]
+    fn validate_relay_list_accepts_single_primary() {
+        validate_relay_list(&[RELAY_A.to_string()]).expect("single relay valid");
+    }
 }

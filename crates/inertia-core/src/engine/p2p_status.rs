@@ -228,4 +228,11 @@ mod tests {
         assert_eq!(labels.headline, "2 friends online");
         assert_eq!(visual_tone_str(visual_tone(&layers)), "online");
     }
+
+    #[test]
+    fn single_primary_relay_connected_shows_relay_ok() {
+        let layers = build_layers(true, true, Some(true), true, 0, false, 0);
+        assert_eq!(layers.relay, "connected");
+        assert_eq!(visual_tone_str(visual_tone(&layers)), "idle");
+    }
 }

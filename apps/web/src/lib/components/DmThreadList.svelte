@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import type { DmThread } from '$lib/dmThreads';
   import {
     connectionLabel,
@@ -10,6 +9,7 @@
     messageTtlLabel,
     previewText
   } from '$lib/dmThreads';
+  import { openConversation } from '$lib/conversation-open';
   import Avatar from '$lib/components/Avatar.svelte';
 
   interface Props {
@@ -21,8 +21,8 @@
 
   const groups = $derived(groupDmThreads(threads));
 
-  function openThread(contactId: string) {
-    void goto(`/friends/${contactId}`);
+  function openThread(contact: DmThread['contact']) {
+    openConversation(contact);
   }
 </script>
 
@@ -35,7 +35,7 @@
       class="presence-row"
       class:connected={tier === 'connected'}
       class:reachable={tier === 'reachable'}
-      onclick={() => openThread(thread.contact.id)}
+      onclick={() => openThread(thread.contact)}
     >
       <div
         class="presence-ring"

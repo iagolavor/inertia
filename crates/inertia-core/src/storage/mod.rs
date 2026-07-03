@@ -291,4 +291,38 @@ mod tests {
         let err = store.consume_issued_invite("nonce-1").unwrap_err();
         assert!(err.to_string().contains("already used"));
     }
+
+    #[test]
+    fn relay_list_round_trip_preserves_primary_order() {
+        const RELAY_A: &str =
+            "/ip4/203.0.113.1/tcp/9000/p2p/12D3KooWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        const RELAY_B: &str =
+            "/ip4/203.0.113.2/tcp/9000/p2p/12D3KooWBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).unwrap();
+        store
+            .update_connection_settings(None, Some(vec![RELAY_A.into(), RELAY_B.into()]), None, None)
+            .unwrap();
+
+        let settings = store.get_settings().unwrap();
+        assert_eq!(settings.relay_multiaddrs.len(), 2);
+        assert_eq!(settings.relay_multiaddrs[0], RELAY_A);
+        assert_eq!(settings.relay_multiaddrs[1], RELAY_B);
+    }
+
+    #[test]
+    fn single_relay_list_round_trip() {
+        const RELAY: &str =
+            "/ip4/203.0.113.1/tcp/9000/p2p/12D3KooWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).unwrap();
+        store
+            .update_connection_settings(None, Some(vec![RELAY.into()]), None, None)
+            .unwrap();
+
+        let settings = store.get_settings().unwrap();
+        assert_eq!(settings.relay_multiaddrs, vec![RELAY]);
+    }
 }

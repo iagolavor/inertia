@@ -3,7 +3,7 @@ import type { Logger, ProxyOptions } from 'vite';
 export const INERTIA_API_TARGET = 'http://127.0.0.1:4783';
 export const INERTIA_API_START_CMD = 'npm run api:release';
 
-/** Cooldown so 5s presence polling does not flood the dev terminal. */
+/** Cooldown so repeated API-offline proxy logs do not flood the dev terminal. */
 const LOG_COOLDOWN_MS = 15_000;
 
 let lastOfflineLogAt = 0;

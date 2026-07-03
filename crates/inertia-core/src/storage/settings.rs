@@ -127,4 +127,38 @@ impl Store {
         self.conn.execute("DELETE FROM app_settings WHERE key = ?1", params![key])?;
         Ok(())
     }
+
+    #[cfg(test)]
+    pub(crate) fn insert_setting_for_test(&self, key: &str, value: &str) -> CoreResult<()> {
+        self.set_string_setting(key, value)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn has_setting(&self, key: &str) -> CoreResult<bool> {
+        Ok(self.get_string_setting(key)?.is_some())
+    }
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::Store;
+
+    const RELAY_MULTIADDR_LEGACY_KEY: &str = "relay_multiaddr";
+    const RELAY_MULTIADDRS_KEY: &str = "relay_multiaddrs";
+    const RELAY: &str =
+        "/ip4/203.0.113.1/tcp/9000/p2p/12D3KooWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+    #[test]
+    fn legacy_single_relay_migrates_to_relay_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path()).unwrap();
+        store
+            .insert_setting_for_test(RELAY_MULTIADDR_LEGACY_KEY, RELAY)
+            .unwrap();
+
+        let settings = store.get_settings().unwrap();
+        assert_eq!(settings.relay_multiaddrs, vec![RELAY.to_string()]);
+        assert!(store.has_setting(RELAY_MULTIADDRS_KEY).unwrap());
+        assert!(!store.has_setting(RELAY_MULTIADDR_LEGACY_KEY).unwrap());
+    }
 }
