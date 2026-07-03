@@ -10,6 +10,7 @@ mod messaging;
 mod outbox;
 mod p2p;
 mod p2p_status;
+mod relay_list;
 mod profile;
 mod settings;
 
@@ -169,11 +170,13 @@ pub struct P2pStatus {
     pub peer_id: Option<String>,
     pub listen_addresses: Vec<String>,
     pub connected_peer_ids: Vec<String>,
-    /// True when `INERTIA_RELAY` or settings relay multiaddr is set.
+    /// True when `INERTIA_RELAY` or settings relay list is non-empty.
     pub relay_configured: bool,
-    /// Peer id extracted from the configured relay multiaddr.
-    pub relay_peer_id: Option<String>,
-    /// libp2p session to the relay peer is up.
+    /// Configured relay multiaddrs (first is primary).
+    pub relay_multiaddrs: Vec<String>,
+    /// libp2p sessions to configured relays.
+    pub relays_connected_count: usize,
+    /// True when any configured relay has a libp2p session.
     pub relay_connected: bool,
     /// TCP connect probe to the relay host:port (None if relay not configured).
     pub relay_tcp_reachable: Option<bool>,

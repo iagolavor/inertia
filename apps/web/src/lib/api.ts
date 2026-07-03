@@ -69,7 +69,8 @@ export interface P2pStatus {
   listen_addresses: string[];
   connected_peer_ids: string[];
   relay_configured: boolean;
-  relay_peer_id: string | null;
+  relay_multiaddrs: string[];
+  relays_connected_count: number;
   relay_connected: boolean;
   relay_tcp_reachable: boolean | null;
   pending_outbox_count: number;
@@ -157,7 +158,7 @@ export interface PostComment {
 export interface AppSettings {
   feed_history_enabled: boolean;
   p2p_listen_port: number;
-  relay_multiaddr: string | null;
+  relay_multiaddrs: string[];
   p2p_announce: string | null;
   web_origin: string | null;
 }
@@ -372,7 +373,7 @@ export const api = {
   updateSettings: (settings: {
     feed_history_enabled?: boolean;
     p2p_listen_port?: number;
-    relay_multiaddr?: string;
+    relay_multiaddrs?: string[];
     p2p_announce?: string;
     web_origin?: string;
   }) =>

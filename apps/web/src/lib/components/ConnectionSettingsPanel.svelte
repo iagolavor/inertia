@@ -1,9 +1,11 @@
 <script lang="ts">
   import { api } from '$lib/api';
+  import RelayMultiaddrList from '$lib/components/RelayMultiaddrList.svelte';
   import { identityState, refreshIdentity } from '$lib/identity.svelte';
 
   let listenPort = $state(4784);
-  let relayMultiaddr = $state('');
+  let relayList = $state<string[]>([]);
+  let relayAddError = $state('');
   let p2pAnnounce = $state('');
   let webOrigin = $state('');
   let shareMultiaddr = $state<string | null>(null);
@@ -34,9 +36,9 @@
         api.getSettings(),
         api.p2pShareAddress()
       ]);
-      const { p2p_listen_port, relay_multiaddr, p2p_announce, web_origin } = settings;
+      const { p2p_listen_port, relay_multiaddrs, p2p_announce, web_origin } = settings;
       listenPort = p2p_listen_port;
-      relayMultiaddr = relay_multiaddr ?? '';
+      relayList = [...relay_multiaddrs];
       p2pAnnounce = p2p_announce ?? '';
       webOrigin = web_origin ?? '';
       shareMultiaddr = multiaddr;
@@ -54,7 +56,7 @@
     try {
       await api.updateSettings({
         p2p_listen_port: listenPort,
-        relay_multiaddr: relayMultiaddr,
+        relay_multiaddrs: relayList,
         p2p_announce: p2pAnnounce,
         web_origin: webOrigin
       });
@@ -96,16 +98,11 @@
     </div>
 
     <div class="field">
-      <label for="relay">Relay multiaddr</label>
-      <input
-        id="relay"
-        type="text"
-        placeholder="/ip4/203.0.113.10/tcp/9000/p2p/12D3KooW…"
-        bind:value={relayMultiaddr}
-      />
+      <label for="relay">Relay multiaddrs</label>
+      <RelayMultiaddrList bind:relays={relayList} bind:addError={relayAddError} inputId="relay" />
       <p class="field-hint">
-        Full multiaddr from the VPS relay logs — include IP, port, and peer id. Do not paste only
-        the <code>12D3KooW…</code> id.
+        Full multiaddr from relay logs (IP, port, and peer id). First entry is primary for new
+        invites. Accepting an invite from another network adds its relay automatically.
       </p>
     </div>
 

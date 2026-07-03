@@ -23,12 +23,12 @@ async fn update_settings(
     State(state): State<AppState>,
     Json(body): Json<UpdateSettingsRequest>,
 ) -> Result<Json<AppSettings>, (StatusCode, Json<ApiError>)> {
-    let relay_update = body.relay_multiaddr.as_ref().map(|value| {
-        if value.trim().is_empty() {
-            None
-        } else {
-            Some(value.trim().to_string())
-        }
+    let relay_update = body.relay_multiaddrs.map(|relays| {
+        relays
+            .into_iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>()
     });
     let announce_update = body.p2p_announce.as_ref().map(|value| {
         if value.trim().is_empty() {
