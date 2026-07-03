@@ -6,11 +6,14 @@ vi.mock('$lib/api', () => ({
 	}
 }));
 vi.mock('$lib/identity.svelte', () => ({
-	identityState: { identity: { signing_pubkey: 'me' }, apiOnline: true }
+	identityState: { identity: { signing_pubkey: 'me' }, apiOnline: true },
+	refreshIdentity: vi.fn()
 }));
 
 import { api } from '$lib/api';
+import { refreshIdentity } from '$lib/identity.svelte';
 import {
+	handleP2pStreamTransportError,
 	handleP2pUiEvent,
 	registerConversationRefresh,
 	registerFeedRefresh,
@@ -117,5 +120,15 @@ describe('presence live sync routing', () => {
 		vi.advanceTimersByTime(500);
 		expect(conversationRefresh).toHaveBeenCalled();
 		expect(inboxRefresh).not.toHaveBeenCalled();
+	});
+
+	it('probes identity once on SSE transport error instead of P2P recovery spam', async () => {
+		vi.mocked(api.p2pStatus).mockClear();
+		vi.mocked(refreshIdentity).mockResolvedValue(undefined);
+
+		await handleP2pStreamTransportError();
+
+		expect(refreshIdentity).toHaveBeenCalledWith({ silent: true });
+		expect(api.p2pStatus).not.toHaveBeenCalled();
 	});
 });
