@@ -2,7 +2,7 @@
   import '../app.css';
 
   import { onMount } from 'svelte';
-  import { afterNavigate, goto } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/state';
 
   import AppHeader from '$lib/components/AppHeader.svelte';
@@ -10,15 +10,13 @@
   import { identityState, refreshIdentity } from '$lib/identity.svelte';
   import {
     refreshMessagesOnVisible,
-    refreshP2pLive,
-    startPresencePolling,
-    stopPresencePolling
+    refreshP2pOnAppOpen,
+    stopP2pLiveRecovery
   } from '$lib/presence.svelte';
+  import { startP2pEventStream, stopP2pEventStream } from '$lib/p2p-events.svelte';
   import { initTheme } from '$lib/theme.svelte';
 
   let { children } = $props();
-
-  let navigated = false;
 
   const isWelcome = $derived(page.url.pathname.startsWith('/welcome'));
   const showAppChrome = $derived(!!identityState.identity && !isWelcome);
@@ -34,33 +32,34 @@
     }
   });
 
+  $effect(() => {
+    if (!identityState.apiOnline || !identityState.identity) {
+      stopP2pEventStream();
+      stopP2pLiveRecovery();
+      return;
+    }
+    startP2pEventStream();
+  });
+
   onMount(() => {
     initTheme();
     refreshIdentity();
-    startPresencePolling();
+    refreshP2pOnAppOpen();
 
     function onVisible() {
       if (document.visibilityState === 'visible') {
         void refreshIdentity({ silent: true });
-        void refreshP2pLive();
+        refreshP2pOnAppOpen();
         refreshMessagesOnVisible();
       }
     }
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
-      stopPresencePolling();
+      stopP2pLiveRecovery();
+      stopP2pEventStream();
       document.removeEventListener('visibilitychange', onVisible);
     };
-  });
-
-  afterNavigate(() => {
-    if (!navigated) {
-      navigated = true;
-      return;
-    }
-
-    void refreshIdentity({ silent: true });
   });
 </script>
 

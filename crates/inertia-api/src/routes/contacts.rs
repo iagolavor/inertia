@@ -11,7 +11,16 @@ use crate::state::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/contacts", get(list_contacts).post(add_contact))
+        .route("/contacts/:contact_id", get(get_contact))
         .route("/contacts/:contact_id/messages", get(list_conversation_messages))
+}
+
+async fn get_contact(
+    State(state): State<AppState>,
+    Path(contact_id): Path<String>,
+) -> Result<Json<Contact>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine.get_contact(&contact_id).await.map(Json).map_err(api_err)
 }
 
 async fn list_contacts(

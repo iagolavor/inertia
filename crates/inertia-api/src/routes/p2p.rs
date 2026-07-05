@@ -1,7 +1,13 @@
+use std::convert::Infallible;
+use std::time::Duration;
+
 use axum::extract::State;
 use axum::http::StatusCode;
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use futures_util::stream::{self, Stream};
+use tokio::sync::broadcast;
 
 use crate::dto::{DialRequest, FriendRequestBody, StartP2pRequest};
 use crate::error::{api_err, ApiError};
@@ -13,6 +19,7 @@ pub fn routes() -> Router<AppState> {
         .route("/p2p/addresses", get(p2p_addresses))
         .route("/p2p/status", get(p2p_status))
         .route("/p2p/activity", get(p2p_activity))
+        .route("/p2p/events", get(p2p_events))
         .route("/p2p/share-address", get(p2p_share_address))
         .route("/p2p/dial", post(dial_peer))
         .route("/p2p/friend-request", post(send_friend_request))
@@ -51,20 +58,8 @@ async fn p2p_addresses(
 async fn p2p_status(
     State(state): State<AppState>,
 ) -> Result<Json<inertia_core::P2pStatus>, (StatusCode, Json<ApiError>)> {
-    let relay = {
-        let engine = state.engine.lock().await;
-        engine.relay_multiaddr().await
-    };
-    let relay_tcp_reachable = if let Some(ref addr) = relay {
-        Some(inertia_core::probe_relay_tcp(addr).await)
-    } else {
-        None
-    };
-    let status = {
-        let engine = state.engine.lock().await;
-        engine.p2p_status_snapshot(relay, relay_tcp_reachable).await
-    };
-    Ok(Json(status))
+    let engine = state.engine.lock().await;
+    Ok(Json(engine.p2p_status().await))
 }
 
 async fn p2p_activity(
@@ -72,6 +67,38 @@ async fn p2p_activity(
 ) -> Result<Json<inertia_core::P2pActivitySnapshot>, (StatusCode, Json<ApiError>)> {
     let engine = state.engine.lock().await;
     Ok(Json(engine.p2p_activity().await))
+}
+
+async fn p2p_events(
+    State(state): State<AppState>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let rx = {
+        let engine = state.engine.lock().await;
+        engine.subscribe_ui_events()
+    };
+
+    let stream = stream::unfold(rx, |mut rx| async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".into());
+                    let sse = Event::default().data(json);
+                    return Some((Ok(sse), rx));
+                }
+                Err(broadcast::error::RecvError::Lagged(_)) => {
+                    let catch_up = Event::default().data(r#"{"kind":"catch_up","detail":"refresh"}"#);
+                    return Some((Ok(catch_up), rx));
+                }
+                Err(broadcast::error::RecvError::Closed) => return None,
+            }
+        }
+    });
+
+    Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("keep-alive"),
+    )
 }
 
 async fn p2p_share_address(

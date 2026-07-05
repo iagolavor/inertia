@@ -8,6 +8,7 @@ use crate::invite::FriendInvite;
 use crate::storage::Contact;
 
 use super::p2p::{peer_id_from_multiaddr_str, validate_relay_multiaddr};
+use super::relay_list::select_invite_relay;
 use super::{Engine, InvitePreview, InviteResponse};
 
 impl Engine {
@@ -36,9 +37,12 @@ impl Engine {
                     .into(),
             ));
         }
-        let relay_multiaddr = self.effective_relay().await.ok_or_else(|| {
-            CoreError::Invite("relay multiaddr is not configured".into())
-        })?;
+
+        let relays = self.effective_relays().await;
+        let relay_multiaddr = select_invite_relay(&relays, &status.connected_peer_ids)
+            .ok_or_else(|| {
+                CoreError::Invite("relay multiaddr is not configured".into())
+            })?;
         validate_relay_multiaddr(&relay_multiaddr)?;
 
         let peer_id = self.peer_id().await;
@@ -64,7 +68,6 @@ impl Engine {
             .await?;
 
         let payload = invite.to_payload()?;
-        // Share link uses Settings / INERTIA_WEB_ORIGIN only — not the browser tab URL (localhost dev).
         let settings_origin = self.resolve_invite_web_origin(None).await;
         let share_origin = settings_origin
             .as_deref()
@@ -113,11 +116,9 @@ impl Engine {
             warn!(error = %e, "redial after applying invite relay failed");
         }
 
-        if let Some(relay) = self.effective_relay().await {
-            if let Some(relay_peer_id) = peer_id_from_multiaddr_str(&relay) {
-                self.wait_for_peer_connected(&relay_peer_id, Duration::from_secs(20), "relay")
-                    .await?;
-            }
+        if let Some(relay_peer_id) = peer_id_from_multiaddr_str(&invite.relay_multiaddr) {
+            self.wait_for_peer_connected(&relay_peer_id, Duration::from_secs(20), "relay")
+                .await?;
         }
 
         let peer_id_str = invite.peer_id.as_ref().ok_or_else(|| {

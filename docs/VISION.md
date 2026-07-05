@@ -151,7 +151,7 @@ Each user runs **local-first** software on their own device. A small **VPS relay
 +-----------------------------+
 ```
 
-See [inertia-relay README](../crates/inertia-relay/README.md) for relay deployment and [MILESTONE-VPS-RELAY.md](./MILESTONE-VPS-RELAY.md) for the connectivity milestone.
+See [inertia-relay README](../crates/inertia-relay/README.md) for relay deployment, [MILESTONE-VPS-RELAY.md](./MILESTONE-VPS-RELAY.md) for the connectivity milestone, and [LIVE-SYNC.md](./LIVE-SYNC.md) for web UI event sync.
 
 ---
 
@@ -320,7 +320,7 @@ blobs/         (content-addressed media files)
 
 - **inertia-core** (Rust): identity, invites, P2P, storage, expiry.
 - **inertia-api** (Rust): local HTTP bridge — runs on the user's machine, not in the cloud.
-- **SvelteKit** (web/PWA): feed, profile, settings, invites, friends, messages, outbox.
+- **SvelteKit** (web/PWA): feed, profile, settings, invites, friends, messages, outbox. Live updates: [LIVE-SYNC.md](./LIVE-SYNC.md).
 - **Capacitor / Tauri** (future): mobile and desktop shells.
 
 ---
@@ -355,6 +355,7 @@ blobs/         (content-addressed media files)
 | 3 | SvelteKit UI + local API | Done |
 | 4 | Invite flow, feed, profile, settings, backup | Done |
 | 4b | **VPS relay** (`inertia-relay`), relay client, invite v2 with embedded relay | Done |
+| 4c | **Event-driven live sync** — SSE over polling for messages, feed, P2P status (v0.13.0) | Done |
 | 5 | Capacitor mobile shell | **In progress** — Android Stage B in v0.10; iOS + polish remain |
 | 6 | Thumbnails, orphan blob GC | Planned |
 | 7 | **Community relays** — public relay list, optional PIX join fee in invite v3, host health hints | Planned |

@@ -47,7 +47,7 @@ impl P2pNode {
         store: StoreHandle,
         identity: Arc<RwLock<Identity>>,
         listen_addr: Multiaddr,
-        relay_multiaddr: Option<String>,
+        relay_multiaddrs: Vec<String>,
         event_tx: mpsc::UnboundedSender<P2pEvent>,
     ) -> CoreResult<Self> {
         let data_dir = store
@@ -75,21 +75,6 @@ impl P2pNode {
             .listen_on(listen_addr)
             .map_err(|e| CoreError::P2p(e.to_string()))?;
 
-        if let Some(relay) = relay_multiaddr.as_deref().filter(|s| !s.trim().is_empty()) {
-            match relay.trim().parse::<Multiaddr>() {
-                Ok(relay_addr) => {
-                    let circuit_addr = relay_circuit_listen_addr(&relay_addr);
-                    match swarm.listen_on(circuit_addr.clone()) {
-                        Ok(listener_id) => {
-                            info!(%circuit_addr, ?listener_id, "listening via relay circuit");
-                        }
-                        Err(e) => warn!(error = %e, "failed to listen via relay circuit"),
-                    }
-                }
-                Err(e) => warn!(relay = %relay, error = %e, "invalid relay multiaddr"),
-            }
-        }
-
         let node = Self {
             peer_id,
             swarm: Arc::new(Mutex::new(swarm)),
@@ -100,8 +85,32 @@ impl P2pNode {
             peer_direct: Arc::new(Mutex::new(std::collections::HashSet::new())),
         };
 
+        node.ensure_relay_circuits(&relay_multiaddrs).await;
+
         node.spawn_event_loop();
         Ok(node)
+    }
+
+    pub async fn ensure_relay_circuits(&self, relay_multiaddrs: &[String]) {
+        let mut swarm = self.swarm.lock().await;
+        for relay in relay_multiaddrs {
+            let trimmed = relay.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            match trimmed.parse::<Multiaddr>() {
+                Ok(relay_addr) => {
+                    let circuit_addr = relay_circuit_listen_addr(&relay_addr);
+                    match swarm.listen_on(circuit_addr.clone()) {
+                        Ok(listener_id) => {
+                            info!(%circuit_addr, ?listener_id, "listening via relay circuit");
+                        }
+                        Err(e) => warn!(error = %e, %circuit_addr, "failed to listen via relay circuit"),
+                    }
+                }
+                Err(e) => warn!(relay = %trimmed, error = %e, "invalid relay multiaddr"),
+            }
+        }
     }
 
     pub fn peer_id_string(&self) -> String {

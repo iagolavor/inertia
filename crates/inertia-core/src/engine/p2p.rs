@@ -33,12 +33,12 @@ impl Engine {
             .parse::<Multiaddr>()
             .map_err(|e| CoreError::P2p(e.to_string()))?;
 
-        let relay_multiaddr = self.effective_relay().await;
+        let relay_multiaddrs = self.effective_relays().await;
         let node = P2pNode::start(
             self.store.clone(),
             Arc::clone(&self.identity),
             listen_addr,
-            relay_multiaddr,
+            relay_multiaddrs,
             self.event_tx.clone(),
         )
         .await?;
@@ -60,22 +60,23 @@ impl Engine {
         self.activity.lock().await.set_dial_in_progress(true);
         let result = self.redial_known_peers_inner().await;
         self.activity.lock().await.set_dial_in_progress(false);
+        self.emit_p2p_status_changed().await;
         result
     }
 
     async fn redial_known_peers_inner(&self) -> CoreResult<()> {
-        if let Some(relay) = self.effective_relay().await {
+        for relay in self.effective_relays().await {
             match self.dial_peer(&relay).await {
                 Ok(()) => {
                     self.activity.lock().await.push("dial", "Dialed relay");
-                    info!("dialed configured relay");
+                    info!(%relay, "dialed configured relay");
                 }
                 Err(e) => {
                     self.activity
                         .lock()
                         .await
                         .push("dial_failed", format!("Relay dial failed: {e}"));
-                    warn!(error = %e, "failed to dial relay");
+                    warn!(error = %e, %relay, "failed to dial relay");
                 }
             }
         }
@@ -99,13 +100,13 @@ impl Engine {
         Ok(())
     }
 
-    /// Redial the configured relay when libp2p is up but the relay session dropped.
+    /// Redial configured relays when libp2p is up but a relay session dropped.
     pub async fn ensure_relay_connected(&self) -> CoreResult<()> {
-        let relay = match self.effective_relay().await {
-            Some(addr) if !addr.trim().is_empty() => addr,
-            _ => return Ok(()),
-        };
-        let relay_peer_id = peer_id_from_multiaddr_str(&relay);
+        let relays = self.effective_relays().await;
+        if relays.is_empty() {
+            return Ok(());
+        }
+
         let guard = self.p2p.lock().await;
         let Some(p2p) = guard.as_ref() else {
             return Ok(());
@@ -113,15 +114,20 @@ impl Engine {
         let connected = p2p.connected_peer_ids().await;
         drop(guard);
 
-        if relay_peer_id
-            .as_ref()
-            .is_some_and(|id| connected.iter().any(|peer| peer == id))
-        {
-            return Ok(());
+        for relay in relays {
+            let trimmed = relay.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let Some(relay_peer_id) = peer_id_from_multiaddr_str(trimmed) else {
+                continue;
+            };
+            if connected.iter().any(|peer| peer == &relay_peer_id) {
+                continue;
+            }
+            self.dial_peer(trimmed).await?;
+            info!(%relay_peer_id, "redialing relay (session not connected)");
         }
-
-        self.dial_peer(&relay).await?;
-        info!("redialing relay (session not connected)");
         Ok(())
     }
 
@@ -144,22 +150,27 @@ impl Engine {
 
     pub async fn p2p_status_snapshot(
         &self,
-        relay: Option<String>,
+        relays: Vec<String>,
         relay_tcp_reachable: Option<bool>,
     ) -> P2pStatus {
-        let relay_peer_id = relay.as_deref().and_then(peer_id_from_multiaddr_str);
+        let relay_peer_ids: Vec<String> = relays
+            .iter()
+            .filter_map(|relay| peer_id_from_multiaddr_str(relay))
+            .collect();
         let pending_outbox_count = activity::count_pending_outbox(&self.store).await;
         let activity_snap = self.activity.lock().await.snapshot();
 
         let guard = self.p2p.lock().await;
         let status_core = if let Some(p2p) = guard.as_ref() {
             let connected_peer_ids = p2p.connected_peer_ids().await;
-            let relay_connected = relay_peer_id
-                .as_ref()
-                .is_some_and(|id| connected_peer_ids.iter().any(|p| p == id));
+            let relays_connected_count = relay_peer_ids
+                .iter()
+                .filter(|id| connected_peer_ids.iter().any(|p| p == *id))
+                .count();
+            let relay_connected = relays_connected_count > 0;
             let friends_online_count = connected_peer_ids
                 .iter()
-                .filter(|id| relay_peer_id.as_ref() != Some(id))
+                .filter(|id| !relay_peer_ids.iter().any(|relay_id| relay_id == *id))
                 .count();
             (
                 true,
@@ -171,10 +182,11 @@ impl Engine {
                     .collect(),
                 connected_peer_ids,
                 relay_connected,
+                relays_connected_count,
                 friends_online_count,
             )
         } else {
-            (false, None, Vec::new(), Vec::new(), false, 0)
+            (false, None, Vec::new(), Vec::new(), false, 0, 0)
         };
         drop(guard);
 
@@ -184,12 +196,13 @@ impl Engine {
             listen_addresses,
             connected_peer_ids,
             relay_connected,
+            relays_connected_count,
             friends_online_count,
         ) = status_core;
 
         let layers = p2p_status::build_layers(
             running,
-            relay.is_some(),
+            !relays.is_empty(),
             relay_tcp_reachable,
             relay_connected,
             friends_online_count,
@@ -199,13 +212,24 @@ impl Engine {
         let labels = p2p_status::build_labels(&layers);
         let tone = p2p_status::visual_tone_str(p2p_status::visual_tone(&layers)).to_string();
 
+        {
+            let mut hints = self.relay_status_hints.lock().await;
+            activity::refresh_relay_hints_from_store(
+                &self.store,
+                &mut hints,
+                relay_tcp_reachable,
+            )
+            .await;
+        }
+
         P2pStatus {
             running,
             peer_id,
             listen_addresses,
             connected_peer_ids,
-            relay_configured: relay.is_some(),
-            relay_peer_id,
+            relay_configured: !relays.is_empty(),
+            relay_multiaddrs: relays,
+            relays_connected_count,
             relay_connected,
             relay_tcp_reachable,
             pending_outbox_count,
@@ -222,15 +246,16 @@ impl Engine {
         self.activity.lock().await.snapshot()
     }
 
-    /// Connected libp2p peers excluding the configured relay.
+    /// Connected libp2p peers excluding configured relays.
     pub(crate) async fn connected_friend_peer_ids(&self) -> std::collections::HashSet<String> {
         use std::collections::HashSet;
 
-        let relay_peer_id = self
-            .effective_relay()
+        let relay_peer_ids: HashSet<String> = self
+            .effective_relays()
             .await
-            .as_deref()
-            .and_then(peer_id_from_multiaddr_str);
+            .iter()
+            .filter_map(|relay| peer_id_from_multiaddr_str(relay))
+            .collect();
 
         let guard = self.p2p.lock().await;
         let Some(p2p) = guard.as_ref() else {
@@ -241,18 +266,59 @@ impl Engine {
 
         connected
             .into_iter()
-            .filter(|id| relay_peer_id.as_ref() != Some(id))
+            .filter(|id| !relay_peer_ids.contains(id))
             .collect()
     }
 
     pub async fn p2p_status(&self) -> P2pStatus {
-        let relay = self.relay_multiaddr().await;
-        let relay_tcp_reachable = if let Some(ref addr) = relay {
-            Some(relay_tcp_reachable(addr).await)
+        let relays = self.effective_relays().await;
+        let relay_tcp_reachable = if let Some(addr) = relays.first() {
+            Some(self.relay_tcp_reachable_cached(addr).await)
         } else {
             None
         };
-        self.p2p_status_snapshot(relay, relay_tcp_reachable).await
+        self.p2p_status_snapshot(relays, relay_tcp_reachable).await
+    }
+
+    /// Cached or session-derived relay reachability, or None when a TCP probe is needed.
+    pub async fn relay_tcp_reachable_precheck(&self, relay_addr: &str) -> Option<bool> {
+        use std::time::{Duration, Instant};
+
+        const TTL: Duration = Duration::from_secs(60);
+
+        if let Some(relay_peer_id) = peer_id_from_multiaddr_str(relay_addr) {
+            let guard = self.p2p.lock().await;
+            if let Some(p2p) = guard.as_ref() {
+                let connected = p2p.connected_peer_ids().await;
+                if connected.iter().any(|id| id == &relay_peer_id) {
+                    return Some(true);
+                }
+            }
+        }
+
+        let now = Instant::now();
+        let cache = self.relay_probe_cache.lock().await;
+        if let Some((reachable, at)) = *cache {
+            if now.duration_since(at) < TTL {
+                return Some(reachable);
+            }
+        }
+        None
+    }
+
+    pub async fn store_relay_tcp_probe(&self, reachable: bool) {
+        use std::time::Instant;
+        *self.relay_probe_cache.lock().await = Some((reachable, Instant::now()));
+    }
+
+    async fn relay_tcp_reachable_cached(&self, relay_addr: &str) -> bool {
+        if let Some(reachable) = self.relay_tcp_reachable_precheck(relay_addr).await {
+            return reachable;
+        }
+
+        let reachable = super::probe_relay_tcp(relay_addr).await;
+        self.store_relay_tcp_probe(reachable).await;
+        reachable
     }
 
     /// Addresses embedded in invites — uses settings or `INERTIA_P2P_ANNOUNCE` when set.

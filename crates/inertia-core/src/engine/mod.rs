@@ -10,6 +10,7 @@ mod messaging;
 mod outbox;
 mod p2p;
 mod p2p_status;
+mod relay_list;
 mod profile;
 mod settings;
 
@@ -18,7 +19,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use tracing::{info, warn};
 
 use crate::content::DeliveryStatus;
@@ -29,7 +30,7 @@ use crate::p2p::{P2pEvent, P2pNode};
 use crate::storage::ProfilePhoto;
 use crate::store_handle::StoreHandle;
 
-pub use activity::{P2pActivityEvent, P2pActivitySnapshot};
+pub use activity::{P2pActivityEvent, P2pActivitySnapshot, P2pStatusRelayHints, P2pUiEvent};
 pub use outbox::deliver_outbox_entry;
 
 /// Default libp2p TCP listen port when `INERTIA_P2P_LISTEN_PORT` is unset.
@@ -44,6 +45,9 @@ pub struct Engine {
     _p2p_event_task: tokio::task::JoinHandle<()>,
     pub(crate) event_tx: mpsc::UnboundedSender<P2pEvent>,
     pub(crate) activity: Arc<Mutex<activity::ActivityLog>>,
+    ui_event_tx: broadcast::Sender<activity::P2pUiEvent>,
+    relay_status_hints: Arc<Mutex<activity::P2pStatusRelayHints>>,
+    relay_probe_cache: Arc<Mutex<Option<(bool, std::time::Instant)>>>,
     media_fetches: Arc<Mutex<HashMap<String, media::MediaFetchStatus>>>,
 }
 
@@ -61,17 +65,23 @@ impl Engine {
         let expiry_handle = Some(expiry.spawn());
 
         let (event_tx, p2p_events) = mpsc::unbounded_channel();
+        let (ui_event_tx, _) = broadcast::channel(64);
         let p2p = Arc::new(Mutex::new(None));
         let activity = Arc::new(Mutex::new(activity::ActivityLog::new()));
+        let relay_status_hints = Arc::new(Mutex::new(activity::P2pStatusRelayHints::default()));
         let p2p_for_events = Arc::clone(&p2p);
         let store_for_events = store.clone();
         let activity_for_events = Arc::clone(&activity);
+        let ui_events_for_loop = ui_event_tx.clone();
+        let relay_hints_for_loop = relay_status_hints.clone();
         let p2p_event_task = tokio::spawn(async move {
             outbox::run_p2p_event_loop(
                 p2p_events,
                 store_for_events,
                 p2p_for_events,
                 activity_for_events,
+                relay_hints_for_loop,
+                ui_events_for_loop,
             )
             .await;
         });
@@ -84,6 +94,9 @@ impl Engine {
             _p2p_event_task: p2p_event_task,
             event_tx,
             activity,
+            ui_event_tx,
+            relay_status_hints,
+            relay_probe_cache: Arc::new(Mutex::new(None)),
             media_fetches: Arc::new(Mutex::new(HashMap::new())),
         };
 
@@ -110,6 +123,16 @@ impl Engine {
 
     pub async fn run_expiry_sweep(&self) -> CoreResult<crate::storage::PurgeReport> {
         self.store.with(|store| store.purge_expired()).await
+    }
+
+    pub fn subscribe_ui_events(&self) -> broadcast::Receiver<activity::P2pUiEvent> {
+        self.ui_event_tx.subscribe()
+    }
+
+    /// Push a UI-visible activity row and broadcast it to SSE subscribers.
+    pub async fn push_ui_activity(&self, kind: &str, detail: &str) {
+        let event = self.activity.lock().await.push(kind, detail);
+        activity::emit_ui_event(&self.ui_event_tx, event);
     }
 }
 
@@ -152,11 +175,13 @@ pub struct P2pStatus {
     pub peer_id: Option<String>,
     pub listen_addresses: Vec<String>,
     pub connected_peer_ids: Vec<String>,
-    /// True when `INERTIA_RELAY` or settings relay multiaddr is set.
+    /// True when `INERTIA_RELAY` or settings relay list is non-empty.
     pub relay_configured: bool,
-    /// Peer id extracted from the configured relay multiaddr.
-    pub relay_peer_id: Option<String>,
-    /// libp2p session to the relay peer is up.
+    /// Configured relay multiaddrs (first is primary).
+    pub relay_multiaddrs: Vec<String>,
+    /// libp2p sessions to configured relays.
+    pub relays_connected_count: usize,
+    /// True when any configured relay has a libp2p session.
     pub relay_connected: bool,
     /// TCP connect probe to the relay host:port (None if relay not configured).
     pub relay_tcp_reachable: Option<bool>,

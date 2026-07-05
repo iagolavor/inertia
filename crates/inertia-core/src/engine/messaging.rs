@@ -58,6 +58,12 @@ impl Engine {
                                 )
                             })
                             .await?;
+                        self.emit_message_sent_ui(
+                            &content_id,
+                            recipient_id,
+                            ContentType::Message,
+                        )
+                        .await;
                         return Ok(content_id);
                     }
                 }

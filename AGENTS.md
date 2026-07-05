@@ -7,7 +7,11 @@ This repo has two specialized agent contexts. Cursor rules activate them automat
 | **Rust backend** | `.cursor/rules/rust-backend.mdc` | `crates/**`, `tools/**`, root `Cargo.toml` |
 | **Svelte frontend** | `.cursor/rules/svelte-frontend.mdc` | `apps/web/**` |
 
-Read `docs/VISION.md` for product/architecture and `docs/DESIGN.md` for UI philosophy.
+Read `docs/VISION.md` for product/architecture, `docs/LIVE-SYNC.md` for SSE and sync modules, and `docs/DESIGN.md` for UI philosophy.
+
+## Copy (repo-wide)
+
+**Never use em dashes (`—`).** Not in UI, docs, scripts (especially `scripts/windows/*.ps1`), errors, commits, or PRs. Use ASCII `-`, periods, commas, or colons. Unicode dashes break Windows PowerShell and are not project style.
 
 ## Architecture (short)
 
@@ -16,6 +20,7 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 ```
 
 - **Local-first**: no cloud backend. API binds `127.0.0.1:4783` on the user's machine.
+- **Live UI (SSE-first)**: no interval polling. `GET /api/p2p/events` drives inline patches via `messages-sync`, `feed-sync`, `conversation-sync` in `apps/web/src/lib/`. HTTP refresh reconciles on `catch_up`, tab visible, or patch miss. See [docs/LIVE-SYNC.md](docs/LIVE-SYNC.md).
 - **Ephemeral content**: posts and messages 7d, invites 15min single-use.
 - **P2P**: libp2p strict mode; friends = contacts; posts fan-out to all contacts.
 

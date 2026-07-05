@@ -69,22 +69,45 @@ impl Engine {
         Ok(contacts)
     }
 
+    pub async fn get_contact(&self, contact_id: &str) -> CoreResult<Contact> {
+        let mut contact = self
+            .store
+            .with(|store| store.get_contact(contact_id))
+            .await?;
+        let connected = self.connected_friend_peer_ids().await;
+        contact.connection_state = presence_for_contact(&contact, &connected);
+        Ok(contact)
+    }
+
     pub async fn list_conversation_messages(
         &self,
         contact_id: &str,
     ) -> CoreResult<Vec<ConversationMessage>> {
-        self.store
+        let contact = self
+            .store
             .with(|store| store.get_contact(contact_id))
             .await?;
 
-        let received = self
+        let mut received = self
             .store
-            .with(|store| store.list_inbox_messages_from_sender(contact_id))
+            .with(|store| store.list_inbox_messages_from_sender(&contact.id))
             .await?;
-        let sent = self
+        if received.is_empty() && contact.signing_pubkey != contact.id {
+            received = self
+                .store
+                .with(|store| store.list_inbox_messages_from_sender(&contact.signing_pubkey))
+                .await?;
+        }
+        let mut sent = self
             .store
-            .with(|store| store.list_sent_messages_for_recipient(contact_id))
+            .with(|store| store.list_sent_messages_for_recipient(&contact.id))
             .await?;
+        if sent.is_empty() && contact.signing_pubkey != contact.id {
+            sent = self
+                .store
+                .with(|store| store.list_sent_messages_for_recipient(&contact.signing_pubkey))
+                .await?;
+        }
 
         let mut messages: Vec<ConversationMessage> = received
             .into_iter()

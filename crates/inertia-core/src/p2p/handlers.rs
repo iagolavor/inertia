@@ -277,6 +277,12 @@ async fn process_incoming_envelope(
             store
                 .with_mut(|s| s.insert_post_comment(&comment))
                 .await?;
+            let _ = event_tx.send(P2pEvent::CommentReceived {
+                post_id: comment.post_id.clone(),
+                content_id: comment.id.clone(),
+                author_id: comment.author_id.clone(),
+                body: comment.body.clone(),
+            });
             return Ok(None);
         }
     };
@@ -324,6 +330,23 @@ async fn process_incoming_envelope(
             .await;
     }
 
-    let _ = event_tx.send(P2pEvent::MessageReceived { sender_id, body });
+    let contact_id = store
+        .with(|s| s.list_contacts())
+        .await
+        .ok()
+        .and_then(|contacts| {
+            contacts
+                .into_iter()
+                .find(|c| c.id == sender_id || c.signing_pubkey == sender_id)
+                .map(|c| c.id)
+        });
+
+    let _ = event_tx.send(P2pEvent::MessageReceived {
+        sender_id,
+        body,
+        content_id: envelope.id.clone(),
+        content_type: envelope.content_type,
+        contact_id,
+    });
     Ok(sync_hash)
 }

@@ -1,5 +1,31 @@
 import type { Contact, ConversationMessage, InboxEntry } from '$lib/api';
 
+const REACHABLE_MS = 24 * 60 * 60 * 1000;
+
+/** Overlay live libp2p session state without refetching the full contact roster. */
+export function contactWithLivePresence(
+  contact: Contact,
+  connectedPeerIds: string[] | undefined
+): Contact {
+  const connected = new Set(connectedPeerIds ?? []);
+  let connection_state: Contact['connection_state'];
+
+  if (contact.peer_id && connected.has(contact.peer_id)) {
+    connection_state = 'online';
+  } else if (!contact.peer_id && !(contact.multiaddrs?.length ?? 0)) {
+    connection_state = 'unreachable';
+  } else if (
+    contact.last_seen != null &&
+    Date.now() - new Date(contact.last_seen).getTime() <= REACHABLE_MS
+  ) {
+    connection_state = 'reachable';
+  } else {
+    connection_state = 'unreachable';
+  }
+
+  return { ...contact, connection_state };
+}
+
 export interface DmThread {
   contact: Contact;
   lastMessage: InboxEntry | null;
@@ -57,8 +83,6 @@ export function previewText(body: string, max = 72): string {
 }
 
 export type PresenceTier = 'connected' | 'reachable';
-
-const REACHABLE_MS = 24 * 60 * 60 * 1000;
 
 /** API overlay state, with client fallback when the API still returns legacy `offline`. */
 export function effectiveConnectionState(
