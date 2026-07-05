@@ -20,7 +20,7 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 ```
 
 - **Local-first**: no cloud backend. API binds `127.0.0.1:4783` on the user's machine.
-- **Live UI**: SSE (`GET /api/p2p/events`) plus `messages-sync`, `feed-sync`, `conversation-sync` in `apps/web/src/lib/`. See [docs/LIVE-SYNC.md](docs/LIVE-SYNC.md).
+- **Live UI (SSE-first)**: no interval polling. `GET /api/p2p/events` drives inline patches via `messages-sync`, `feed-sync`, `conversation-sync` in `apps/web/src/lib/`. HTTP refresh reconciles on `catch_up`, tab visible, or patch miss. See [docs/LIVE-SYNC.md](docs/LIVE-SYNC.md).
 - **Ephemeral content**: posts and messages 7d, invites 15min single-use.
 - **P2P**: libp2p strict mode; friends = contacts; posts fan-out to all contacts.
 

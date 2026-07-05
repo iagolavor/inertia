@@ -40,6 +40,15 @@ This opens a PR:
 
 Review the generated PR body and edit if anything is missing.
 
+### Release theme (optional)
+
+For cuts with a clear narrative, add a **theme** line to the PR title and a short summary block in the body. Example for v0.13.0:
+
+- **Title:** `Release v0.13.0 - Event-driven live sync`
+- **Summary:** SSE replaces interval polling for content and P2P aliveness; see [LIVE-SYNC.md](./LIVE-SYNC.md).
+
+Use **User-visible** and **Developer** subsections in the PR body when the theme is architectural (not just a bugfix batch).
+
 ### Manual alternative
 
 **Bash**

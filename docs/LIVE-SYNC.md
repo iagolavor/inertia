@@ -4,6 +4,10 @@ The Svelte UI stays up to date with local P2P activity through **Server-Sent Eve
 
 This doc describes the current web architecture: SSE (`GET /api/p2p/events`) plus sync modules for durable UI state. Interval polling has been removed; reconciliation runs on SSE events, tab visibility, and targeted fallbacks.
 
+## History
+
+**v0.13.0 (event-driven live sync):** interval polling of `/p2p/status` and list endpoints was removed. SSE is the primary update path; HTTP fetches reconcile only on `catch_up`, tab visible, page mount, or when an inline patch cannot apply. See the release notes for that cut for the full PR list.
+
 ---
 
 ## End-to-end flow
