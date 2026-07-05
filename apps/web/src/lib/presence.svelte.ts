@@ -1,6 +1,6 @@
 import { api, type P2pStatus } from '$lib/api';
 import { ApiRequestError } from '$lib/api-errors';
-import { identityState } from '$lib/identity.svelte';
+import { identityState, refreshIdentity } from '$lib/identity.svelte';
 import {
 	canPatchOpenConversation,
 	conversationMessageFromUiEvent,
@@ -55,6 +55,7 @@ let p2pRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
 let p2pRecoveryDelayMs = P2P_RECOVERY_INITIAL_MS;
 let p2pRefreshInFlight = false;
 let lastP2pRefreshAttemptAt = 0;
+let streamTransportProbeInFlight = false;
 
 const channelState: Record<RefreshChannel, ChannelState> = {
 	feed: { inFlight: false, debounceTimer: null },
@@ -203,9 +204,22 @@ function markApiTransportOffline(error: ApiRequestError) {
 	resetP2pRecoveryBackoff();
 }
 
-/** SSE disconnect while the API is still thought to be online. */
-export function notifyP2pStreamDisconnected() {
-	scheduleP2pRecoveryRetry();
+/**
+ * SSE transport error: close the stream, probe API health once, then reconnect
+ * only if the API is still up. Avoids EventSource auto-reconnect spam when offline.
+ */
+export async function handleP2pStreamTransportError(reconnect?: () => void): Promise<void> {
+	if (streamTransportProbeInFlight) return;
+	streamTransportProbeInFlight = true;
+	stopP2pLiveRecovery();
+	try {
+		await refreshIdentity({ silent: true });
+		if (identityState.apiOnline && identityState.identity && reconnect) {
+			reconnect();
+		}
+	} finally {
+		streamTransportProbeInFlight = false;
+	}
 }
 
 /** Refresh P2P status when the app opens or the tab becomes visible again. */
