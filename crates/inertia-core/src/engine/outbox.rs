@@ -4,26 +4,40 @@ use libp2p::PeerId;
 use tokio::sync::{broadcast, mpsc, Mutex};
 use tracing::{info, warn};
 
-use crate::content::{ContentEnvelope, DeliveryStatus};
+use crate::content::{ContentEnvelope, ContentType, DeliveryStatus};
 use crate::error::{CoreError, CoreResult};
 use crate::p2p::{P2pEvent, P2pNode};
 use crate::store_handle::StoreHandle;
 
-use super::activity::{self, ActivityLog, P2pUiEvent};
+use super::activity::{self, ActivityLog, P2pStatusRelayHints, P2pUiEvent};
 
 pub async fn run_p2p_event_loop(
     mut events: mpsc::UnboundedReceiver<P2pEvent>,
     store: StoreHandle,
     p2p: Arc<Mutex<Option<P2pNode>>>,
     activity: Arc<Mutex<ActivityLog>>,
+    relay_hints: Arc<Mutex<P2pStatusRelayHints>>,
     ui_event_tx: broadcast::Sender<P2pUiEvent>,
 ) {
     while let Some(event) = events.recv().await {
+        let emit_status_after = matches!(
+            event,
+            P2pEvent::PeerConnected(_) | P2pEvent::PeerDisconnected(_)
+        );
+
         activity::log_p2p_event(&activity, &store, &event, &ui_event_tx).await;
 
         if let P2pEvent::PeerConnected(peer_id) = event {
             info!(%peer_id, "peer connected — flushing pending outbox");
-            let flushed = flush_outbox_for_peer(&store, &p2p, peer_id).await;
+            let flushed = flush_outbox_for_peer(
+                &store,
+                &p2p,
+                &activity,
+                &relay_hints,
+                &ui_event_tx,
+                peer_id,
+            )
+            .await;
             match flushed {
                 Ok(count) if count > 0 => {
                     let ui_event = activity
@@ -39,16 +53,38 @@ pub async fn run_p2p_event_loop(
             {
                 warn!(error = %e, "blob sync on peer connect failed");
             }
+            activity::emit_p2p_status_changed(
+                &store,
+                &p2p,
+                &activity,
+                &relay_hints,
+                &ui_event_tx,
+            )
+            .await;
             continue;
         }
 
         super::blobs::handle_p2p_event(event, &store, &p2p).await;
+
+        if emit_status_after {
+            activity::emit_p2p_status_changed(
+                &store,
+                &p2p,
+                &activity,
+                &relay_hints,
+                &ui_event_tx,
+            )
+            .await;
+        }
     }
 }
 
 async fn flush_outbox_for_peer(
     store: &StoreHandle,
     p2p: &Arc<Mutex<Option<P2pNode>>>,
+    activity: &Arc<Mutex<ActivityLog>>,
+    _relay_hints: &Arc<Mutex<P2pStatusRelayHints>>,
+    ui_event_tx: &broadcast::Sender<P2pUiEvent>,
     peer_id: PeerId,
 ) -> CoreResult<usize> {
     let peer_id_str = peer_id.to_string();
@@ -85,6 +121,15 @@ async fn flush_outbox_for_peer(
         .await
         .is_ok()
         {
+            activity::emit_message_sent_ui_event(
+                activity,
+                store,
+                ui_event_tx,
+                &entry.content_id,
+                &entry.recipient_id,
+                entry.content_type,
+            )
+            .await;
             sent += 1;
         } else {
             warn!(
@@ -151,6 +196,15 @@ use super::Engine;
 
 impl Engine {
     pub async fn retry_outbox(&self, content_id: &str, recipient_id: &str) -> CoreResult<()> {
+        let content_type = self
+            .store
+            .with(|s| s.list_outbox())
+            .await?
+            .into_iter()
+            .find(|entry| entry.content_id == content_id && entry.recipient_id == recipient_id)
+            .map(|entry| entry.content_type)
+            .unwrap_or(ContentType::Message);
+
         deliver_outbox_entry(
             &self.store,
             &self.p2p,
@@ -158,6 +212,61 @@ impl Engine {
             recipient_id,
             true,
         )
-        .await
+        .await?;
+
+        activity::emit_message_sent_ui_event(
+            &self.activity,
+            &self.store,
+            &self.ui_event_tx,
+            content_id,
+            recipient_id,
+            content_type,
+        )
+        .await;
+        activity::emit_p2p_status_changed(
+            &self.store,
+            &self.p2p,
+            &self.activity,
+            &self.relay_status_hints,
+            &self.ui_event_tx,
+        )
+        .await;
+        Ok(())
+    }
+
+    pub(crate) async fn emit_message_sent_ui(
+        &self,
+        content_id: &str,
+        recipient_id: &str,
+        content_type: ContentType,
+    ) {
+        activity::emit_message_sent_ui_event(
+            &self.activity,
+            &self.store,
+            &self.ui_event_tx,
+            content_id,
+            recipient_id,
+            content_type,
+        )
+        .await;
+        activity::emit_p2p_status_changed(
+            &self.store,
+            &self.p2p,
+            &self.activity,
+            &self.relay_status_hints,
+            &self.ui_event_tx,
+        )
+        .await;
+    }
+
+    pub(crate) async fn emit_p2p_status_changed(&self) {
+        activity::emit_p2p_status_changed(
+            &self.store,
+            &self.p2p,
+            &self.activity,
+            &self.relay_status_hints,
+            &self.ui_event_tx,
+        )
+        .await;
     }
 }

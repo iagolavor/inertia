@@ -31,7 +31,7 @@ Three modules follow the same contract: **mutate durable state, persist cache in
 |--------|-------|---------------|-------------------|
 | `messages-sync` | Thread list (contacts + inbox) | `messages` | `message_received` (dm) |
 | `feed-sync` | Home feed | `feed` | `message_received` (post) |
-| `conversation-sync` | Open chat (per `contactId`) | `conversation:{id}` | `message_received` (dm), `delivery_acked` |
+| `conversation-sync` | Open chat (per `contactId`) | `conversation:{id}` | `message_received` (dm), `message_sent`, `delivery_acked` |
 
 **Pages subscribe and render.** Optimistic sends (`pending-*` message IDs) stay page-local in the chat composer and are never written to cache.
 
@@ -86,7 +86,11 @@ flowchart TD
   E["P2pUiEvent"]
   E --> CATCH{"catch_up?"}
   CATCH -->|yes| REFETCH["refreshP2pLive + debounced inbox/feed/conversation fetch"]
-  CATCH -->|no| DEL{"delivery_acked + content_id?"}
+  CATCH -->|no| STATUS{"p2p_status_changed?"}
+  STATUS -->|yes| P2P["merge into identityState.p2pStatus"]
+  STATUS -->|no| SENT{"message_sent + content_id?"}
+  SENT -->|yes| STICK["conversation-sync patchSentFromEvent"]
+  SENT -->|no| DEL{"delivery_acked + content_id?"}
   DEL -->|yes| DTICK["conversation-sync patchDeliveryFromEvent\n(one own row -> delivered)"]
   DEL -->|no| DM{"message_received dm\nfor open contact?"}
   DM -->|yes| CPATCH["conversation-sync patchConversationFromEvent\n+ inbox patch"]
@@ -100,8 +104,13 @@ flowchart TD
 | `kind` | Typical use | Inline patch |
 |--------|-------------|--------------|
 | `message_received` | New dm or post | inbox, feed, or conversation (by `content_type`) |
+| `message_sent` | Outbox delivered one item to a peer | conversation (`content_id` required) |
 | `delivery_acked` | Recipient acked your sent message | conversation (`content_id` required) |
-| `outbox_flush` | Batch send completed | fallback refresh (no per-message payload today) |
+| `p2p_status_changed` | Peers, tone, or outbox count changed | header merges into `identityState.p2pStatus` |
+| `comment_received` | Friend commented on a post | feed refresh (debounced) |
+| `friend_request` | Incoming friend request | inbox/contacts refresh |
+| `blob_sync` | Photo blob fetch started | feed refresh (media may appear) |
+| `outbox_flush` | Batch send completed (activity log only) | no inline patch |
 | `catch_up` | SSE reconnect | full reconcile on all message channels |
 | `peer_connected` / `peer_disconnected` | Presence | inbox + conversation refresh; live P2P status |
 
@@ -173,6 +182,12 @@ Defined in `crates/inertia-core/src/engine/activity.rs` and streamed as JSON ove
 
 **`delivery_acked`** includes: `content_id`, `contact_id` (from outbox `recipient_id` or contact matched by `peer_id`), `content_type: "message"`.
 
+**`message_sent`** includes: `content_id`, `contact_id` (recipient), `content_type` (`message`, `post`, or `comment`).
+
+**`p2p_status_changed`** includes: `connected_peer_ids`, `tone`, `pending_outbox_count`, `dial_in_progress`, `layers`, `labels`.
+
+**`comment_received`** includes: `post_id`, `content_id`, `body`, `content_type: "comment"`.
+
 Events without structured fields only update the activity log string; the UI falls back to debounced HTTP refresh.
 
 ---
@@ -187,19 +202,23 @@ When the API is offline, pages hydrate from cache (`readCachedMessages`, `readCa
 
 ## Reconciliation (no interval polling)
 
-List and feed data update through **SSE inline patches** first. A **debounced HTTP refresh** runs only when a patch cannot apply (for example `outbox_flush` without per-message ids) or when the SSE stream reconnects (`catch_up`).
+List and feed data update through **SSE inline patches** first. A **debounced HTTP refresh** runs only when a patch cannot apply or when the SSE stream reconnects (`catch_up`).
 
 | Trigger | What refreshes |
 |---------|----------------|
-| SSE `message_received` / `delivery_acked` | Inline patch via sync module `emit()` |
+| SSE `message_received` / `message_sent` / `delivery_acked` | Inline patch via sync module `emit()` |
+| SSE `p2p_status_changed` | Header P2P pill without `/p2p/status` |
+| SSE `comment_received` / `blob_sync` | Debounced feed fetch |
+| SSE `friend_request` | Debounced inbox/contacts fetch |
 | SSE `catch_up` (stream reconnect) | `refreshP2pLive` + debounced inbox/feed/conversation fetch |
 | Tab visible | `refreshIdentity`, `refreshP2pOnAppOpen`, `refreshMessagesOnVisible`, page `load*` |
 | Page mount | Initial `loadFeed` / `refreshInboxSilently` / `load` conversation |
-| SSE `peer_*` / `dial` / `dial_failed` | `refreshP2pLive` |
+| SSE `peer_*` | `p2p_status_changed` SSE + inbox/conversation refresh |
+| SSE `dial` / `dial_failed` | `refreshP2pLive` (fallback while relay dials) |
 
 ### P2P status refresh
 
-The header P2P pill no longer polls on a fixed interval. Status loads on **app open** and **tab visible** (`refreshP2pOnAppOpen`). If `/p2p/status` fails with a transport **offline** error, the UI marks the API offline, stops SSE, and stops retries until `refreshIdentity` succeeds again. Timeouts only schedule a coalesced retry and do not flip `apiOnline`. While the API is up but P2P looks unhealthy (relay unreachable, `tone` error/off), a **backoff retry** (15s to 60s) runs while the tab is visible.
+The header P2P pill no longer polls on a fixed interval. Status loads on **app open** and **tab visible** (`refreshP2pOnAppOpen`). **`p2p_status_changed` SSE** updates tone, connected peers, and outbox count without an extra `/p2p/status` round-trip when peers connect or the outbox drains. If `/p2p/status` fails with a transport **offline** error, the UI marks the API offline, stops SSE, and stops retries until `refreshIdentity` succeeds again. Timeouts only schedule a coalesced retry and do not flip `apiOnline`. While the API is up but P2P looks unhealthy (relay unreachable, `tone` error/off), a **backoff retry** (15s to 60s) runs while the tab is visible.
 
 ```mermaid
 flowchart TD
