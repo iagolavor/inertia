@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -22,7 +22,8 @@ use super::handlers::{
 };
 use super::keypair::load_or_create_keypair;
 use super::multiaddr::{
-    ensure_peer_id_suffix, is_routable_multiaddr, peer_id_from_multiaddr, relay_circuit_listen_addr,
+    ensure_peer_id_suffix, filter_friend_multiaddrs, is_relay_circuit_multiaddr_str,
+    is_routable_multiaddr, peer_id_from_multiaddr, relay_circuit_listen_addr,
 };
 use super::protocol::{
     BlobChunkRequest, BlobData, BlobRequest, FriendRequest, InertiaRequest,
@@ -40,6 +41,8 @@ pub struct P2pNode {
         Arc<Mutex<HashMap<OutboundRequestId, mpsc::Sender<InertiaResponse>>>>,
     /// Peers with at least one direct (non-relay-circuit) connection.
     peer_direct: Arc<Mutex<std::collections::HashSet<PeerId>>>,
+    /// Relay peer ids that accepted a circuit reservation for inbound dials.
+    relay_reservations: Arc<Mutex<HashSet<PeerId>>>,
 }
 
 impl P2pNode {
@@ -83,6 +86,7 @@ impl P2pNode {
             event_tx,
             pending_responses: Arc::new(Mutex::new(HashMap::new())),
             peer_direct: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            relay_reservations: Arc::new(Mutex::new(HashSet::new())),
         };
 
         node.ensure_relay_circuits(&relay_multiaddrs).await;
@@ -130,6 +134,7 @@ impl P2pNode {
             .chain(swarm.listeners())
             .filter(|addr| is_routable_multiaddr(addr))
             .map(|addr| ensure_peer_id_suffix(addr, &peer_id))
+            .filter(|addr| is_relay_circuit_multiaddr_str(addr))
             .collect();
         addrs.sort();
         addrs.dedup();
@@ -143,6 +148,47 @@ impl P2pNode {
             .connected_peers()
             .map(|peer_id| peer_id.to_string())
             .collect()
+    }
+
+    /// True when at least one of the given relay peer ids accepted a circuit reservation.
+    pub async fn has_relay_reservation(&self, relay_peer_ids: &[String]) -> bool {
+        let wanted: HashSet<PeerId> = relay_peer_ids
+            .iter()
+            .filter_map(|id| id.parse::<PeerId>().ok())
+            .collect();
+        if wanted.is_empty() {
+            return true;
+        }
+        let reserved = self.relay_reservations.lock().await;
+        wanted.iter().any(|id| reserved.contains(id))
+    }
+
+    /// Wait until a configured relay accepts our circuit reservation (inbound via relay).
+    pub async fn wait_for_relay_reservation(
+        &self,
+        relay_peer_ids: &[String],
+        timeout: Duration,
+    ) -> bool {
+        let wanted: HashSet<PeerId> = relay_peer_ids
+            .iter()
+            .filter_map(|id| id.parse::<PeerId>().ok())
+            .collect();
+        if wanted.is_empty() {
+            return true;
+        }
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            {
+                let reserved = self.relay_reservations.lock().await;
+                if wanted.iter().any(|id| reserved.contains(id)) {
+                    return true;
+                }
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return false;
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
     }
 
     pub async fn dial(&self, addr: Multiaddr) -> CoreResult<()> {
@@ -389,6 +435,7 @@ impl P2pNode {
         let event_tx = self.event_tx.clone();
         let pending_responses = Arc::clone(&self.pending_responses);
         let peer_direct = Arc::clone(&self.peer_direct);
+        let relay_reservations = Arc::clone(&self.relay_reservations);
 
         tokio::spawn(async move {
             loop {
@@ -413,7 +460,9 @@ impl P2pNode {
                         if !remote.contains("/p2p-circuit/") {
                             peer_direct.lock().await.insert(peer_id);
                         }
-                        persist_peer_multiaddrs(&store, &peer_id, &[remote]).await;
+                        if is_relay_circuit_multiaddr_str(&remote) {
+                            persist_peer_multiaddrs(&store, &peer_id, &[remote]).await;
+                        }
                         let _ = event_tx.send(P2pEvent::PeerConnected(peer_id));
                         update_contact_state(&store, &peer_id, ConnectionState::Online).await;
                     }
@@ -495,6 +544,7 @@ impl P2pNode {
                             ..
                         }),
                     ) => {
+                        relay_reservations.lock().await.insert(relay_peer_id);
                         info!(%relay_peer_id, "relay reservation accepted");
                     }
                     libp2p::swarm::SwarmEvent::Behaviour(
@@ -515,8 +565,13 @@ impl P2pNode {
                             ..
                         }),
                     ) => {
-                        let addrs: Vec<String> =
-                            info.listen_addrs.iter().map(|a| a.to_string()).collect();
+                        let addrs = filter_friend_multiaddrs(
+                            &info
+                                .listen_addrs
+                                .iter()
+                                .map(|a| a.to_string())
+                                .collect::<Vec<_>>(),
+                        );
                         if !addrs.is_empty() {
                             persist_peer_multiaddrs(&store, &peer_id, &addrs).await;
                         }

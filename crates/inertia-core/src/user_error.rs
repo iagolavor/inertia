@@ -41,8 +41,22 @@ impl CoreError {
                 "P2P is not running on this device. Restart the API or open Settings.",
                 Some(ErrorCode::P2pNotStarted),
             ),
+            CoreError::Invite(msg)
+                if msg.contains("relay VPS port is unreachable")
+                    || msg.contains("relay multiaddr is not configured") =>
+            {
+                UserFacingError::new(
+                    "Relay unreachable — check the relay address and VPS firewall in Settings.",
+                    Some(ErrorCode::RelayUnreachable),
+                )
+            }
+            CoreError::Invite(msg)
+                if msg.contains("relay is not connected yet")
+                    || msg.contains("no relay circuit listen addresses") =>
+            {
+                UserFacingError::new(msg.clone(), Some(ErrorCode::RelayUnreachable))
+            }
             CoreError::Invite(msg) if msg.contains("connect to the relay in Settings")
-                || msg.contains("relay multiaddr is not configured")
                 || msg.contains("no routable P2P addresses") =>
             {
                 UserFacingError::new(
