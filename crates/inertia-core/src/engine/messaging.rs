@@ -46,26 +46,34 @@ impl Engine {
 
         if let Some(peer_id_str) = recipient.peer_id.as_ref() {
             if let Ok(peer_id) = peer_id_str.parse() {
-                let p2p_guard = self.p2p.lock().await;
-                if let Some(p2p) = p2p_guard.as_ref() {
-                    if p2p.send_envelope_to_peer(peer_id, envelope).await.is_ok() {
-                        self.store
-                            .with_mut(|store| {
-                                store.update_outbox_status(
-                                    &content_id,
-                                    recipient_id,
-                                    DeliveryStatus::Sent,
-                                )
-                            })
-                            .await?;
-                        self.emit_message_sent_ui(
-                            &content_id,
-                            recipient_id,
-                            ContentType::Message,
-                        )
-                        .await;
-                        return Ok(content_id);
+                // Release the p2p guard before emitting UI events:
+                // emit_message_sent_ui locks self.p2p again for the status snapshot.
+                let sent = {
+                    let p2p_guard = self.p2p.lock().await;
+                    match p2p_guard.as_ref() {
+                        Some(p2p) => {
+                            p2p.send_envelope_to_peer(peer_id, envelope).await.is_ok()
+                        }
+                        None => false,
                     }
+                };
+                if sent {
+                    self.store
+                        .with_mut(|store| {
+                            store.update_outbox_status(
+                                &content_id,
+                                recipient_id,
+                                DeliveryStatus::Sent,
+                            )
+                        })
+                        .await?;
+                    self.emit_message_sent_ui(
+                        &content_id,
+                        recipient_id,
+                        ContentType::Message,
+                    )
+                    .await;
+                    return Ok(content_id);
                 }
             }
         }

@@ -15,11 +15,15 @@ pub const MAX_DIALS_PER_CONTACT: usize = 3;
 /// Max wait for relay libp2p session before friend dials.
 pub const RELAY_SESSION_WAIT: Duration = Duration::from_secs(15);
 
-/// Pause after relay session when reservation event is slow.
-pub const RELAY_RESERVATION_PAUSE: Duration = Duration::from_secs(3);
+/// Max wait for relay libp2p session during invite create/accept.
+pub const INVITE_RELAY_SESSION_WAIT: Duration = Duration::from_secs(20);
 
 /// Max wait for relay circuit reservation before friend dials.
-pub const RELAY_RESERVATION_WAIT: Duration = Duration::from_secs(12);
+/// Event-driven: normally satisfied in well under a second.
+pub const RELAY_RESERVATION_WAIT: Duration = Duration::from_secs(15);
+
+/// Max wait for circuit reservation on the invite relay.
+pub const INVITE_RELAY_RESERVATION_WAIT: Duration = Duration::from_secs(20);
 
 /// Build friend dial targets: relay circuits only (requires configured relays + peer id).
 pub fn contact_dial_addrs(contact: &Contact, relays: &[String]) -> Vec<String> {
@@ -54,18 +58,83 @@ fn dial_addr_rank(addr: &str) -> u8 {
     }
 }
 
-async fn dial_multiaddr(p2p: &Arc<Mutex<Option<P2pNode>>>, multiaddr: &str) -> CoreResult<()> {
-    let guard = p2p.lock().await;
-    let node = guard
-        .as_ref()
-        .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
+/// Clone the node handle out of the engine mutex so waits never hold it.
+async fn node_handle(p2p: &Arc<Mutex<Option<P2pNode>>>) -> Option<P2pNode> {
+    p2p.lock().await.as_ref().cloned()
+}
+
+async fn dial_multiaddr(node: &P2pNode, multiaddr: &str) -> CoreResult<()> {
     let addr = multiaddr
         .parse::<Multiaddr>()
         .map_err(|e| CoreError::P2p(e.to_string()))?;
     node.dial(addr).await
 }
 
-/// Dial configured relays, wait for session + circuit reservation before friend dials.
+fn dedupe_relays(priority_relay: &str, relays: &[String]) -> Vec<String> {
+    let mut ordered: Vec<String> = Vec::new();
+    let priority = priority_relay.trim();
+    if !priority.is_empty() {
+        ordered.push(priority.to_string());
+    }
+    for relay in relays {
+        let trimmed = relay.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !ordered.iter().any(|existing| existing == trimmed) {
+            ordered.push(trimmed.to_string());
+        }
+    }
+    ordered
+}
+
+fn relay_peer_ids(relays: &[String]) -> Vec<String> {
+    relays
+        .iter()
+        .filter_map(|relay| super::p2p::peer_id_from_multiaddr_str(relay))
+        .collect()
+}
+
+/// Dial relays, open inbound circuit listeners, and wait (event-driven) for a
+/// reservation on any configured relay.
+async fn connect_and_reserve(
+    node: &P2pNode,
+    relays: &[String],
+    session_wait: Duration,
+    reservation_wait: Duration,
+    wait_for_reservation: bool,
+) -> bool {
+    for relay in relays {
+        match dial_multiaddr(node, relay).await {
+            Ok(()) => info!(%relay, "dialed relay"),
+            Err(e) => warn!(error = %e, %relay, "relay dial failed"),
+        }
+    }
+
+    let peer_ids = relay_peer_ids(relays);
+    if !node.wait_for_any_connected(&peer_ids, session_wait).await {
+        warn!("relay session not ready on configured relays");
+        return false;
+    }
+
+    node.ensure_relay_circuits(relays).await;
+
+    if !wait_for_reservation {
+        return true;
+    }
+
+    let reserved = node
+        .wait_for_relay_reservation(&peer_ids, reservation_wait)
+        .await;
+    if reserved {
+        info!("relay reservation confirmed");
+    } else {
+        warn!("relay reservation not confirmed on any configured relay");
+    }
+    reserved
+}
+
+/// Dial relays and wait for an inbound reservation before friend dials.
 pub(crate) async fn bootstrap_relays_for_friend_dial(
     p2p: &Arc<Mutex<Option<P2pNode>>>,
     relays: &[String],
@@ -73,83 +142,35 @@ pub(crate) async fn bootstrap_relays_for_friend_dial(
     if relays.is_empty() {
         return true;
     }
-
-    {
-        let guard = p2p.lock().await;
-        if let Some(node) = guard.as_ref() {
-            node.ensure_relay_circuits(relays).await;
-        }
-    }
-
-    for relay in relays {
-        match dial_multiaddr(p2p, relay).await {
-            Ok(()) => info!(%relay, "dialed relay before friend redial"),
-            Err(e) => warn!(error = %e, %relay, "relay dial failed before friend redial"),
-        }
-    }
-
-    let relay_peer_ids: Vec<String> = relays
-        .iter()
-        .filter_map(|relay| super::p2p::peer_id_from_multiaddr_str(relay))
-        .collect();
-
-    let relay_ready =
-        wait_for_relay_connected(p2p, &relay_peer_ids, RELAY_SESSION_WAIT).await;
-    if relay_ready {
-        {
-            let guard = p2p.lock().await;
-            if let Some(node) = guard.as_ref() {
-                node.ensure_relay_circuits(relays).await;
-            }
-        }
-        let reserved = {
-            let guard = p2p.lock().await;
-            match guard.as_ref() {
-                Some(node) => {
-                    node.wait_for_relay_reservation(&relay_peer_ids, RELAY_RESERVATION_WAIT)
-                        .await
-                }
-                None => false,
-            }
-        };
-        if !reserved {
-            warn!("relay reservation not confirmed — pausing before friend dials");
-            tokio::time::sleep(RELAY_RESERVATION_PAUSE).await;
-        }
-    } else {
-        warn!("relay session not ready before friend dials");
-    }
-    relay_ready
+    let Some(node) = node_handle(p2p).await else {
+        return false;
+    };
+    connect_and_reserve(&node, relays, RELAY_SESSION_WAIT, RELAY_RESERVATION_WAIT, true).await
 }
 
-pub(crate) async fn wait_for_relay_connected(
+/// Bootstrap relays for invite flows: session on any listed relay, plus a
+/// reservation when the caller needs to be reachable inbound (invite create).
+pub(crate) async fn bootstrap_invite_relay(
     p2p: &Arc<Mutex<Option<P2pNode>>>,
-    relay_peer_ids: &[String],
-    timeout: Duration,
+    priority_relay: &str,
+    relays: &[String],
+    wait_for_reservation: bool,
 ) -> bool {
-    if relay_peer_ids.is_empty() {
-        return true;
+    let ordered = dedupe_relays(priority_relay, relays);
+    if ordered.is_empty() {
+        return false;
     }
-    let deadline = tokio::time::Instant::now() + timeout;
-    loop {
-        let connected = {
-            let guard = p2p.lock().await;
-            match guard.as_ref() {
-                Some(node) => node.connected_peer_ids().await,
-                None => return false,
-            }
-        };
-        if relay_peer_ids
-            .iter()
-            .any(|relay_id| connected.iter().any(|peer| peer == relay_id))
-        {
-            return true;
-        }
-        if tokio::time::Instant::now() >= deadline {
-            return false;
-        }
-        tokio::time::sleep(Duration::from_millis(250)).await;
-    }
+    let Some(node) = node_handle(p2p).await else {
+        return false;
+    };
+    connect_and_reserve(
+        &node,
+        &ordered,
+        INVITE_RELAY_SESSION_WAIT,
+        INVITE_RELAY_RESERVATION_WAIT,
+        wait_for_reservation,
+    )
+    .await
 }
 
 #[cfg(test)]
@@ -187,5 +208,16 @@ mod tests {
         assert_eq!(addrs.len(), 1);
         assert!(addrs[0].contains("/p2p-circuit/"));
         assert!(!addrs[0].contains("192.168"));
+    }
+
+    #[test]
+    fn dedupe_relays_puts_priority_first() {
+        let relays = vec![
+            "/ip4/1.1.1.1/tcp/9000/p2p/12D3KooWB".into(),
+            "/ip4/2.2.2.2/tcp/9000/p2p/12D3KooWA".into(),
+        ];
+        let ordered = dedupe_relays("/ip4/2.2.2.2/tcp/9000/p2p/12D3KooWA", &relays);
+        assert_eq!(ordered.len(), 2);
+        assert!(ordered[0].contains("2.2.2.2"));
     }
 }

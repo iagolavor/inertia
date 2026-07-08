@@ -382,7 +382,7 @@
                 onclick={acceptInvite}
                 disabled={accepting || !identityState.apiOnline}
               >
-                {accepting ? 'Connecting…' : 'Accept invite'}
+                {accepting ? 'Connecting via relay (up to 2 min)…' : 'Accept invite'}
               </button>
             </ProfileHeader>
           </div>

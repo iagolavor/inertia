@@ -66,7 +66,12 @@ impl Engine {
 
     async fn redial_known_peers_inner(&self) -> CoreResult<()> {
         let relays = self.effective_relays().await;
-        let _relay_ready = relay_dial::bootstrap_relays_for_friend_dial(&self.p2p, &relays).await;
+        let relay_reserved =
+            relay_dial::bootstrap_relays_for_friend_dial(&self.p2p, &relays).await;
+        if !relay_reserved {
+            warn!("skipping friend redials until a relay inbound slot is reserved");
+            return Ok(());
+        }
 
         let contacts = self.list_contacts().await?;
         for contact in contacts {
@@ -419,14 +424,21 @@ impl Engine {
         p2p.dial(addr).await
     }
 
-    /// Poll until a peer id appears in the connected set or timeout.
-    pub(super) async fn wait_for_peer_connected(
+    /// Poll until a peer id appears in the connected set, redialing every few seconds.
+    pub(super) async fn wait_for_peer_connected_redial(
         &self,
         peer_id: &str,
+        dial_addrs: &[String],
         timeout: Duration,
         role: &str,
+        max_dials_per_attempt: usize,
     ) -> CoreResult<()> {
+        use std::time::Instant;
+
+        const REDIAL_EVERY: Duration = Duration::from_secs(5);
+
         let deadline = tokio::time::Instant::now() + timeout;
+        let mut last_redial = Instant::now() - REDIAL_EVERY;
         loop {
             let connected = {
                 let guard = self.p2p.lock().await;
@@ -437,6 +449,16 @@ impl Engine {
             };
             if connected.iter().any(|peer| peer == peer_id) {
                 return Ok(());
+            }
+            let now = Instant::now();
+            if !dial_addrs.is_empty()
+                && max_dials_per_attempt > 0
+                && now.duration_since(last_redial) >= REDIAL_EVERY
+            {
+                for addr in dial_addrs.iter().take(max_dials_per_attempt) {
+                    let _ = self.dial_peer(addr).await;
+                }
+                last_redial = now;
             }
             if tokio::time::Instant::now() >= deadline {
                 let message = match role {

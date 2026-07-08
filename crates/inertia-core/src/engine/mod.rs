@@ -52,6 +52,7 @@ pub struct Engine {
     media_fetches: Arc<Mutex<HashMap<String, media::MediaFetchStatus>>>,
 }
 
+pub use invite::InviteReadiness;
 pub use media::{MediaFetchState, MediaFetchStatus};
 
 impl Engine {

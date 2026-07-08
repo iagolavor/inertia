@@ -12,6 +12,28 @@ pub fn peer_id_from_multiaddr(addr: &Multiaddr) -> CoreResult<PeerId> {
         .ok_or_else(|| CoreError::P2p("multiaddr missing /p2p peer id".into()))
 }
 
+/// Relay peer id from `/p2p/<relay>/p2p-circuit/...`.
+pub fn relay_peer_id_from_circuit_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
+    let mut last_p2p = None;
+    for protocol in addr.iter() {
+        match protocol {
+            Protocol::P2p(peer_id) => last_p2p = Some(peer_id),
+            Protocol::P2pCircuit => return last_p2p,
+            _ => {}
+        }
+    }
+    None
+}
+
+/// True when the relay assigned a full inbound circuit address (includes our peer id).
+pub fn is_confirmed_relay_circuit_listen_addr(addr: &Multiaddr, local_peer_id: &PeerId) -> bool {
+    if !addr.to_string().contains("/p2p-circuit/") {
+        return false;
+    }
+    addr.iter()
+        .any(|protocol| matches!(protocol, Protocol::P2p(peer_id) if peer_id == *local_peer_id))
+}
+
 pub fn relay_circuit_listen_addr(relay: &Multiaddr) -> Multiaddr {
     if relay.iter().any(|p| matches!(p, Protocol::P2pCircuit)) {
         relay.clone()
