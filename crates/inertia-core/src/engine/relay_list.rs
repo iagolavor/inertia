@@ -69,6 +69,21 @@ pub fn select_invite_relay(relays: &[String], connected_peer_ids: &[String]) -> 
         .cloned()
 }
 
+/// Compare relay lists ignoring order and empty entries.
+pub fn relay_lists_equivalent(a: &[String], b: &[String]) -> bool {
+    fn normalize(relays: &[String]) -> Vec<String> {
+        let mut out: Vec<String> = relays
+            .iter()
+            .map(|relay| relay.trim().to_string())
+            .filter(|relay| !relay.is_empty())
+            .collect();
+        out.sort();
+        out.dedup();
+        out
+    }
+    normalize(a) == normalize(b)
+}
+
 pub fn relays_from_env() -> Vec<String> {
     std::env::var("INERTIA_RELAY")
         .ok()
@@ -129,6 +144,16 @@ mod tests {
     fn merge_relay_on_empty_list_sets_primary() {
         let merged = merge_relay(&[], RELAY_A);
         assert_eq!(merged, vec![RELAY_A.to_string()]);
+    }
+
+    #[test]
+    fn relay_lists_equivalent_ignores_order() {
+        let a = vec![
+            RELAY_B.to_string(),
+            RELAY_A.to_string(),
+        ];
+        let b = vec![RELAY_A.to_string(), RELAY_B.to_string()];
+        assert!(relay_lists_equivalent(&a, &b));
     }
 
     #[test]

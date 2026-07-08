@@ -5,6 +5,7 @@
   "scripts": {
     "api": "cargo run -p inertia-api",
     "api:release": "cargo run --release -p inertia-api",
+    "api:logs": "node scripts/run-native.mjs api-logs",
     "api:stop": "node scripts/run-native.mjs stop-api",
     "api:restart": "node scripts/run-native.mjs stop-api && cargo run -p inertia-api",
     "api:window": "node scripts/run-native.mjs start-api-window",

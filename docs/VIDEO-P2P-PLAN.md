@@ -125,7 +125,9 @@ Friends who finished downloading may serve chunks to other friends **within the 
 
 ## DCUtR and relay cost
 
-Already in stack: `relay::client`, `dcutr::Behaviour`, Identify.
+Already in stack: `relay::client`, `dcutr::Behaviour`, Identify (see `p2p/behaviour.rs`, `p2p/swarm_task.rs`).
+
+Friend discovery and redial use **relay circuits only** (`filter_friend_multiaddrs`). DCUtR may still upgrade an active session to direct transport after the circuit is up.
 
 ### Connection class
 
@@ -222,4 +224,4 @@ Relay VPS: still **no disk**; bandwidth only when direct path fails.
 
 - [VISION.md](./VISION.md) — Phase 6/7 roadmap
 - [inertia-relay README](../crates/inertia-relay/README.md) — relay caps and bandwidth
-- [MILESTONE-VPS-RELAY.md](./MILESTONE-VPS-RELAY.md) — connectivity baseline
+- [RELAY-CONNECTIVITY.md](./RELAY-CONNECTIVITY.md) — relay circuits, reservations, invite bootstrap

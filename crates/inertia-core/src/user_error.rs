@@ -41,12 +41,28 @@ impl CoreError {
                 "P2P is not running on this device. Restart the API or open Settings.",
                 Some(ErrorCode::P2pNotStarted),
             ),
+            CoreError::Invite(msg)
+                if msg.contains("VPS port unreachable")
+                    || msg.contains("relay multiaddr is not configured")
+                    || msg.contains("could not connect to the relay network")
+                    || msg.contains("relay circuit slot not ready") =>
+            {
+                UserFacingError::new(
+                    "Relay unreachable - check the relay address and VPS firewall in Settings.",
+                    Some(ErrorCode::RelayUnreachable),
+                )
+            }
+            CoreError::Invite(msg)
+                if msg.contains("relay is not connected yet")
+                    || msg.contains("no relay circuit listen addresses") =>
+            {
+                UserFacingError::new(msg.clone(), Some(ErrorCode::RelayUnreachable))
+            }
             CoreError::Invite(msg) if msg.contains("connect to the relay in Settings")
-                || msg.contains("relay multiaddr is not configured")
                 || msg.contains("no routable P2P addresses") =>
             {
                 UserFacingError::new(
-                    "Relay unreachable — check the relay address and VPS firewall in Settings.",
+                    "Relay unreachable - check the relay address and VPS firewall in Settings.",
                     Some(ErrorCode::RelayUnreachable),
                 )
             }
@@ -54,10 +70,11 @@ impl CoreError {
                 if msg.contains("inviter did not respond")
                     || msg.contains("inviter is not reachable")
                     || msg.contains("inviter has no connection addresses")
+                    || msg.contains("inviter has no relay circuit addresses")
                     || msg.contains("inviter must be online") =>
             {
                 UserFacingError::new(
-                    "Inviter offline — ask them to keep the API running and try again before the link expires.",
+                    "Inviter offline - ask them to keep the API running and try again before the link expires.",
                     Some(ErrorCode::InviterOffline),
                 )
             }
@@ -111,7 +128,7 @@ mod tests {
     #[test]
     fn maps_inviter_offline() {
         let err = CoreError::Invite(
-            "inviter did not respond in time — are they online?".into(),
+            "inviter did not respond in time - are they online?".into(),
         );
         let facing = err.user_facing();
         assert_eq!(facing.code, Some(ErrorCode::InviterOffline));
