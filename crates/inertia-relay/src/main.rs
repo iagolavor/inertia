@@ -13,6 +13,28 @@ use tracing_subscriber::EnvFilter;
 const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:9000";
 const IDENTITY_FILE: &str = "relay_identity.key";
 
+fn is_routable_external_addr(address: &libp2p::Multiaddr) -> bool {
+    use libp2p::multiaddr::Protocol;
+
+    for p in address.iter() {
+        match p {
+            Protocol::Ip4(octets) => {
+                let ip = std::net::Ipv4Addr::from(octets);
+                return !(ip.is_loopback() || ip.is_private() || ip.is_link_local());
+            }
+            Protocol::Ip6(octets) => {
+                let ip = std::net::Ipv6Addr::from(octets);
+                return !(ip.is_loopback()
+                    || ip.is_unique_local()
+                    || ip.is_unicast_link_local()
+                    || ip.is_unspecified());
+            }
+            _ => {}
+        }
+    }
+    true
+}
+
 #[derive(NetworkBehaviour)]
 struct RelayBehaviour {
     relay: relay::Behaviour,
@@ -67,8 +89,12 @@ async fn main() -> anyhow::Result<()> {
             libp2p::swarm::SwarmEvent::NewExternalAddrCandidate { address } => {
                 // Confirm observed addresses (from identify) so reservations
                 // always carry a usable public address even without env config.
-                info!(%address, "confirming external address candidate");
-                swarm.add_external_address(address);
+                if is_routable_external_addr(&address) {
+                    info!(%address, "confirming external address candidate");
+                    swarm.add_external_address(address);
+                } else {
+                    info!(%address, "ignoring non-routable external address candidate");
+                }
             }
             libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
                 info!(%address, "relay listening");

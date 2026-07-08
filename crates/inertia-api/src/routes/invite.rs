@@ -45,7 +45,13 @@ async fn create_invite(
             .map_err(api_err)?
     };
 
-    Engine::bootstrap_invite_relay_only(p2p, &relay_multiaddr, &relays, true).await;
+    let reserved = Engine::bootstrap_invite_relay_only(p2p, &relay_multiaddr, &relays, true).await;
+    if !reserved {
+        return Err(api_err(inertia_core::CoreError::Invite(
+            "relay circuit slot not ready - stay on this screen with Relay OK, then try again"
+                .into(),
+        )));
+    }
 
     let engine = state.engine.lock().await;
     engine
@@ -89,7 +95,7 @@ async fn accept_invite(
         relays.push(invite.relay_multiaddr.clone());
     }
 
-    Engine::bootstrap_invite_relay_only(p2p, &invite.relay_multiaddr, &relays, false).await;
+    let _ = Engine::bootstrap_invite_relay_only(p2p, &invite.relay_multiaddr, &relays, false).await;
 
     let engine = state.engine.lock().await;
     engine.accept_invite(&input).await.map(Json).map_err(api_err)

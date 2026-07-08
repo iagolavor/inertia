@@ -45,34 +45,34 @@ impl InviteRelayPhase {
     fn readiness_message(self) -> &'static str {
         match self {
             Self::NoRelaysConfigured => "Add a relay in Settings before inviting.",
-            Self::P2pNotRunning => "P2P is starting — try again in a moment.",
+            Self::P2pNotRunning => "P2P is starting - try again in a moment.",
             Self::RelayTcpUnreachable => {
-                "Relay VPS port unreachable — check the address in Settings."
+                "Relay VPS port unreachable - check the address in Settings."
             }
             Self::RelayNotConnected => {
-                "Connecting to relay — wait for Relay OK in the header."
+                "Connecting to relay - wait for Relay OK in the header."
             }
             Self::AwaitingReservation => {
-                "Waiting for relay inbound slot — tap Generate and keep the app open for a few seconds."
+                "Waiting for relay inbound slot - tap Generate and keep the app open for a few seconds."
             }
             Self::AwaitingCircuitAddress => {
-                "Relay connected but not reachable yet — tap Generate and we will prepare your circuit slot."
+                "Relay connected but not reachable yet - tap Generate and we will prepare your circuit slot."
             }
-            Self::Ready => "Ready to invite — stay in the app while your friend accepts.",
+            Self::Ready => "Ready to invite - stay in the app while your friend accepts.",
         }
     }
 
     fn ensure_error_message(self) -> &'static str {
         match self {
             Self::NoRelaysConfigured => {
-                "relay multiaddr is not configured — add one in Settings"
+                "relay multiaddr is not configured - add one in Settings"
             }
-            Self::P2pNotRunning => "P2P is not running — restart the API and try again",
+            Self::P2pNotRunning => "P2P is not running - restart the API and try again",
             Self::RelayTcpUnreachable | Self::RelayNotConnected => {
-                "could not connect to the relay network — check Settings and try again"
+                "could not connect to the relay network - check Settings and try again"
             }
             Self::AwaitingReservation | Self::AwaitingCircuitAddress => {
-                "relay circuit slot not ready — stay on this screen with Relay OK, then try again"
+                "relay circuit slot not ready - stay on this screen with Relay OK, then try again"
             }
             Self::Ready => unreachable!("ready phase has no ensure error"),
         }
@@ -286,9 +286,9 @@ impl Engine {
         priority_relay: &str,
         relays: &[String],
         wait_for_reservation: bool,
-    ) {
+    ) -> bool {
         relay_dial::bootstrap_invite_relay(&p2p, priority_relay, relays, wait_for_reservation)
-            .await;
+            .await
     }
 
     async fn invite_circuit_addresses(&self) -> Vec<String> {
@@ -307,11 +307,21 @@ impl Engine {
         self.ensure_invite_relay_ready(&relays, &relay_multiaddr, false)
             .await?;
 
+        // Invite create must not mint a link unless we're inbound-dialable.
+        // The API tries to bootstrap a reservation before calling this, but we
+        // still fail fast if it did not actually stick.
+        let snapshot = self.priority_relay_snapshot(&relay_multiaddr).await?;
+        if !snapshot.reserved {
+            return Err(CoreError::Invite(
+                InviteRelayPhase::AwaitingReservation.ensure_error_message().into(),
+            ));
+        }
+
         let peer_id = self.peer_id().await;
         let multiaddrs = self.invite_circuit_addresses().await;
         if multiaddrs.is_empty() {
             return Err(CoreError::Invite(
-                "no relay circuit address — check relay connection and try again".into(),
+                "no relay circuit address - check relay connection and try again".into(),
             ));
         }
 
@@ -377,7 +387,7 @@ impl Engine {
 
         let peer_id_str = invite.peer_id.as_ref().ok_or_else(|| {
             CoreError::Invite(
-                "inviter is not reachable — they must be online with P2P running".into(),
+                "inviter is not reachable - they must be online with P2P running".into(),
             )
         })?;
 
@@ -388,7 +398,7 @@ impl Engine {
         let dial_addrs = Self::inviter_dial_addrs_for_invite(&invite, &relays);
         if dial_addrs.is_empty() {
             return Err(CoreError::Invite(
-                "inviter has no relay circuit addresses — ask for a fresh invite".into(),
+                "inviter has no relay circuit addresses - ask for a fresh invite".into(),
             ));
         }
 
@@ -396,7 +406,7 @@ impl Engine {
         info!(
             inviter = %peer_id_str,
             attempts = dial_limit,
-            "accept invite — dialing inviter via relay circuits"
+            "accept invite - dialing inviter via relay circuits"
         );
         for addr in dial_addrs.iter().take(dial_limit) {
             let _ = self.dial_peer(addr).await;
@@ -460,7 +470,7 @@ fn map_invite_dial_error(err: CoreError) -> CoreError {
     let msg = err.to_string();
     if msg.contains("failed to dial") {
         CoreError::Invite(
-            "could not reach the inviter — they must stay online with Relay OK while you accept"
+            "could not reach the inviter - they must stay online with Relay OK while you accept"
                 .into(),
         )
     } else {
@@ -468,7 +478,7 @@ fn map_invite_dial_error(err: CoreError) -> CoreError {
     }
 }
 
-/// Origins that only work on the dev machine — use `inertia://` links for cross-device sharing.
+/// Origins that only work on the dev machine - use `inertia://` links for cross-device sharing.
 pub(super) fn is_local_dev_origin(origin: &str) -> bool {
     let lower = origin.trim().to_lowercase();
     if lower.contains("localhost") {
