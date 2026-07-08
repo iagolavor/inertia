@@ -253,6 +253,22 @@ Redeploy the relay after upgrading `inertia-relay`. See troubleshooting in [iner
 
 ---
 
+## Relay sizing (defaults and fan-out)
+
+`inertia-relay` defaults (overridable via env):
+
+| Cap | Default | Meaning |
+|-----|---------|---------|
+| `max_reservations` | **128** | Peers that can be **inbound-dialable** on this relay at once (~online reachable users) |
+| `max_circuits` | **64** | **Concurrent relayed paths** (A via relay to B), not user count |
+| `max_*_per_peer` | **4** | One client cannot hoard more than 4 slots (abuse guard) |
+
+**Per-source-peer circuit cap** counts circuits **originated by one peer**. When Alice posts to 20 friends, each delivery is Alice → friend over the relay (one circuit per active friend path). Inertia fans out **sequentially** in `feed.rs` and retries via outbox when a friend connects, so all 20 rarely open circuits in the same instant. If many friends are connected via relay and Alice delivers to more than **4 at once**, the relay may deny extra circuits until some close.
+
+Raising `INERTIA_RELAY_MAX_CIRCUITS_PER_PEER` from 4 to 8 allows heavier poster fan-out via relay without changing global caps. Reservations are held **while the app is online**, not per message.
+
+---
+
 ## DCUtR (optional upgrade)
 
 DCUtR hole punching remains in the behaviour stack. Friend **discovery and redial** stay on relay circuits; a live session may later upgrade to direct transport. Bulk transfer logic (e.g. video chunks) may prefer direct when available — see [VIDEO-P2P-PLAN.md](./VIDEO-P2P-PLAN.md).

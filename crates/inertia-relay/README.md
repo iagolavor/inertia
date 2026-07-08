@@ -109,10 +109,10 @@ Use the logged multiaddr in client **Settings → Connection** (with `127.0.0.1`
 | `INERTIA_RELAY_ADDR` | `0.0.0.0:9000` | Listen host:port (or full multiaddr) |
 | `INERTIA_RELAY_DATA_DIR` | `./relay-data` | Directory for `relay_identity.key` |
 | `INERTIA_RELAY_PUBLIC_ADDR` | _(auto from identify)_ | Routable multiaddr advertised in reservation responses (e.g. `/ip4/YOUR_VPS_IP/tcp/9000`). Set when auto-detect is wrong. |
-| `INERTIA_RELAY_MAX_RESERVATIONS` | `64` | Global reservation cap |
+| `INERTIA_RELAY_MAX_RESERVATIONS` | `128` | Global reservation cap (max inbound-dialable peers at once) |
 | `INERTIA_RELAY_MAX_RESERVATIONS_PER_PEER` | `4` | Per-peer reservation cap |
-| `INERTIA_RELAY_MAX_CIRCUITS` | `32` | Global active circuit cap |
-| `INERTIA_RELAY_MAX_CIRCUITS_PER_PEER` | `4` | Per-peer circuit cap |
+| `INERTIA_RELAY_MAX_CIRCUITS` | `64` | Global active circuit cap (concurrent relayed friend paths) |
+| `INERTIA_RELAY_MAX_CIRCUITS_PER_PEER` | `4` | Per-source-peer circuit cap (limits one poster fanning out via relay) |
 | `RUST_LOG` | `inertia_relay=info` | Log verbosity |
 
 Docker Compose sets these in [`docker/relay/docker-compose.yml`](../../docker/relay/docker-compose.yml).
