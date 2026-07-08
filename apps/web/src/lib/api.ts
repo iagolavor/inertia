@@ -9,7 +9,10 @@ import { getApiBase } from '$lib/api-base';
 export type { ApiErrorInfo };
 
 const REQUEST_TIMEOUT_MS = 8_000;
-const ACCEPT_INVITE_TIMEOUT_MS = 60_000;
+/** Relay bootstrap + circuit reservation before issuing an invite. */
+const CREATE_INVITE_TIMEOUT_MS = 90_000;
+/** Relay circuit handshake + redemption can exceed 60s on mobile. */
+const ACCEPT_INVITE_TIMEOUT_MS = 180_000;
 const UPLOAD_TIMEOUT_MS = 60_000;
 
 export interface Identity {
@@ -89,6 +92,14 @@ export interface InviteResponse {
   safety_code: string;
   expires_at: string;
   display_name: string;
+}
+
+export interface InviteReadiness {
+  ready: boolean;
+  relay_configured: boolean;
+  relay_connected: boolean;
+  reachable: boolean;
+  message: string;
 }
 
 export interface InvitePreview {
@@ -316,10 +327,15 @@ export const api = {
       UPLOAD_TIMEOUT_MS
     ),
   createInvite: () =>
-    request<InviteResponse>('/invite', {
-      method: 'POST',
-      body: JSON.stringify({})
-    }),
+    request<InviteResponse>(
+      '/invite',
+      {
+        method: 'POST',
+        body: JSON.stringify({})
+      },
+      CREATE_INVITE_TIMEOUT_MS
+    ),
+  inviteReadiness: () => request<InviteReadiness>('/invite/readiness'),
   previewInvite: (invite: string) =>
     request<InvitePreview>('/invite/preview', {
       method: 'POST',

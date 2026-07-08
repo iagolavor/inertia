@@ -7,9 +7,9 @@ use libp2p::Multiaddr;
 use tracing::{info, warn};
 
 use crate::error::{CoreError, CoreResult};
-use crate::p2p::P2pNode;
+use crate::p2p::{filter_friend_multiaddrs, relay_circuit_dial_addr, P2pNode};
 
-use super::{activity, p2p_status, Engine, P2pStatus};
+use super::{activity, p2p_status, relay_dial, Engine, P2pStatus};
 
 impl Engine {
     /// Idempotent — returns the current peer id if P2P is already running.
@@ -65,29 +65,22 @@ impl Engine {
     }
 
     async fn redial_known_peers_inner(&self) -> CoreResult<()> {
-        for relay in self.effective_relays().await {
-            match self.dial_peer(&relay).await {
-                Ok(()) => {
-                    self.activity.lock().await.push("dial", "Dialed relay");
-                    info!(%relay, "dialed configured relay");
-                }
-                Err(e) => {
-                    self.activity
-                        .lock()
-                        .await
-                        .push("dial_failed", format!("Relay dial failed: {e}"));
-                    warn!(error = %e, %relay, "failed to dial relay");
-                }
-            }
+        let relays = self.effective_relays().await;
+        let relay_reserved =
+            relay_dial::bootstrap_relays_for_friend_dial(&self.p2p, &relays).await;
+        if !relay_reserved {
+            warn!("skipping friend redials until a relay inbound slot is reserved");
+            return Ok(());
         }
 
         let contacts = self.list_contacts().await?;
         for contact in contacts {
-            if contact.multiaddrs.is_empty() {
+            let addrs = relay_dial::contact_dial_addrs(&contact, &relays);
+            if addrs.is_empty() {
                 continue;
             }
-            for addr in &contact.multiaddrs {
-                if let Err(e) = self.dial_peer(addr).await {
+            for addr in addrs.into_iter().take(relay_dial::MAX_DIALS_PER_CONTACT) {
+                if let Err(e) = self.dial_peer(&addr).await {
                     warn!(
                         friend = %contact.display_name,
                         address = %addr,
@@ -321,6 +314,64 @@ impl Engine {
         reachable
     }
 
+    /// Circuit dial targets for relays with a live session when the swarm omits circuit listeners.
+    async fn connected_relay_circuit_addresses(&self, peer_id: &str) -> Vec<String> {
+        let relays = self.effective_relays().await;
+        if relays.is_empty() {
+            return Vec::new();
+        }
+
+        let connected = {
+            let guard = self.p2p.lock().await;
+            match guard.as_ref() {
+                Some(p2p) => p2p.connected_peer_ids().await,
+                None => return Vec::new(),
+            }
+        };
+
+        let mut addrs = Vec::new();
+        for relay in &relays {
+            let Some(relay_peer) = peer_id_from_multiaddr_str(relay) else {
+                continue;
+            };
+            if !connected.iter().any(|peer| peer == &relay_peer) {
+                continue;
+            }
+            if let Some(circuit) = relay_circuit_dial_addr(relay, peer_id) {
+                addrs.push(circuit);
+            }
+        }
+        relay_dial::sort_contact_dial_addrs(&addrs)
+    }
+
+    /// True when any configured relay has a live libp2p session.
+    pub async fn any_relay_connected(&self) -> bool {
+        use std::collections::HashSet;
+
+        let relays = self.effective_relays().await;
+        if relays.is_empty() {
+            return false;
+        }
+        let relay_ids: HashSet<String> = relays
+            .iter()
+            .filter_map(|relay| peer_id_from_multiaddr_str(relay))
+            .collect();
+        if relay_ids.is_empty() {
+            return false;
+        }
+
+        let guard = self.p2p.lock().await;
+        let Some(p2p) = guard.as_ref() else {
+            return false;
+        };
+        let connected = p2p.connected_peer_ids().await;
+        drop(guard);
+
+        relay_ids
+            .iter()
+            .any(|relay_id| connected.iter().any(|peer| peer == relay_id))
+    }
+
     /// Addresses embedded in invites — uses settings or `INERTIA_P2P_ANNOUNCE` when set.
     pub async fn p2p_invite_addresses(&self, peer_id: Option<&str>) -> Vec<String> {
         if let Some(pid) = peer_id {
@@ -342,7 +393,11 @@ impl Engine {
             }
         }
 
-        self.p2p_listen_addresses().await.unwrap_or_default()
+        if let Some(pid) = peer_id {
+            return self.connected_relay_circuit_addresses(pid).await;
+        }
+
+        Vec::new()
     }
 
     pub async fn p2p_routable_addresses(&self) -> CoreResult<Vec<String>> {
@@ -369,14 +424,21 @@ impl Engine {
         p2p.dial(addr).await
     }
 
-    /// Poll until a peer id appears in the connected set or timeout.
-    pub(super) async fn wait_for_peer_connected(
+    /// Poll until a peer id appears in the connected set, redialing every few seconds.
+    pub(super) async fn wait_for_peer_connected_redial(
         &self,
         peer_id: &str,
+        dial_addrs: &[String],
         timeout: Duration,
         role: &str,
+        max_dials_per_attempt: usize,
     ) -> CoreResult<()> {
+        use std::time::Instant;
+
+        const REDIAL_EVERY: Duration = Duration::from_secs(5);
+
         let deadline = tokio::time::Instant::now() + timeout;
+        let mut last_redial = Instant::now() - REDIAL_EVERY;
         loop {
             let connected = {
                 let guard = self.p2p.lock().await;
@@ -387,6 +449,16 @@ impl Engine {
             };
             if connected.iter().any(|peer| peer == peer_id) {
                 return Ok(());
+            }
+            let now = Instant::now();
+            if !dial_addrs.is_empty()
+                && max_dials_per_attempt > 0
+                && now.duration_since(last_redial) >= REDIAL_EVERY
+            {
+                for addr in dial_addrs.iter().take(max_dials_per_attempt) {
+                    let _ = self.dial_peer(addr).await;
+                }
+                last_redial = now;
             }
             if tokio::time::Instant::now() >= deadline {
                 let message = match role {
@@ -424,7 +496,8 @@ pub(super) fn announced_p2p_multiaddrs(peer_id: &str, announce: Option<&str>) ->
     else {
         return Vec::new();
     };
-    raw.split(',')
+    let addrs: Vec<String> = raw
+        .split(',')
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(|addr| {
@@ -434,7 +507,8 @@ pub(super) fn announced_p2p_multiaddrs(peer_id: &str, announce: Option<&str>) ->
                 format!("{addr}/p2p/{peer_id}")
             }
         })
-        .collect()
+        .collect();
+    filter_friend_multiaddrs(&addrs)
 }
 
 pub(super) fn validate_relay_multiaddr(raw: &str) -> CoreResult<()> {

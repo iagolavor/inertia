@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import QRCode from 'qrcode';
-  import { api, type Contact, type InviteResponse } from '$lib/api';
+  import { api, type Contact, type InviteReadiness, type InviteResponse } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
   import Avatar from '$lib/components/Avatar.svelte';
 
@@ -13,6 +13,7 @@
   let error = $state('');
   let copied = $state(false);
   let copiedPayload = $state(false);
+  let readiness = $state<InviteReadiness | null>(null);
 
   onMount(load);
 
@@ -20,7 +21,12 @@
     loading = true;
     error = '';
     try {
-      contacts = await api.listContacts();
+      const [contactList, inviteReady] = await Promise.all([
+        api.listContacts(),
+        api.inviteReadiness().catch(() => null)
+      ]);
+      contacts = contactList;
+      readiness = inviteReady;
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load contacts';
     } finally {
@@ -34,6 +40,7 @@
     copied = false;
     try {
       invite = await api.createInvite();
+      readiness = await api.inviteReadiness().catch(() => readiness);
       qrDataUrl = await QRCode.toDataURL(invite.link, { margin: 2, width: 256 });
     } catch (e) {
       error = e instanceof ApiRequestError ? e.message : e instanceof Error ? e.message : 'Failed to create invite';
@@ -76,8 +83,14 @@
 
   {#if error}<p class="error">{error}</p>{/if}
 
+  {#if readiness && !readiness.ready}
+    <p style="color: var(--warning); font-size: 0.875rem; margin: 0 0 1rem;">
+      {readiness.message}
+    </p>
+  {/if}
+
   <button class="btn" onclick={generateInvite} disabled={generating}>
-    {generating ? 'Generating...' : 'Generate invite link'}
+    {generating ? (readiness?.ready ? 'Generating…' : 'Preparing relay…') : 'Generate invite link'}
   </button>
 
   {#if invite}

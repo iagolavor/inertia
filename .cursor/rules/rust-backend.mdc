@@ -30,6 +30,8 @@ You work on the **local-first backend**: `inertia-core` (domain + SQLite + libp2
 ## P2P
 
 - libp2p TCP/Noise/Yamux, request-response `/inertia/1.0.0`.
+- **Swarm actor** in `p2p/swarm_task.rs`; `P2pNode` is a command handle (see [RELAY-CONNECTIVITY.md](../../docs/RELAY-CONNECTIVITY.md)).
+- Friend dial/redial: relay circuits via `engine/relay_dial.rs` and `filter_friend_multiaddrs`.
 - `build_message_envelope` / `build_post_envelope` in `p2p/node.rs`.
 - Contact `connection_state` updated on connect/disconnect — distinct from API `/health`.
 

@@ -1,6 +1,7 @@
 use crate::content::{ContentType, DeliveryStatus};
 
 use super::ConnectionState;
+use crate::p2p::filter_friend_multiaddrs;
 
 pub(super) const FEED_HISTORY_KEY: &str = "feed_history_enabled";
 pub(super) const P2P_LISTEN_PORT_KEY: &str = "p2p_listen_port";
@@ -73,10 +74,10 @@ pub(super) fn decode_multiaddrs(raw: &str) -> Vec<String> {
 }
 
 pub(super) fn merge_multiaddr_lists(existing: &[String], new: &[String]) -> Vec<String> {
-    let mut out = existing.to_vec();
-    for addr in new {
-        if !out.contains(addr) {
-            out.push(addr.clone());
+    let mut out = filter_friend_multiaddrs(existing);
+    for addr in filter_friend_multiaddrs(new) {
+        if !out.contains(&addr) {
+            out.push(addr);
         }
     }
     out

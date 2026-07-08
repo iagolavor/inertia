@@ -1,45 +1,41 @@
-use std::collections::HashMap;
+//! Thin handle over the swarm actor (`swarm_task`).
+//!
+//! `P2pNode` holds a command sender and a `watch` receiver. All swarm access
+//! goes through the actor's command channel; all state reads come from the
+//! watch channel. No method here can block the swarm or miss its events.
+
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{FutureExt, StreamExt};
-use libp2p::request_response::{Event, Message, OutboundRequestId};
-use libp2p::{dcutr, identify, noise, relay, tcp, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder};
-use tokio::sync::{mpsc, Mutex, RwLock};
-use tracing::{debug, info, warn};
+use libp2p::{noise, tcp, yamux, Multiaddr, PeerId, SwarmBuilder};
+use tokio::sync::{mpsc, oneshot, watch, RwLock};
 
 use crate::content::ContentEnvelope;
 use crate::error::{CoreError, CoreResult};
 use crate::identity::Identity;
-use crate::storage::ConnectionState;
 use crate::store_handle::StoreHandle;
 
-use super::behaviour::{build_behaviour, InertiaBehaviour, InertiaBehaviourEvent};
+use super::behaviour::build_behaviour;
 use super::events::P2pEvent;
-use super::handlers::{
-    handle_inbound_request, handle_outbound_response, persist_peer_multiaddrs,
-    update_contact_state,
-};
 use super::keypair::load_or_create_keypair;
 use super::multiaddr::{
-    ensure_peer_id_suffix, is_routable_multiaddr, peer_id_from_multiaddr, relay_circuit_listen_addr,
+    ensure_peer_id_suffix, is_relay_circuit_multiaddr_str, is_routable_multiaddr,
+    peer_id_from_multiaddr,
 };
 use super::protocol::{
     BlobChunkRequest, BlobData, BlobRequest, FriendRequest, InertiaRequest,
     InertiaResponse, InviteRedemption, SendEnvelope,
 };
+use super::swarm_task::{self, Command, NetState};
 
-
+#[derive(Clone)]
 pub struct P2pNode {
     peer_id: PeerId,
-    swarm: Arc<Mutex<Swarm<InertiaBehaviour>>>,
+    cmd_tx: mpsc::UnboundedSender<Command>,
+    state_rx: watch::Receiver<NetState>,
     store: StoreHandle,
     identity: Arc<RwLock<Identity>>,
-    event_tx: mpsc::UnboundedSender<P2pEvent>,
-    pending_responses:
-        Arc<Mutex<HashMap<OutboundRequestId, mpsc::Sender<InertiaResponse>>>>,
-    /// Peers with at least one direct (non-relay-circuit) connection.
-    peer_direct: Arc<Mutex<std::collections::HashSet<PeerId>>>,
 }
 
 impl P2pNode {
@@ -50,9 +46,7 @@ impl P2pNode {
         relay_multiaddrs: Vec<String>,
         event_tx: mpsc::UnboundedSender<P2pEvent>,
     ) -> CoreResult<Self> {
-        let data_dir = store
-            .with(|s| Ok(s.data_dir().to_path_buf()))
-            .await?;
+        let data_dir = store.with(|s| Ok(s.data_dir().to_path_buf())).await?;
         let local_key = load_or_create_keypair(&data_dir)?;
         let peer_id = local_key.public().to_peer_id();
 
@@ -75,42 +69,42 @@ impl P2pNode {
             .listen_on(listen_addr)
             .map_err(|e| CoreError::P2p(e.to_string()))?;
 
-        let node = Self {
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+        let (state_tx, state_rx) = watch::channel(NetState::default());
+
+        swarm_task::spawn(
+            swarm,
             peer_id,
-            swarm: Arc::new(Mutex::new(swarm)),
+            cmd_rx,
+            cmd_tx.clone(),
+            state_tx,
+            store.clone(),
+            Arc::clone(&identity),
+            event_tx,
+            relay_multiaddrs,
+        );
+
+        Ok(Self {
+            peer_id,
+            cmd_tx,
+            state_rx,
             store,
             identity,
-            event_tx,
-            pending_responses: Arc::new(Mutex::new(HashMap::new())),
-            peer_direct: Arc::new(Mutex::new(std::collections::HashSet::new())),
-        };
-
-        node.ensure_relay_circuits(&relay_multiaddrs).await;
-
-        node.spawn_event_loop();
-        Ok(node)
+        })
     }
 
+    fn send_command(&self, cmd: Command) -> CoreResult<()> {
+        self.cmd_tx
+            .send(cmd)
+            .map_err(|_| CoreError::P2p("p2p task stopped".into()))
+    }
+
+    /// Register relays with the actor and open inbound circuit listeners on the
+    /// connected ones. Relays connecting later get listeners automatically.
     pub async fn ensure_relay_circuits(&self, relay_multiaddrs: &[String]) {
-        let mut swarm = self.swarm.lock().await;
-        for relay in relay_multiaddrs {
-            let trimmed = relay.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-            match trimmed.parse::<Multiaddr>() {
-                Ok(relay_addr) => {
-                    let circuit_addr = relay_circuit_listen_addr(&relay_addr);
-                    match swarm.listen_on(circuit_addr.clone()) {
-                        Ok(listener_id) => {
-                            info!(%circuit_addr, ?listener_id, "listening via relay circuit");
-                        }
-                        Err(e) => warn!(error = %e, %circuit_addr, "failed to listen via relay circuit"),
-                    }
-                }
-                Err(e) => warn!(relay = %trimmed, error = %e, "invalid relay multiaddr"),
-            }
-        }
+        let _ = self.send_command(Command::EnsureRelayCircuits {
+            relays: relay_multiaddrs.to_vec(),
+        });
     }
 
     pub fn peer_id_string(&self) -> String {
@@ -118,19 +112,21 @@ impl P2pNode {
     }
 
     pub async fn listen_addresses(&self) -> Vec<Multiaddr> {
-        let swarm = self.swarm.lock().await;
-        swarm.listeners().cloned().collect()
+        self.state_rx.borrow().listen_addrs.clone()
     }
 
     pub async fn routable_listen_addresses(&self) -> Vec<String> {
-        let swarm = self.swarm.lock().await;
         let peer_id = self.peer_id.to_string();
-        let mut addrs: Vec<String> = swarm
-            .external_addresses()
-            .chain(swarm.listeners())
+        let state = self.state_rx.borrow();
+        let mut addrs: Vec<String> = state
+            .external_addrs
+            .iter()
+            .chain(state.listen_addrs.iter())
             .filter(|addr| is_routable_multiaddr(addr))
             .map(|addr| ensure_peer_id_suffix(addr, &peer_id))
+            .filter(|addr| is_relay_circuit_multiaddr_str(addr))
             .collect();
+        drop(state);
         addrs.sort();
         addrs.dedup();
         addrs.sort_by_key(|addr| !addr.contains("/p2p-circuit/"));
@@ -138,19 +134,85 @@ impl P2pNode {
     }
 
     pub async fn connected_peer_ids(&self) -> Vec<String> {
-        let swarm = self.swarm.lock().await;
-        swarm
-            .connected_peers()
+        self.state_rx
+            .borrow()
+            .connected
+            .iter()
             .map(|peer_id| peer_id.to_string())
             .collect()
     }
 
+    /// True when at least one of the given relay peer ids holds a circuit reservation.
+    pub async fn has_relay_reservation(&self, relay_peer_ids: &[String]) -> bool {
+        let wanted = parse_peer_ids(relay_peer_ids);
+        if wanted.is_empty() {
+            return true;
+        }
+        let state = self.state_rx.borrow();
+        wanted.iter().any(|id| state.reservations.contains(id))
+    }
+
+    /// Wait until a configured relay accepts our circuit reservation (inbound via relay).
+    /// Event-driven: returns within milliseconds of the reservation being granted.
+    pub async fn wait_for_relay_reservation(
+        &self,
+        relay_peer_ids: &[String],
+        timeout: Duration,
+    ) -> bool {
+        let wanted = parse_peer_ids(relay_peer_ids);
+        if wanted.is_empty() {
+            return true;
+        }
+        let mut rx = self.state_rx.clone();
+        tokio::time::timeout(
+            timeout,
+            rx.wait_for(|state| wanted.iter().any(|id| state.reservations.contains(id))),
+        )
+        .await
+        .map(|result| result.is_ok())
+        .unwrap_or(false)
+    }
+
+    /// Wait until any of the given peers has a live connection.
+    pub async fn wait_for_any_connected(
+        &self,
+        peer_ids: &[String],
+        timeout: Duration,
+    ) -> bool {
+        let wanted = parse_peer_ids(peer_ids);
+        if wanted.is_empty() {
+            return true;
+        }
+        let mut rx = self.state_rx.clone();
+        tokio::time::timeout(
+            timeout,
+            rx.wait_for(|state| wanted.iter().any(|id| state.connected.contains(id))),
+        )
+        .await
+        .map(|result| result.is_ok())
+        .unwrap_or(false)
+    }
+
     pub async fn dial(&self, addr: Multiaddr) -> CoreResult<()> {
-        let mut swarm = self.swarm.lock().await;
-        swarm
-            .dial(addr)
-            .map_err(|e| CoreError::P2p(e.to_string()))?;
-        Ok(())
+        let (tx, rx) = oneshot::channel();
+        self.send_command(Command::Dial { addr, reply: tx })?;
+        rx.await
+            .map_err(|_| CoreError::P2p("p2p task stopped".into()))?
+    }
+
+    /// Queue an outbound request; the response arrives on the returned channel.
+    fn send_request(
+        &self,
+        peer: PeerId,
+        request: InertiaRequest,
+    ) -> CoreResult<oneshot::Receiver<InertiaResponse>> {
+        let (tx, rx) = oneshot::channel();
+        self.send_command(Command::SendRequest {
+            peer,
+            request,
+            reply: Some(tx),
+        })?;
+        Ok(rx)
     }
 
     pub async fn redeem_invite(
@@ -158,25 +220,13 @@ impl P2pNode {
         peer_id: PeerId,
         redemption: InviteRedemption,
     ) -> CoreResult<()> {
-        let (tx, mut rx) = mpsc::channel(1);
-        let request_id = {
-            let mut swarm = self.swarm.lock().await;
-            let id = swarm.behaviour_mut().request_response.send_request(
-                &peer_id,
-                InertiaRequest::InviteRedemption(redemption),
-            );
-            self.pending_responses.lock().await.insert(id, tx);
-            id
-        };
-
-        let response = tokio::time::timeout(Duration::from_secs(30), rx.recv())
+        let rx = self.send_request(peer_id, InertiaRequest::InviteRedemption(redemption))?;
+        let response = tokio::time::timeout(Duration::from_secs(30), rx)
             .await
             .map_err(|_| {
-                CoreError::Invite("inviter did not respond in time — are they online?".into())
+                CoreError::Invite("inviter did not respond in time - are they online?".into())
             })?
-            .ok_or_else(|| CoreError::P2p("invite redemption channel closed".into()))?;
-
-        self.pending_responses.lock().await.remove(&request_id);
+            .map_err(|_| CoreError::P2p("invite redemption channel closed".into()))?;
 
         match response {
             InertiaResponse::Ok => Ok(()),
@@ -199,18 +249,12 @@ impl P2pNode {
         drop(identity);
 
         let peer_id = peer_id_from_multiaddr(&addr)?;
-
-        let mut swarm = self.swarm.lock().await;
-        swarm
-            .dial(addr)
-            .map_err(|e| CoreError::P2p(e.to_string()))?;
-
-        swarm.behaviour_mut().request_response.send_request(
-            &peer_id,
-            InertiaRequest::FriendRequest(req),
-        );
-
-        drop(swarm);
+        self.dial(addr).await?;
+        self.send_command(Command::SendRequest {
+            peer: peer_id,
+            request: InertiaRequest::FriendRequest(req),
+            reply: None,
+        })?;
 
         self.store
             .with_mut(|store| {
@@ -230,30 +274,23 @@ impl P2pNode {
         peer_id: PeerId,
         envelope: ContentEnvelope,
     ) -> CoreResult<()> {
-        let mut swarm = self.swarm.lock().await;
-        swarm.behaviour_mut().request_response.send_request(
-            &peer_id,
-            InertiaRequest::SendEnvelope(SendEnvelope { envelope }),
-        );
-        Ok(())
+        self.send_command(Command::SendRequest {
+            peer: peer_id,
+            request: InertiaRequest::SendEnvelope(SendEnvelope { envelope }),
+            reply: None,
+        })
     }
 
     pub async fn has_direct_connection(&self, peer_id: PeerId) -> bool {
-        self.peer_direct.lock().await.contains(&peer_id)
+        self.state_rx.borrow().direct.contains(&peer_id)
     }
 
     pub async fn wait_for_direct(&self, peer_id: PeerId, timeout: Duration) -> bool {
-        if self.has_direct_connection(peer_id).await {
-            return true;
-        }
-        let deadline = tokio::time::Instant::now() + timeout;
-        while tokio::time::Instant::now() < deadline {
-            if self.has_direct_connection(peer_id).await {
-                return true;
-            }
-            tokio::time::sleep(Duration::from_millis(200)).await;
-        }
-        false
+        let mut rx = self.state_rx.clone();
+        tokio::time::timeout(timeout, rx.wait_for(|state| state.direct.contains(&peer_id)))
+            .await
+            .map(|result| result.is_ok())
+            .unwrap_or(false)
     }
 
     pub async fn request_chunk_from_peer(
@@ -263,26 +300,17 @@ impl P2pNode {
         chunk_index: u32,
         expected_hash: &str,
     ) -> CoreResult<()> {
-        let (tx, mut rx) = mpsc::channel(1);
-        let request_id = {
-            let mut swarm = self.swarm.lock().await;
-            let id = swarm.behaviour_mut().request_response.send_request(
-                &peer_id,
-                InertiaRequest::BlobChunkRequest(BlobChunkRequest {
-                    root_hash: root_hash.to_string(),
-                    chunk_index,
-                }),
-            );
-            self.pending_responses.lock().await.insert(id, tx);
-            id
-        };
-
-        let response = tokio::time::timeout(Duration::from_secs(45), rx.recv())
+        let rx = self.send_request(
+            peer_id,
+            InertiaRequest::BlobChunkRequest(BlobChunkRequest {
+                root_hash: root_hash.to_string(),
+                chunk_index,
+            }),
+        )?;
+        let response = tokio::time::timeout(Duration::from_secs(45), rx)
             .await
             .map_err(|_| CoreError::P2p("chunk request timed out".into()))?
-            .ok_or_else(|| CoreError::P2p("chunk request channel closed".into()))?;
-
-        self.pending_responses.lock().await.remove(&request_id);
+            .map_err(|_| CoreError::P2p("chunk request channel closed".into()))?;
 
         match response {
             InertiaResponse::BlobChunkData(chunk) => {
@@ -309,25 +337,16 @@ impl P2pNode {
     }
 
     pub async fn request_blob_from_peer(&self, peer_id: PeerId, hash: &str) -> CoreResult<()> {
-        let (tx, mut rx) = mpsc::channel(1);
-        let request_id = {
-            let mut swarm = self.swarm.lock().await;
-            let id = swarm.behaviour_mut().request_response.send_request(
-                &peer_id,
-                InertiaRequest::BlobRequest(BlobRequest {
-                    hash: hash.to_string(),
-                }),
-            );
-            self.pending_responses.lock().await.insert(id, tx);
-            id
-        };
-
-        let response = tokio::time::timeout(Duration::from_secs(60), rx.recv())
+        let rx = self.send_request(
+            peer_id,
+            InertiaRequest::BlobRequest(BlobRequest {
+                hash: hash.to_string(),
+            }),
+        )?;
+        let response = tokio::time::timeout(Duration::from_secs(60), rx)
             .await
             .map_err(|_| CoreError::P2p("blob request timed out".into()))?
-            .ok_or_else(|| CoreError::P2p("blob request channel closed".into()))?;
-
-        self.pending_responses.lock().await.remove(&request_id);
+            .map_err(|_| CoreError::P2p("blob request channel closed".into()))?;
 
         match response {
             InertiaResponse::BlobData(blob) => {
@@ -352,26 +371,17 @@ impl P2pNode {
         hash: &str,
         data: &[u8],
     ) -> CoreResult<()> {
-        let (tx, mut rx) = mpsc::channel(1);
-        let request_id = {
-            let mut swarm = self.swarm.lock().await;
-            let id = swarm.behaviour_mut().request_response.send_request(
-                &peer_id,
-                InertiaRequest::BlobPush(BlobData {
-                    hash: hash.to_string(),
-                    data: data.to_vec(),
-                }),
-            );
-            self.pending_responses.lock().await.insert(id, tx);
-            id
-        };
-
-        let response = tokio::time::timeout(Duration::from_secs(60), rx.recv())
+        let rx = self.send_request(
+            peer_id,
+            InertiaRequest::BlobPush(BlobData {
+                hash: hash.to_string(),
+                data: data.to_vec(),
+            }),
+        )?;
+        let response = tokio::time::timeout(Duration::from_secs(60), rx)
             .await
             .map_err(|_| CoreError::P2p("blob push timed out".into()))?
-            .ok_or_else(|| CoreError::P2p("blob push channel closed".into()))?;
-
-        self.pending_responses.lock().await.remove(&request_id);
+            .map_err(|_| CoreError::P2p("blob push channel closed".into()))?;
 
         match response {
             InertiaResponse::Ok => Ok(()),
@@ -381,149 +391,11 @@ impl P2pNode {
             ))),
         }
     }
+}
 
-    fn spawn_event_loop(&self) {
-        let swarm = Arc::clone(&self.swarm);
-        let store = self.store.clone();
-        let identity = Arc::clone(&self.identity);
-        let event_tx = self.event_tx.clone();
-        let pending_responses = Arc::clone(&self.pending_responses);
-        let peer_direct = Arc::clone(&self.peer_direct);
-
-        tokio::spawn(async move {
-            loop {
-                let event = {
-                    let mut swarm = swarm.lock().await;
-                    StreamExt::next(&mut *swarm).now_or_never().flatten()
-                };
-
-                let Some(event) = event else {
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                    continue;
-                };
-
-                match event {
-                    libp2p::swarm::SwarmEvent::ConnectionEstablished {
-                        peer_id,
-                        endpoint,
-                        ..
-                    } => {
-                        info!(%peer_id, "peer connected");
-                        let remote = endpoint.get_remote_address().to_string();
-                        if !remote.contains("/p2p-circuit/") {
-                            peer_direct.lock().await.insert(peer_id);
-                        }
-                        persist_peer_multiaddrs(&store, &peer_id, &[remote]).await;
-                        let _ = event_tx.send(P2pEvent::PeerConnected(peer_id));
-                        update_contact_state(&store, &peer_id, ConnectionState::Online).await;
-                    }
-                    libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                        info!(%peer_id, "peer disconnected");
-                        peer_direct.lock().await.remove(&peer_id);
-                        let _ = event_tx.send(P2pEvent::PeerDisconnected(peer_id));
-                        update_contact_state(&store, &peer_id, ConnectionState::Offline).await;
-                    }
-                    libp2p::swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
-                        warn!(?peer_id, error = %error, "outgoing connection failed");
-                    }
-                    libp2p::swarm::SwarmEvent::Behaviour(
-                        InertiaBehaviourEvent::RequestResponse(Event::Message {
-                            peer,
-                            message,
-                        }),
-                    ) => {
-                        if let Message::Request { request, channel, .. } = message {
-                            let response = match handle_inbound_request(
-                                &store,
-                                &identity,
-                                &event_tx,
-                                peer,
-                                request,
-                            )
-                            .await
-                            {
-                                Ok(res) => res,
-                                Err(e) => {
-                                    warn!(error = %e, "inbound request failed");
-                                    InertiaResponse::Error(e.to_string())
-                                }
-                            };
-                            let mut swarm = swarm.lock().await;
-                            let _ = swarm
-                                .behaviour_mut()
-                                .request_response
-                                .send_response(channel, response);
-                        } else if let Message::Response {
-                            response,
-                            request_id,
-                            ..
-                        } = message
-                        {
-                            if let Some(tx) =
-                                pending_responses.lock().await.remove(&request_id)
-                            {
-                                let _ = tx.send(response).await;
-                            } else if let Err(e) = handle_outbound_response(
-                                &store,
-                                &event_tx,
-                                peer,
-                                response,
-                            )
-                            .await
-                            {
-                                warn!(error = %e, "outbound response handling failed");
-                            }
-                        }
-                    }
-                    libp2p::swarm::SwarmEvent::Behaviour(
-                        InertiaBehaviourEvent::RequestResponse(Event::OutboundFailure {
-                            request_id,
-                            error,
-                            ..
-                        }),
-                    ) => {
-                        warn!(error = %error, "outbound request failed");
-                        if let Some(tx) = pending_responses.lock().await.remove(&request_id) {
-                            let _ = tx
-                                .send(InertiaResponse::Error(error.to_string()))
-                                .await;
-                        }
-                    }
-                    libp2p::swarm::SwarmEvent::Behaviour(
-                        InertiaBehaviourEvent::RelayClient(relay::client::Event::ReservationReqAccepted {
-                            relay_peer_id,
-                            ..
-                        }),
-                    ) => {
-                        info!(%relay_peer_id, "relay reservation accepted");
-                    }
-                    libp2p::swarm::SwarmEvent::Behaviour(
-                        InertiaBehaviourEvent::Dcutr(dcutr::Event { remote_peer_id, result }),
-                    ) => match result {
-                        Ok(connection_id) => {
-                            info!(%remote_peer_id, ?connection_id, "direct connection upgrade succeeded");
-                            peer_direct.lock().await.insert(remote_peer_id);
-                        }
-                        Err(error) => {
-                            debug!(%remote_peer_id, ?error, "direct connection upgrade failed");
-                        }
-                    }
-                    libp2p::swarm::SwarmEvent::Behaviour(
-                        InertiaBehaviourEvent::Identify(identify::Event::Received {
-                            peer_id,
-                            info,
-                            ..
-                        }),
-                    ) => {
-                        let addrs: Vec<String> =
-                            info.listen_addrs.iter().map(|a| a.to_string()).collect();
-                        if !addrs.is_empty() {
-                            persist_peer_multiaddrs(&store, &peer_id, &addrs).await;
-                        }
-                    }
-                    _ => debug!("swarm event"),
-                }
-            }
-        });
-    }
+fn parse_peer_ids(peer_ids: &[String]) -> HashSet<PeerId> {
+    peer_ids
+        .iter()
+        .filter_map(|id| id.parse::<PeerId>().ok())
+        .collect()
 }

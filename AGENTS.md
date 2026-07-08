@@ -7,7 +7,7 @@ This repo has two specialized agent contexts. Cursor rules activate them automat
 | **Rust backend** | `.cursor/rules/rust-backend.mdc` | `crates/**`, `tools/**`, root `Cargo.toml` |
 | **Svelte frontend** | `.cursor/rules/svelte-frontend.mdc` | `apps/web/**` |
 
-Read `docs/VISION.md` for product/architecture, `docs/LIVE-SYNC.md` for SSE and sync modules, and `docs/DESIGN.md` for UI philosophy.
+Read `docs/VISION.md` for product/architecture, `docs/LIVE-SYNC.md` for SSE and sync modules, `docs/RELAY-CONNECTIVITY.md` for relay circuits and invite bootstrap, and `docs/DESIGN.md` for UI philosophy.
 
 ## Copy (repo-wide)
 
@@ -22,7 +22,7 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 - **Local-first**: no cloud backend. API binds `127.0.0.1:4783` on the user's machine.
 - **Live UI (SSE-first)**: no interval polling. `GET /api/p2p/events` drives inline patches via `messages-sync`, `feed-sync`, `conversation-sync` in `apps/web/src/lib/`. HTTP refresh reconciles on `catch_up`, tab visible, or patch miss. See [docs/LIVE-SYNC.md](docs/LIVE-SYNC.md).
 - **Ephemeral content**: posts and messages 7d, invites 15min single-use.
-- **P2P**: libp2p strict mode; friends = contacts; posts fan-out to all contacts.
+- **P2P**: libp2p relay-circuit paths for friends; VPS relay for NAT traversal. See [RELAY-CONNECTIVITY.md](docs/RELAY-CONNECTIVITY.md) for connectivity architecture.
 
 ## Phased delivery
 
@@ -75,6 +75,12 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 - Avoid SSR-only SvelteKit features.
 - Avoid APIs that assume Node.js on the server.
 - Keep using `api.ts` as the single HTTP boundary so the base URL can switch per platform.
+
+## P2P and relay connectivity
+
+Friend traffic routes over **relay circuits** via `inertia-relay`. See **[docs/RELAY-CONNECTIVITY.md](docs/RELAY-CONNECTIVITY.md)** for topology diagrams, relay session vs reservation, invite bootstrap, and source file map.
+
+**Short summary:** header **Relay OK** = outbound relay session; invite create also needs an inbound **reservation**. LAN/direct TCP are not stored or redialed for friends.
 
 ## Commands
 

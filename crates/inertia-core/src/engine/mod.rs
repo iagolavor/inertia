@@ -10,6 +10,7 @@ mod messaging;
 mod outbox;
 mod p2p;
 mod p2p_status;
+mod relay_dial;
 mod relay_list;
 mod profile;
 mod settings;
@@ -51,6 +52,7 @@ pub struct Engine {
     media_fetches: Arc<Mutex<HashMap<String, media::MediaFetchStatus>>>,
 }
 
+pub use invite::InviteReadiness;
 pub use media::{MediaFetchState, MediaFetchStatus};
 
 impl Engine {

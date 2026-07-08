@@ -168,4 +168,4 @@ git checkout development && git merge --no-ff fix/critical-bug
 
 ## Current milestone
 
-VPS relay work is tracked in [MILESTONE-VPS-RELAY.md](./MILESTONE-VPS-RELAY.md). Phase 0 branches use the `feature/phase0-*` prefix.
+Relay connectivity architecture and invite bootstrap are documented in [RELAY-CONNECTIVITY.md](./RELAY-CONNECTIVITY.md).

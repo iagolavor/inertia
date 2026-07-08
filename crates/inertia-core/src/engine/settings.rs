@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use tracing::{info, warn};
 
 use crate::error::CoreResult;
 use crate::storage::{AppSettings, ArchivedFeedItem};
 
-use super::relay_list::{merge_relay, relays_from_env, validate_relay_list};
+use super::relay_list::{merge_relay, relay_lists_equivalent, relays_from_env, validate_relay_list};
 use super::{Engine, DEFAULT_P2P_LISTEN_PORT};
 
 impl Engine {
@@ -45,7 +47,12 @@ impl Engine {
             validate_relay_list(relays)?;
         }
 
-        let relay_updated = relay_multiaddrs.is_some();
+        let relay_patch = relay_multiaddrs.is_some();
+        let prior_relays = if relay_patch {
+            self.effective_relays().await
+        } else {
+            Vec::new()
+        };
 
         self.store
             .with_mut(|store| {
@@ -59,14 +66,23 @@ impl Engine {
             })
             .await?;
 
-        if relay_updated {
+        if relay_patch {
             if let Err(e) = self.apply_relay_list_to_p2p().await {
                 warn!(error = %e, "apply relay list after settings change failed");
             }
-            if self.p2p.lock().await.is_some() {
-                if let Err(e) = self.redial_known_peers().await {
-                    warn!(error = %e, "redial after relay settings change failed");
-                }
+            let new_relays = self.effective_relays().await;
+            let relay_changed = !relay_lists_equivalent(&prior_relays, &new_relays);
+            let needs_reconnect = relay_changed || !self.any_relay_connected().await;
+            if needs_reconnect && self.p2p.lock().await.is_some() {
+                info!(
+                    relay_changed,
+                    "background relay bootstrap after settings save"
+                );
+                let p2p = Arc::clone(&self.p2p);
+                let relays = new_relays;
+                tokio::spawn(async move {
+                    super::relay_dial::bootstrap_relays_for_friend_dial(&p2p, &relays).await;
+                });
             }
         }
 
@@ -106,8 +122,14 @@ impl Engine {
         if merged.len() == current.len() {
             return Ok(());
         }
-        self.update_settings(None, None, Some(merged), None, None)
+        validate_relay_list(&merged)?;
+        self.store
+            .with_mut(|store| {
+                store.update_connection_settings(None, Some(merged), None, None)?;
+                Ok(())
+            })
             .await?;
+        self.apply_relay_list_to_p2p().await?;
         info!("merged relay multiaddr from invite");
         Ok(())
     }

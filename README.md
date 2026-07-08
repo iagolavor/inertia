@@ -87,6 +87,7 @@ In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`**
 |-------|--------|
 | Product & architecture | [docs/VISION.md](docs/VISION.md) |
 | Web live sync (SSE + sync modules) | [docs/LIVE-SYNC.md](docs/LIVE-SYNC.md) |
+| Relay circuits & invite bootstrap | [docs/RELAY-CONNECTIVITY.md](docs/RELAY-CONNECTIVITY.md) |
 | UI philosophy | [docs/DESIGN.md](docs/DESIGN.md) |
 | Windows install & updates | [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) |
 | VPS relay deploy | [crates/inertia-relay/README.md](crates/inertia-relay/README.md) |

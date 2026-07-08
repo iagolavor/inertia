@@ -13,6 +13,28 @@ use tracing_subscriber::EnvFilter;
 const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:9000";
 const IDENTITY_FILE: &str = "relay_identity.key";
 
+fn is_routable_external_addr(address: &libp2p::Multiaddr) -> bool {
+    use libp2p::multiaddr::Protocol;
+
+    for p in address.iter() {
+        match p {
+            Protocol::Ip4(octets) => {
+                let ip = std::net::Ipv4Addr::from(octets);
+                return !(ip.is_loopback() || ip.is_private() || ip.is_link_local());
+            }
+            Protocol::Ip6(octets) => {
+                let ip = std::net::Ipv6Addr::from(octets);
+                return !(ip.is_loopback()
+                    || ip.is_unique_local()
+                    || ip.is_unicast_link_local()
+                    || ip.is_unspecified());
+            }
+            _ => {}
+        }
+    }
+    true
+}
+
 #[derive(NetworkBehaviour)]
 struct RelayBehaviour {
     relay: relay::Behaviour,
@@ -55,8 +77,25 @@ async fn main() -> anyhow::Result<()> {
 
     swarm.listen_on(listen_addr.parse()?)?;
 
+    // The relay must advertise a confirmed external address: reservation
+    // responses embed it, and clients reject reservations with no addresses.
+    if let Some(public_addr) = public_addr_from_env() {
+        swarm.add_external_address(public_addr.clone());
+        info!(%public_addr, "registered public address from INERTIA_RELAY_PUBLIC_ADDR");
+    }
+
     loop {
         match swarm.select_next_some().await {
+            libp2p::swarm::SwarmEvent::NewExternalAddrCandidate { address } => {
+                // Confirm observed addresses (from identify) so reservations
+                // always carry a usable public address even without env config.
+                if is_routable_external_addr(&address) {
+                    info!(%address, "confirming external address candidate");
+                    swarm.add_external_address(address);
+                } else {
+                    info!(%address, "ignoring non-routable external address candidate");
+                }
+            }
             libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
                 info!(%address, "relay listening");
                 info!(
@@ -125,6 +164,17 @@ fn data_dir_from_env() -> PathBuf {
     std::env::var("INERTIA_RELAY_DATA_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("./relay-data"))
+}
+
+fn public_addr_from_env() -> Option<libp2p::Multiaddr> {
+    let raw = std::env::var("INERTIA_RELAY_PUBLIC_ADDR").ok()?;
+    match raw.parse() {
+        Ok(addr) => Some(addr),
+        Err(e) => {
+            warn!(error = %e, raw, "invalid INERTIA_RELAY_PUBLIC_ADDR - ignoring");
+            None
+        }
+    }
 }
 
 fn listen_addr_from_env() -> String {
