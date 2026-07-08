@@ -23,6 +23,16 @@ async fn invite_readiness(
     Ok(Json(engine.invite_readiness().await))
 }
 
+// Invite create/accept use a two-phase relay bootstrap so the engine mutex is not held
+// during dial + wait (those can take up to ~20s).
+//
+// Phase 1 (here): plan under a short lock, then `bootstrap_invite_relay_only` without the lock.
+// Phase 2 (engine): `create_invite` / `accept_invite` call `ensure_invite_relay_ready` with
+// `require_reservation: false` as a quick reconcile (connection check, apply relay list).
+//
+// Create waits for an inbound circuit reservation (`wait_for_reservation: true`) because the
+// inviter must be dialable on the relay. Accept only needs an outbound relay session
+// (`wait_for_reservation: false`) before redialing the inviter's circuit addresses.
 async fn create_invite(
     State(state): State<AppState>,
     Json(body): Json<CreateInviteRequest>,

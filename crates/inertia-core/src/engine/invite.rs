@@ -12,7 +12,7 @@ use super::p2p::peer_id_from_multiaddr_str;
 use super::p2p::validate_relay_multiaddr;
 use super::relay_dial::{self, sort_contact_dial_addrs};
 use super::relay_list::select_invite_relay;
-use super::{Engine, InvitePreview, InviteResponse};
+use super::{Engine, InvitePreview, InviteResponse, P2pStatus};
 
 /// Max wait for inviter libp2p session during invite accept (relay circuit redials).
 pub const INVITE_INVITER_WAIT: Duration = Duration::from_secs(120);
@@ -29,102 +29,167 @@ pub struct InviteReadiness {
     pub message: String,
 }
 
+/// Progress through relay bootstrap before invite create or accept.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InviteRelayPhase {
+    NoRelaysConfigured,
+    P2pNotRunning,
+    RelayTcpUnreachable,
+    RelayNotConnected,
+    AwaitingReservation,
+    AwaitingCircuitAddress,
+    Ready,
+}
+
+impl InviteRelayPhase {
+    fn readiness_message(self) -> &'static str {
+        match self {
+            Self::NoRelaysConfigured => "Add a relay in Settings before inviting.",
+            Self::P2pNotRunning => "P2P is starting — try again in a moment.",
+            Self::RelayTcpUnreachable => {
+                "Relay VPS port unreachable — check the address in Settings."
+            }
+            Self::RelayNotConnected => {
+                "Connecting to relay — wait for Relay OK in the header."
+            }
+            Self::AwaitingReservation => {
+                "Waiting for relay inbound slot — tap Generate and keep the app open for a few seconds."
+            }
+            Self::AwaitingCircuitAddress => {
+                "Relay connected but not reachable yet — tap Generate and we will prepare your circuit slot."
+            }
+            Self::Ready => "Ready to invite — stay in the app while your friend accepts.",
+        }
+    }
+
+    fn ensure_error_message(self) -> &'static str {
+        match self {
+            Self::NoRelaysConfigured => {
+                "relay multiaddr is not configured — add one in Settings"
+            }
+            Self::P2pNotRunning => "P2P is not running — restart the API and try again",
+            Self::RelayTcpUnreachable | Self::RelayNotConnected => {
+                "could not connect to the relay network — check Settings and try again"
+            }
+            Self::AwaitingReservation | Self::AwaitingCircuitAddress => {
+                "relay circuit slot not ready — stay on this screen with Relay OK, then try again"
+            }
+            Self::Ready => unreachable!("ready phase has no ensure error"),
+        }
+    }
+
+    fn to_readiness(self) -> InviteReadiness {
+        InviteReadiness {
+            ready: self == Self::Ready,
+            relay_configured: self != Self::NoRelaysConfigured,
+            relay_connected: matches!(
+                self,
+                Self::AwaitingReservation | Self::AwaitingCircuitAddress | Self::Ready
+            ),
+            reachable: self == Self::Ready,
+            message: self.readiness_message().into(),
+        }
+    }
+}
+
+/// Connected + reserved state for the invite priority relay.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PriorityRelaySnapshot {
+    connected: bool,
+    reserved: bool,
+}
+
 impl Engine {
     /// Whether this device can issue a friend invite right now.
     pub async fn invite_readiness(&self) -> InviteReadiness {
+        self.invite_relay_phase().await.to_readiness()
+    }
+
+    async fn invite_relay_phase(&self) -> InviteRelayPhase {
         let relays = self.effective_relays().await;
         if relays.is_empty() {
-            return InviteReadiness {
-                ready: false,
-                relay_configured: false,
-                relay_connected: false,
-                reachable: false,
-                message: "Add a relay in Settings before inviting.".into(),
-            };
+            return InviteRelayPhase::NoRelaysConfigured;
         }
 
         let status = self.p2p_status().await;
         if !status.running {
-            return InviteReadiness {
-                ready: false,
-                relay_configured: true,
-                relay_connected: false,
-                reachable: false,
-                message: "P2P is starting — try again in a moment.".into(),
-            };
+            return InviteRelayPhase::P2pNotRunning;
         }
         if status.relay_tcp_reachable == Some(false) && !status.relay_connected {
-            return InviteReadiness {
-                ready: false,
-                relay_configured: true,
-                relay_connected: false,
-                reachable: false,
-                message: "Relay VPS port unreachable — check the address in Settings.".into(),
-            };
+            return InviteRelayPhase::RelayTcpUnreachable;
         }
         if !status.relay_connected {
-            return InviteReadiness {
-                ready: false,
-                relay_configured: true,
-                relay_connected: false,
-                reachable: false,
-                message: "Connecting to relay — wait for Relay OK in the header.".into(),
-            };
+            return InviteRelayPhase::RelayNotConnected;
         }
 
-        let relays = self.effective_relays().await;
-        let priority_relay = select_invite_relay(&relays, &status.connected_peer_ids)
-            .or_else(|| relays.first().cloned());
-        let reserved = if let Some(relay) = priority_relay.as_deref() {
-            let priority_peer = peer_id_from_multiaddr_str(relay);
-            if let Some(id) = priority_peer {
-                let guard = self.p2p.lock().await;
-                match guard.as_ref() {
-                    Some(node) => node.has_relay_reservation(&[id]).await,
-                    None => false,
-                }
-            } else {
-                false
-            }
-        } else {
-            false
+        let priority_relay = self
+            .pick_invite_relay(&relays, &status)
+            .unwrap_or_else(|| relays[0].clone());
+        let snapshot = match self.priority_relay_snapshot(&priority_relay).await {
+            Ok(snapshot) => snapshot,
+            Err(_) => return InviteRelayPhase::P2pNotRunning,
         };
-
-        if !reserved {
-            return InviteReadiness {
-                ready: false,
-                relay_configured: true,
-                relay_connected: true,
-                reachable: false,
-                message: "Waiting for relay inbound slot — tap Generate and keep the app open for a few seconds."
-                    .into(),
-            };
+        if !snapshot.reserved {
+            return InviteRelayPhase::AwaitingReservation;
         }
 
-        let share = self
+        let reachable = self
             .connection_share_multiaddr()
             .await
             .ok()
-            .flatten();
-        let reachable = share.is_some();
+            .flatten()
+            .is_some();
         if !reachable {
-            return InviteReadiness {
-                ready: false,
-                relay_configured: true,
-                relay_connected: true,
-                reachable: false,
-                message: "Relay connected but not reachable yet — tap Generate and we will prepare your circuit slot."
-                    .into(),
-            };
+            return InviteRelayPhase::AwaitingCircuitAddress;
         }
 
-        InviteReadiness {
-            ready: true,
-            relay_configured: true,
-            relay_connected: true,
-            reachable: true,
-            message: "Ready to invite — stay in the app while your friend accepts.".into(),
+        InviteRelayPhase::Ready
+    }
+
+    fn pick_invite_relay(&self, relays: &[String], status: &P2pStatus) -> Option<String> {
+        select_invite_relay(relays, &status.connected_peer_ids)
+            .or_else(|| relays.first().cloned())
+    }
+
+    async fn priority_relay_snapshot(
+        &self,
+        priority_relay: &str,
+    ) -> CoreResult<PriorityRelaySnapshot> {
+        let priority_peer_id = peer_id_from_multiaddr_str(priority_relay);
+        let guard = self.p2p.lock().await;
+        let node = guard
+            .as_ref()
+            .ok_or_else(|| CoreError::Invite(InviteRelayPhase::P2pNotRunning.ensure_error_message().into()))?;
+        let connected_peers = node.connected_peer_ids().await;
+        let connected = priority_peer_id
+            .as_ref()
+            .is_some_and(|id| connected_peers.iter().any(|peer| peer == id));
+        let reserved = if let Some(id) = priority_peer_id.as_ref() {
+            node.has_relay_reservation(std::slice::from_ref(id)).await
+        } else {
+            false
+        };
+        Ok(PriorityRelaySnapshot {
+            connected,
+            reserved,
+        })
+    }
+
+    async fn resolve_invite_relay(&self) -> CoreResult<(Vec<String>, String)> {
+        let relays = self.effective_relays().await;
+        if relays.is_empty() {
+            return Err(CoreError::Invite(
+                InviteRelayPhase::NoRelaysConfigured.ensure_error_message().into(),
+            ));
         }
+        let status = self.p2p_status().await;
+        let relay_multiaddr = self
+            .pick_invite_relay(&relays, &status)
+            .ok_or_else(|| {
+                CoreError::Invite(InviteRelayPhase::NoRelaysConfigured.ensure_error_message().into())
+            })?;
+        validate_relay_multiaddr(&relay_multiaddr)?;
+        Ok((relays, relay_multiaddr))
     }
 
     fn inviter_dial_addrs_for_invite(invite: &FriendInvite, relays: &[String]) -> Vec<String> {
@@ -152,33 +217,13 @@ impl Engine {
     ) -> CoreResult<()> {
         if relays.is_empty() {
             return Err(CoreError::Invite(
-                "relay multiaddr is not configured — add one in Settings".into(),
+                InviteRelayPhase::NoRelaysConfigured.ensure_error_message().into(),
             ));
         }
 
-        let priority_peer_id = peer_id_from_multiaddr_str(priority_relay);
-        let (priority_connected, priority_reserved) = {
-            let guard = self.p2p.lock().await;
-            let Some(node) = guard.as_ref() else {
-                return Err(CoreError::Invite(
-                    "P2P is not running — restart the API and try again".into(),
-                ));
-            };
-            let connected = node.connected_peer_ids().await;
-            let connected_ok = priority_peer_id
-                .as_ref()
-                .is_some_and(|id| connected.iter().any(|peer| peer == id));
-            let reserved_ok = if let Some(id) = priority_peer_id.as_ref() {
-                node.has_relay_reservation(std::slice::from_ref(id)).await
-            } else {
-                false
-            };
-            (connected_ok, reserved_ok)
-        };
+        let mut snapshot = self.priority_relay_snapshot(priority_relay).await?;
 
-        let needs_bootstrap =
-            !priority_connected || (require_reservation && !priority_reserved);
-        if needs_bootstrap {
+        if !snapshot.connected || (require_reservation && !snapshot.reserved) {
             relay_dial::bootstrap_invite_relay(
                 &self.p2p,
                 priority_relay,
@@ -186,39 +231,20 @@ impl Engine {
                 require_reservation,
             )
             .await;
+            snapshot = self.priority_relay_snapshot(priority_relay).await?;
         } else {
             self.apply_relay_list_to_p2p().await?;
         }
 
-        let (priority_connected, priority_reserved) = {
-            let guard = self.p2p.lock().await;
-            let Some(node) = guard.as_ref() else {
-                return Err(CoreError::Invite(
-                    "P2P is not running — restart the API and try again".into(),
-                ));
-            };
-            let connected = node.connected_peer_ids().await;
-            let connected_ok = priority_peer_id
-                .as_ref()
-                .is_some_and(|id| connected.iter().any(|peer| peer == id));
-            let reserved_ok = if let Some(id) = priority_peer_id.as_ref() {
-                node.has_relay_reservation(std::slice::from_ref(id)).await
-            } else {
-                false
-            };
-            (connected_ok, reserved_ok)
-        };
-
-        if !priority_connected && !self.any_relay_connected().await {
+        if !snapshot.connected && !self.any_relay_connected().await {
             return Err(CoreError::Invite(
-                "could not connect to the relay network — check Settings and try again".into(),
+                InviteRelayPhase::RelayNotConnected.ensure_error_message().into(),
             ));
         }
 
-        if require_reservation && !priority_reserved {
+        if require_reservation && !snapshot.reserved {
             return Err(CoreError::Invite(
-                "relay circuit slot not ready — stay on this screen with Relay OK, then try again"
-                    .into(),
+                InviteRelayPhase::AwaitingReservation.ensure_error_message().into(),
             ));
         }
 
@@ -235,16 +261,7 @@ impl Engine {
         String,
     )> {
         self.ensure_p2p_started().await?;
-        let relays = self.effective_relays().await;
-        if relays.is_empty() {
-            return Err(CoreError::Invite(
-                "relay multiaddr is not configured".into(),
-            ));
-        }
-        let status = self.p2p_status().await;
-        let relay_multiaddr = select_invite_relay(&relays, &status.connected_peer_ids)
-            .or_else(|| relays.first().cloned())
-            .ok_or_else(|| CoreError::Invite("relay multiaddr is not configured".into()))?;
+        let (relays, relay_multiaddr) = self.resolve_invite_relay().await?;
         Ok((
             std::sync::Arc::clone(&self.p2p),
             relays,
@@ -286,13 +303,7 @@ impl Engine {
         }
         drop(identity);
 
-        let relays = self.effective_relays().await;
-        let status = self.p2p_status().await;
-        let relay_multiaddr = select_invite_relay(&relays, &status.connected_peer_ids)
-            .or_else(|| relays.first().cloned())
-            .ok_or_else(|| CoreError::Invite("relay multiaddr is not configured".into()))?;
-        validate_relay_multiaddr(&relay_multiaddr)?;
-
+        let (relays, relay_multiaddr) = self.resolve_invite_relay().await?;
         self.ensure_invite_relay_ready(&relays, &relay_multiaddr, false)
             .await?;
 
