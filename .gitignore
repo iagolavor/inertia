@@ -13,6 +13,7 @@ apps/web/android/app/build
 apps/web/android/build
 apps/web/android/local.properties
 apps/web/android/.idea
+.idea/
 .env
 .inertia-version
 *.db
