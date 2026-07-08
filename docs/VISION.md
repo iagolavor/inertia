@@ -151,7 +151,7 @@ Each user runs **local-first** software on their own device. A small **VPS relay
 +-----------------------------+
 ```
 
-See [inertia-relay README](../crates/inertia-relay/README.md) for relay deployment, [MILESTONE-VPS-RELAY.md](./MILESTONE-VPS-RELAY.md) for the connectivity milestone, and [LIVE-SYNC.md](./LIVE-SYNC.md) for web UI event sync.
+See [inertia-relay README](../crates/inertia-relay/README.md) for relay deployment, [RELAY-CONNECTIVITY.md](./RELAY-CONNECTIVITY.md) for connection architecture and diagrams, and [LIVE-SYNC.md](./LIVE-SYNC.md) for web UI event sync.
 
 ---
 
@@ -163,7 +163,7 @@ See [inertia-relay README](../crates/inertia-relay/README.md) for relay deployme
 |----------|--------|-------------|
 | Friend discovery | **Invite link + QR** | No global directory. Users share invites over channels they already trust. |
 | Identity | **Cryptographic keypair** | No phone numbers, no SMS relay, no account database. |
-| Connectivity | **libp2p P2P + optional VPS relay** | Direct paths when possible; circuit relay via `inertia-relay` when NAT blocks. Relay is connectivity only — not a central account server. |
+| Connectivity | **libp2p relay circuits + optional VPS relay** | Friend paths are `/p2p-circuit/` via `inertia-relay`; relay is connectivity only. See [RELAY-CONNECTIVITY.md](./RELAY-CONNECTIVITY.md). |
 | Post expiration | **7 days** | Default TTL for posts. |
 | Message expiration | **7 days** | Same as posts. |
 | Invite expiration | **15 minutes** | Links expire quickly; generate a fresh one anytime. |
@@ -196,9 +196,9 @@ created_at, expires_at, nonce, signature
 
 Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<payload>`.
 
-**Invite generation** requires the inviter to be **Relay OK** (libp2p connected to the configured relay). This guarantees every new invite carries a working relay address.
+**Invite generation** requires the inviter to be **Relay OK** (outbound libp2p session to the configured relay) **and** to hold an inbound **relay reservation** so the invite embeds a dialable `/p2p-circuit/` address. `GET /invite/readiness` reports progress; the Friends UI uses it before **Generate**.
 
-**On accept:** accepter verifies signature + safety code, applies `relay_multiaddr` to local settings (unless `INERTIA_RELAY` env overrides), dials relay + inviter addresses, then completes P2P `InviteRedemption`.
+**On accept:** accepter verifies signature + safety code, applies `relay_multiaddr` to local settings (unless `INERTIA_RELAY` env overrides), bootstraps a relay session, redials inviter circuit addresses, then completes P2P `InviteRedemption`.
 
 **Single-use redemption:** the inviter's device stores each issued nonce. When a friend accepts, they send a P2P `InviteRedemption` request; the inviter marks the nonce consumed and rejects any second attempt. Acceptance requires the inviter to be online with P2P running.
 
@@ -207,9 +207,12 @@ Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<pay
 ## 2. P2P Transport
 
 - libp2p with TCP / Noise / Yamux.
-- **Relay client** + **DCUtR** (hole punching): try direct path when possible; fall back to circuit via VPS (`inertia-relay`).
-- **VPS relay** (`inertia-relay`): one TCP port, stable relay peer id, no user payloads stored.
-- Peers connect via multiaddrs in invites; relay multiaddr in invite v2 bootstraps new users.
+- **Relay client** on every node: outbound session to `inertia-relay`, inbound **circuit reservation**, and `/p2p-circuit/` listen addresses for friend reachability.
+- **Friend paths are relay-circuit only** — stored contact multiaddrs, invite dial targets, and redials use `/p2p-circuit/` addresses built from configured relays. LAN and direct TCP are not used for friend connectivity (local TCP listen remains for transport to the VPS).
+- **Swarm actor** (`p2p/swarm_task.rs`): one task owns the libp2p swarm; `P2pNode` sends commands and reads `watch` state. Bootstrap waits in `engine/relay_dial.rs` are event-driven (no polling loops).
+- **DCUtR** (hole punching) is still in the behaviour stack and may upgrade some sessions to direct transport after a circuit is up; the product path for discovery and redial remains relay circuits.
+- **VPS relay** (`inertia-relay`): one TCP port, stable relay peer id, no user payloads stored. Must advertise a routable external address in reservation responses.
+- Peers connect via circuit multiaddrs in invites; `relay_multiaddr` in invite v2 bootstraps new users onto the network.
 - Connection states: `online`, `offline`, `unreachable`. Header shows **API** vs **P2P** (relay health + friend count).
 
 ---
@@ -224,7 +227,7 @@ This is **not** global user discovery. It is a directory of **connectivity helpe
 
 - Runs **`inertia-relay`** on a VPS (see [inertia-relay README](../crates/inertia-relay/README.md)).
 - Stable libp2p peer id, one TCP port, no SQLite, no decrypted payloads.
-- Enough bandwidth for **peak** circuit relay when NAT blocks direct paths; most sessions should upgrade to direct connections via DCUtR.
+- Enough bandwidth for **peak** circuit relay traffic; DCUtR may reduce relay load when direct upgrade succeeds, but operators should size for concurrent circuits.
 
 **Rough sizing (indicative, not guarantees):**
 

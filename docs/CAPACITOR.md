@@ -138,7 +138,8 @@ Both stages use `http://127.0.0.1:4783` on-device (Stage B) or via reverse (Stag
 - [x] Package API + web into APK (`scripts/package-android.ps1`); assets gitignored until built
 - [x] Foreground service + splash health gate + WebView on `http://127.0.0.1:4783/`
 - [x] Separate phone profile / DB from desktop
-- [x] P2P relay connect; invite create (PC) → paste accept (phone)
+- [x] P2P relay connect + reservation; invite create (PC) → paste accept (phone)
+- [x] `GET /invite/readiness` gates Generate until inbound circuit slot is ready
 - [x] In-app invite handling (`inertia://`, `InertiaWebViewClient` — no Chrome handoff)
 - [x] Accept waits for relay + inviter libp2p session before redemption
 
@@ -148,14 +149,14 @@ Both stages use `http://127.0.0.1:4783` on-device (Stage B) or via reverse (Stag
 - [ ] **Invite preview** shows red offline dot on inviter avatar (`ProfileHeader` default) — misleading
 - [ ] **Stage A** (`adb reverse` + PC API) — supported but not re-smoked recently
 - [ ] **arm64 only** — no x86 emulator ABI in `android:api:build`
-- [ ] **Relay OK** required for accept (TCP reachable ≠ libp2p connected); inviter must stay online
+- [ ] **Relay OK** is not enough for invite create: inviter needs inbound **reservation** (Friends UI uses `/invite/readiness`); accepter needs relay session + inviter online
 
 ### Resume checklist (next session)
 
 1. `git checkout development && git pull`
 2. Rebuild if UI or Rust changed: `npm run android:stage-b` (not bare `npx cap sync` from repo root — use `npm run android:sync`)
 3. Install from Android Studio or `npm run android:run`
-4. PC inviter: `npm run api:release`, relay connected, **Copy for phone** (payload only)
+4. PC inviter: `npm run api:release`, relay connected + reservation active (Generate enabled), **Copy for phone** (payload only)
 5. Phone: **⋯ → Aceitar convite** → paste → Preview → Accept
 
 Pick up polish from the **Resume next** list in [AGENTS.md](../AGENTS.md) (P2pStatus panel, invite avatar dot, Stage A smoke).
