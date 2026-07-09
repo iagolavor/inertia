@@ -17,11 +17,14 @@
 		photoUrl?: (hash: string) => string;
 		authorId?: string;
 		authorName?: string;
-		selectedContentId?: string | null;
+		/** Selected durable profile item id (not feed content_id). */
+		selectedItemId?: string | null;
 		selectedPost?: FeedItem | null;
 		selectedPostLoading?: boolean;
+		/** When set, comments use profile-item APIs against this contact (friend profile). */
+		ownerContactId?: string | null;
 		onuploaded?: () => void;
-		onselect?: (contentId: string | null) => void;
+		onselect?: (itemId: string | null) => void;
 		oncomment?: () => void;
 	}
 
@@ -29,13 +32,14 @@
 		photos,
 		disabled = false,
 		readonly = false,
-		emptyLabel = 'No posts yet — add your first photo.',
+		emptyLabel = 'No photos yet. Add your first photo.',
 		photoUrl,
 		authorId = '',
 		authorName = '',
-		selectedContentId = null,
+		selectedItemId = null,
 		selectedPost = null,
 		selectedPostLoading = false,
+		ownerContactId = null,
 		onuploaded,
 		onselect,
 		oncomment
@@ -44,7 +48,7 @@
 	const urlFor = (hash: string) => (photoUrl ? photoUrl(hash) : blobUrl(hash));
 
 	const gridCells = $derived(
-		sortProfileGridCells(computeProfileGridLayout(photos, selectedContentId))
+		sortProfileGridCells(computeProfileGridLayout(photos, selectedItemId))
 	);
 
 	const previewGridCells = $derived(
@@ -107,25 +111,25 @@
 	}
 
 	function togglePhoto(photo: ProfilePhoto) {
-		if (!photo.content_id || disabled) return;
-		if (selectedContentId === photo.content_id) {
+		if (disabled) return;
+		if (selectedItemId === photo.id) {
 			onselect?.(null);
 			return;
 		}
-		onselect?.(photo.content_id);
+		onselect?.(photo.id);
 	}
 
 	let expandEl = $state<HTMLElement | null>(null);
 
 	$effect(() => {
-		if (!selectedContentId || !expandEl) return;
+		if (!selectedItemId || !expandEl) return;
 		queueMicrotask(() => {
 			expandEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		});
 	});
 
 	const displayCells = $derived.by(() => {
-		if (selectedContentId == null) return gridCells;
+		if (selectedItemId == null) return gridCells;
 		const expand = gridCells.find((cell) => cell.kind === 'expand');
 		if (!expand) return gridCells;
 		return [expand, ...gridCells.filter((cell) => cell.kind !== 'expand')];
@@ -140,16 +144,18 @@
 </script>
 
 <div class="photo-section">
-	{#if photos.length === 0 && !selectedContentId}
+	{#if photos.length === 0 && !selectedItemId}
 		<p class="empty-grid muted">{emptyLabel}</p>
 	{/if}
 
-	<div class="photo-grid" class:has-selection={selectedContentId != null}>
+	<div class="photo-grid" class:has-selection={selectedItemId != null}>
 		{#each displayCells as cell (cellKey(cell))}
 			{#if cell.kind === 'expand'}
 				<div class="expand-cell" bind:this={expandEl} style={gridCellStyle(cell)}>
 					<ProfilePostExpand
 						post={selectedPost}
+						profileItemId={selectedItemId}
+						{ownerContactId}
 						loading={selectedPostLoading}
 						{disabled}
 						onclose={() => onselect?.(null)}
@@ -162,9 +168,9 @@
 					class="photo-cell photo-btn"
 					style={gridCellStyle(cell)}
 					onclick={() => togglePhoto(cell.photo)}
-					disabled={!cell.photo.content_id || disabled}
-					aria-label={cell.photo.caption ?? 'Open post'}
-					aria-pressed={selectedContentId === cell.photo.content_id}
+					disabled={disabled}
+					aria-label={cell.photo.caption ?? 'Open photo'}
+					aria-pressed={selectedItemId === cell.photo.id}
 				>
 					<img src={urlFor(cell.photo.blob_hash)} alt={cell.photo.caption ?? 'Profile photo'} loading="lazy" />
 				</button>

@@ -36,6 +36,7 @@ pub(super) fn content_type_str(t: ContentType) -> &'static str {
         ContentType::Message => "message",
         ContentType::Post => "post",
         ContentType::Comment => "comment",
+        ContentType::ProfileComment => "profile_comment",
     }
 }
 
@@ -43,6 +44,7 @@ pub(super) fn parse_content_type(s: &str) -> ContentType {
     match s {
         "post" => ContentType::Post,
         "comment" => ContentType::Comment,
+        "profile_comment" => ContentType::ProfileComment,
         _ => ContentType::Message,
     }
 }

@@ -71,6 +71,27 @@ impl Engine {
     }
 
     pub async fn start_media_fetch(&self, root_hash: &str) -> CoreResult<MediaFetchStatus> {
+        self.start_media_fetch_from(root_hash, None, false).await
+    }
+
+    /// Start archive chunk pull: requires DCUtR/direct; never uses relay for bulk bytes.
+    pub async fn start_archive_fetch(
+        &self,
+        root_hash: &str,
+        author_contact_id: &str,
+    ) -> CoreResult<MediaFetchStatus> {
+        self.start_media_fetch_from(root_hash, Some(author_contact_id), true)
+            .await
+    }
+
+    /// Start chunk pull; optional `author_contact_id` for archive downloads from a friend.
+    /// When `direct_required`, wait longer for DCUtR and fail closed if still on relay.
+    pub async fn start_media_fetch_from(
+        &self,
+        root_hash: &str,
+        author_contact_id: Option<&str>,
+        direct_required: bool,
+    ) -> CoreResult<MediaFetchStatus> {
         let manifest = self
             .store
             .with(|s| s.get_manifest(root_hash))
@@ -98,7 +119,17 @@ impl Engine {
             }
         }
 
-        let author_peer = self.find_author_peer_for_media(root_hash).await?;
+        let author_peer = if let Some(contact_id) = author_contact_id {
+            let contact = self.get_contact(contact_id).await?;
+            let peer_id_str = contact
+                .peer_id
+                .ok_or_else(|| CoreError::P2p("author is offline".into()))?;
+            peer_id_str
+                .parse()
+                .map_err(|_| CoreError::P2p("invalid author peer id".into()))?
+        } else {
+            self.find_author_peer_for_media(root_hash).await?
+        };
         let store = self.store.clone();
         let p2p = Arc::clone(&self.p2p);
         let media_fetches = Arc::clone(&self.media_fetches);
@@ -128,8 +159,15 @@ impl Engine {
         let fetches_err = Arc::clone(&media_fetches);
 
         tokio::spawn(async move {
-            if let Err(e) =
-                run_media_fetch(store, p2p, media_fetches, author_peer, manifest_clone).await
+            if let Err(e) = run_media_fetch(
+                store,
+                p2p,
+                media_fetches,
+                author_peer,
+                manifest_clone,
+                direct_required,
+            )
+            .await
             {
                 warn!(error = %e, %root, "media fetch failed");
                 update_fetch(
@@ -165,8 +203,24 @@ impl Engine {
 
     async fn find_author_id_for_media(&self, root_hash: &str) -> CoreResult<String> {
         let items = self.list_feed().await?;
-        if let Some(item) = items.into_iter().find(|i| i.media_ref.as_deref() == Some(root_hash)) {
+        if let Some(item) = items
+            .into_iter()
+            .find(|i| i.media_ref.as_deref() == Some(root_hash))
+        {
             return Ok(item.author_id);
+        }
+        // Own archive entry: no remote author needed for local-complete path;
+        // for incomplete own files there is nothing to fetch from peers.
+        if self
+            .store
+            .with(|s| s.get_archive_entry_by_root_hash(root_hash))
+            .await?
+            .is_some()
+        {
+            return Err(CoreError::P2p(
+                "archive file incomplete locally; fetch from a friend with author_contact_id"
+                    .into(),
+            ));
         }
         Err(CoreError::ContentNotFound(root_hash.to_string()))
     }
@@ -178,21 +232,32 @@ async fn run_media_fetch(
     media_fetches: Arc<Mutex<HashMap<String, MediaFetchStatus>>>,
     author_peer: PeerId,
     manifest: MediaManifest,
+    direct_required: bool,
 ) -> CoreResult<()> {
+    let wait = if direct_required {
+        Duration::from_secs(30)
+    } else {
+        Duration::from_secs(5)
+    };
     let transport = {
         let guard = p2p.lock().await;
         let node = guard
             .as_ref()
             .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
-        let _ = node
-            .wait_for_direct(author_peer, Duration::from_secs(5))
-            .await;
+        let _ = node.wait_for_direct(author_peer, wait).await;
         if node.has_direct_connection(author_peer).await {
             "direct".to_string()
         } else {
             "relay".to_string()
         }
     };
+
+    if direct_required && transport != "direct" {
+        return Err(CoreError::P2p(
+            "direct_required: waiting for a hole-punched connection - archive downloads do not use the relay"
+                .into(),
+        ));
+    }
 
     update_fetch(
         &media_fetches,
@@ -212,6 +277,24 @@ async fn run_media_fetch(
             .await?
         {
             continue;
+        }
+        // Re-check direct before each chunk when archive policy is strict.
+        if direct_required {
+            let guard = p2p.lock().await;
+            let node = guard
+                .as_ref()
+                .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
+            if !node.has_direct_connection(author_peer).await {
+                let _ = node
+                    .wait_for_direct(author_peer, Duration::from_secs(10))
+                    .await;
+                if !node.has_direct_connection(author_peer).await {
+                    return Err(CoreError::P2p(
+                        "direct_required: direct path lost mid-transfer - resume when hole punch succeeds"
+                            .into(),
+                    ));
+                }
+            }
         }
         let guard = p2p.lock().await;
         let node = guard

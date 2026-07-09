@@ -203,6 +203,67 @@ export interface ProfilePhoto {
   created_at: string;
 }
 
+export type ProfileItem = ProfilePhoto;
+
+export interface ProfileComment {
+  id: string;
+  profile_item_id: string;
+  author_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+}
+
+export interface ArchiveFolderSummary {
+  id: string;
+  name: string;
+  entry_count: number;
+  created_at: string;
+}
+
+export interface ArchiveFolder {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface ArchiveEntry {
+  id: string;
+  folder_id: string;
+  name: string;
+  root_hash: string;
+  total_bytes: number;
+  mime: string;
+  created_at: string;
+}
+
+export interface ArchiveUploadStatus {
+  upload_id: string;
+  folder_id: string;
+  name: string;
+  mime: string;
+  total_bytes: number;
+  chunk_size: number;
+  chunks_done: number;
+  chunks_total: number;
+  missing: number[];
+  completed: boolean;
+}
+
+/** Soft UI warning for browser zip CPU/memory (not enforced by API). */
+export const ARCHIVE_ZIP_SOFT_WARN_BYTES = 200 * 1024 * 1024;
+/** Matches inertia-core CHUNK_SIZE. */
+export const ARCHIVE_CHUNK_SIZE = 512 * 1024;
+
+export interface ProfileManifest {
+  display_name: string;
+  bio: string;
+  avatar_blob_hash: string | null;
+  signing_pubkey: string;
+  items: ProfileItem[];
+  archive_folders: ArchiveFolderSummary[];
+}
+
 export interface PublishPhotoResult {
   photo: ProfilePhoto;
   content_id: string;
@@ -436,12 +497,20 @@ export const api = {
       },
       UPLOAD_TIMEOUT_MS
     ),
-  startMediaFetch: (root_hash: string) =>
-    request<MediaFetchStatus>(
-      `/media/${encodeURIComponent(root_hash)}/fetch`,
+  startMediaFetch: (root_hash: string, author_contact_id?: string, direct_required = false) => {
+    const params = new URLSearchParams();
+    if (author_contact_id) params.set('author_contact_id', author_contact_id);
+    if (direct_required) params.set('direct_required', 'true');
+    const q = params.toString() ? `?${params}` : '';
+    return request<MediaFetchStatus>(
+      `/media/${encodeURIComponent(root_hash)}/fetch${q}`,
       { method: 'POST' },
       UPLOAD_TIMEOUT_MS
-    ),
+    );
+  },
+  /** Archive peer download: DCUtR/direct only (never relay bulk). */
+  startArchiveFetch: (root_hash: string, author_contact_id: string) =>
+    api.startMediaFetch(root_hash, author_contact_id, true),
   mediaFetchStatus: (root_hash: string) =>
     request<MediaFetchStatus>(`/media/${encodeURIComponent(root_hash)}/status`),
   listProfilePhotos: () => request<ProfilePhoto[]>('/profile/photos'),
@@ -454,5 +523,151 @@ export const api = {
       },
       UPLOAD_TIMEOUT_MS
     ),
+  fetchFriendProfile: (contactId: string) =>
+    request<ProfileManifest>(`/contacts/${encodeURIComponent(contactId)}/profile`),
+  listOwnProfileComments: (itemId: string) =>
+    request<ProfileComment[]>(`/profile/items/${encodeURIComponent(itemId)}/comments`),
+  addOwnProfileComment: (itemId: string, body: string) =>
+    request<ProfileComment>(`/profile/items/${encodeURIComponent(itemId)}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body })
+    }),
+  listFriendProfileComments: (contactId: string, itemId: string) =>
+    request<ProfileComment[]>(
+      `/contacts/${encodeURIComponent(contactId)}/profile/items/${encodeURIComponent(itemId)}/comments`
+    ),
+  addFriendProfileComment: (contactId: string, itemId: string, body: string) =>
+    request<ProfileComment>(
+      `/contacts/${encodeURIComponent(contactId)}/profile/items/${encodeURIComponent(itemId)}/comments`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ body })
+      }
+    ),
+  listArchiveFolders: () => request<ArchiveFolder[]>('/archive/folders'),
+  createArchiveFolder: (name: string) =>
+    request<ArchiveFolder>('/archive/folders', {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    }),
+  deleteArchiveFolder: (folderId: string) =>
+    request<void>(`/archive/folders/${encodeURIComponent(folderId)}`, { method: 'DELETE' }),
+  listArchiveEntries: (folderId: string) =>
+    request<ArchiveEntry[]>(`/archive/folders/${encodeURIComponent(folderId)}/entries`),
+  addArchiveEntry: (folderId: string, name: string, data_base64: string, mime?: string) =>
+    request<ArchiveEntry>(
+      `/archive/folders/${encodeURIComponent(folderId)}/entries`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ name, data_base64, mime: mime ?? null })
+      },
+      UPLOAD_TIMEOUT_MS
+    ),
+  beginArchiveUpload: (folderId: string, name: string, total_bytes: number, mime?: string) =>
+    request<ArchiveUploadStatus>(`/archive/folders/${encodeURIComponent(folderId)}/uploads`, {
+      method: 'POST',
+      body: JSON.stringify({ name, total_bytes, mime: mime ?? null })
+    }),
+  archiveUploadStatus: (uploadId: string) =>
+    request<ArchiveUploadStatus>(`/archive/uploads/${encodeURIComponent(uploadId)}`),
+  putArchiveUploadChunk: async (
+    uploadId: string,
+    index: number,
+    chunk: ArrayBuffer | Uint8Array,
+    chunkHash: string
+  ): Promise<ArchiveUploadStatus> => {
+    const src = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+    const copy = new Uint8Array(src.byteLength);
+    copy.set(src);
+    const body = new Blob([copy]);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+    try {
+      const res = await fetch(
+        `${getApiBase()}/archive/uploads/${encodeURIComponent(uploadId)}/chunks/${index}`,
+        {
+          method: 'PUT',
+          body,
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'x-chunk-hash': chunkHash
+          }
+        }
+      );
+      if (!res.ok) {
+        const err = await readJsonBody<{ error?: string }>(res).catch(() => ({
+          error: res.statusText
+        }));
+        throw new ApiRequestError(
+          classifyHttpFailure(res.status, err.error ?? res.statusText ?? 'Chunk upload failed')
+        );
+      }
+      return readJsonBody<ArchiveUploadStatus>(res);
+    } catch (error) {
+      if (error instanceof ApiRequestError) throw error;
+      throw new ApiRequestError(classifyFetchFailure(error));
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
+  completeArchiveUpload: (uploadId: string) =>
+    request<ArchiveEntry>(`/archive/uploads/${encodeURIComponent(uploadId)}/complete`, {
+      method: 'POST'
+    }, UPLOAD_TIMEOUT_MS),
+  deleteArchiveEntry: (entryId: string) =>
+    request<void>(`/archive/entries/${encodeURIComponent(entryId)}`, { method: 'DELETE' }),
+  fetchFriendArchiveFolder: (contactId: string, folderId: string) =>
+    request<{ folder: ArchiveFolderSummary; entries: ArchiveEntry[] }>(
+      `/contacts/${encodeURIComponent(contactId)}/archive/folders/${encodeURIComponent(folderId)}`
+    ),
   shutdownBridge: () => request<void>('/shutdown', { method: 'POST' })
 };
+
+export async function sha256Hex(data: ArrayBuffer | Uint8Array): Promise<string> {
+  const buf = data instanceof Uint8Array ? data : new Uint8Array(data);
+  // Copy into a fresh ArrayBuffer so TS accepts BufferSource under strict DOM typings.
+  const copy = new Uint8Array(buf.byteLength);
+  copy.set(buf);
+  const digest = await crypto.subtle.digest('SHA-256', copy.buffer);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Stream a Blob/File into the local chunked archive upload API with resume. */
+export async function uploadArchiveBlob(
+  folderId: string,
+  name: string,
+  blob: Blob,
+  mime: string | undefined,
+  onProgress?: (done: number, total: number, phase: 'upload' | 'complete') => void
+): Promise<ArchiveEntry> {
+  let status = await api.beginArchiveUpload(folderId, name, blob.size, mime);
+  const chunkSize = status.chunk_size || ARCHIVE_CHUNK_SIZE;
+  const total = status.chunks_total;
+
+  const uploadMissing = async (missing: number[]) => {
+    for (const index of missing) {
+      const start = index * chunkSize;
+      const end = Math.min(start + chunkSize, blob.size);
+      const slice = blob.slice(start, end);
+      const buf = new Uint8Array(await slice.arrayBuffer());
+      const hash = await sha256Hex(buf);
+      status = await api.putArchiveUploadChunk(status.upload_id, index, buf, hash);
+      onProgress?.(status.chunks_done, status.chunks_total, 'upload');
+    }
+  };
+
+  // First pass: all missing; then re-check status for resume gaps.
+  let missing =
+    status.missing.length > 0
+      ? status.missing
+      : Array.from({ length: total }, (_, i) => i);
+  await uploadMissing(missing);
+  status = await api.archiveUploadStatus(status.upload_id);
+  if (status.missing.length > 0) {
+    await uploadMissing(status.missing);
+  }
+
+  onProgress?.(status.chunks_total, status.chunks_total, 'complete');
+  return api.completeArchiveUpload(status.upload_id);
+}
