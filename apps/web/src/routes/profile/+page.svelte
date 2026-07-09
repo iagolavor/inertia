@@ -390,34 +390,47 @@
         <span>Files</span>
       </button>
     </div>
-
-    {#if identityState.apiOnline && profileTab === 'posts'}
-      <button
-        type="button"
-        class="btn-add-photo"
-        onclick={() => photoGrid?.openPhotoPicker()}
-      >
-        Add photo
-      </button>
-    {/if}
   </div>
 
   {#if profileTab === 'posts'}
-    <PhotoGrid
-      bind:this={photoGrid}
-      {photos}
-      photoUrl={photoUrl}
-      disabled={!identityState.apiOnline}
-      authorId={identityState.identity.signing_pubkey}
-      authorName={identityState.identity.display_name}
-      selectedItemId={selectedItemId}
-      {selectedPost}
-      selectedPostLoading={selectedPostLoading}
-      onuploaded={reloadPhotos}
-      onselect={selectItem}
-      oncomment={onCommentAdded}
-    />
+    <p class="tab-blurb muted">
+      Photos stay on your profile. Publishing also sends a 7-day post to friends' feeds.
+    </p>
+    <div class="tab-panel">
+      <header class="panel-chrome">
+        <span class="panel-title">Posts</span>
+        {#if identityState.apiOnline}
+          <button
+            type="button"
+            class="panel-tool"
+            onclick={() => photoGrid?.openPhotoPicker()}
+          >
+            Add photo
+          </button>
+        {/if}
+      </header>
+      <div class="panel-body">
+        <PhotoGrid
+          bind:this={photoGrid}
+          {photos}
+          photoUrl={photoUrl}
+          disabled={!identityState.apiOnline}
+          authorId={identityState.identity.signing_pubkey}
+          authorName={identityState.identity.display_name}
+          selectedItemId={selectedItemId}
+          {selectedPost}
+          selectedPostLoading={selectedPostLoading}
+          onuploaded={reloadPhotos}
+          onselect={selectItem}
+          oncomment={onCommentAdded}
+        />
+      </div>
+    </div>
   {:else if identityState.apiOnline}
+    <p class="tab-blurb muted">
+      Folders stay on your device. Friends can browse and download only when you are both online,
+      over a direct (hole-punched) connection - not the relay. Transfers can resume if interrupted.
+    </p>
     <FilesPanel
       mode="owner"
       folders={archiveFolders}
@@ -426,7 +439,7 @@
       onerror={(msg) => (error = msg)}
     />
   {:else}
-    <p class="muted">Reconnect to manage files.</p>
+    <p class="tab-blurb muted">Reconnect to manage files.</p>
   {/if}
 
   {#if identityState.apiOnline}
@@ -633,13 +646,13 @@
 
     align-items: center;
 
-    justify-content: space-between;
+    justify-content: flex-start;
 
     gap: 0.75rem;
 
     border-bottom: 1px solid var(--border);
 
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 
     padding-bottom: 0.5rem;
 
@@ -651,40 +664,59 @@
     gap: 1rem;
   }
 
-
-
-  .btn-add-photo {
-
-    padding: 0.35rem 0.75rem;
-
-    border: 1px solid var(--border);
-
-    border-radius: 8px;
-
-    background: var(--surface);
-
-    color: var(--text);
-
-    font: inherit;
-
-    font-size: 0.78rem;
-
-    font-weight: 600;
-
-    cursor: pointer;
-
-    white-space: nowrap;
-
-    flex-shrink: 0;
-
+  .tab-blurb {
+    margin: 0 0 0.75rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    max-width: 40rem;
   }
 
+  .tab-panel {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    overflow: hidden;
+    min-height: 12rem;
+  }
 
+  .panel-chrome {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem 0.85rem;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+  }
 
-  .btn-add-photo:hover {
+  .panel-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+  }
 
-    background: color-mix(in srgb, var(--border) 25%, var(--surface));
+  .panel-tool {
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
 
+  .panel-tool:hover {
+    background: color-mix(in srgb, var(--border) 22%, var(--surface));
+  }
+
+  .panel-body {
+    padding: 0.75rem;
   }
 
 

@@ -172,18 +172,32 @@
 		</div>
 
 		{#if profileTab === 'posts'}
-			<PhotoGrid
-				{photos}
-				readonly
-				emptyLabel="No photos yet from {contact.display_name}."
-				disabled={!identityState.apiOnline || offlineFriend}
-				selectedItemId={selectedItemId}
-				{selectedPost}
-				selectedPostLoading={selectedPostLoading}
-				ownerContactId={contactId}
-				onselect={selectItem}
-			/>
+			<p class="tab-blurb muted">
+				Photos load from your friend's device when they are online.
+			</p>
+			<div class="tab-panel">
+				<header class="panel-chrome">
+					<span class="panel-title">Posts</span>
+				</header>
+				<div class="panel-body">
+					<PhotoGrid
+						{photos}
+						readonly
+						emptyLabel="No photos yet from {contact.display_name}."
+						disabled={!identityState.apiOnline || offlineFriend}
+						selectedItemId={selectedItemId}
+						{selectedPost}
+						selectedPostLoading={selectedPostLoading}
+						ownerContactId={contactId}
+						onselect={selectItem}
+					/>
+				</div>
+			</div>
 		{:else}
+			<p class="tab-blurb muted">
+				Browse when your friend is online. Downloads need a direct (hole-punched) connection -
+				not the relay - and can resume after interruptions.
+			</p>
 			<FilesPanel
 				mode="friend"
 				folders={archiveFolders}
@@ -215,10 +229,10 @@
 	.grid-tabs {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		justify-content: flex-start;
 		gap: 0.75rem;
 		border-bottom: 1px solid var(--border);
-		margin: 1rem 0;
+		margin: 1rem 0 0.75rem;
 		padding-bottom: 0.5rem;
 	}
 
@@ -226,6 +240,44 @@
 		display: flex;
 		align-items: center;
 		gap: 1rem;
+	}
+
+	.tab-blurb {
+		margin: 0 0 0.75rem;
+		font-size: 0.8rem;
+		line-height: 1.4;
+		max-width: 40rem;
+	}
+
+	.tab-panel {
+		display: flex;
+		flex-direction: column;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-lg);
+		background: var(--surface);
+		overflow: hidden;
+		min-height: 12rem;
+	}
+
+	.panel-chrome {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.55rem 0.85rem;
+		padding: 0.55rem 0.75rem;
+		border-bottom: 1px solid var(--border);
+		background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+	}
+
+	.panel-title {
+		font-size: 0.82rem;
+		font-weight: 600;
+		color: var(--text);
+	}
+
+	.panel-body {
+		padding: 0.75rem;
 	}
 
 	.grid-tab {

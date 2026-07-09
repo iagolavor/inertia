@@ -54,7 +54,7 @@ Colored dot + textual label `online` or `offline` side by side. No ambiguity.
 
 ### Profile
 - Header: avatar, name, bio.
-- **Posts | Files** tabs on own and friend profiles.
+- **Posts | Files** tabs on own and friend profiles. Each tab has a short how-it-works blurb, then a bordered panel with a sticky title/toolbar row (e.g. Add photo / New folder) and content below.
 - **Posts**: durable photo grid on the author's device. Publishing a photo also emits a 7-day feed announcement.
 - Friend profiles load live over P2P when the friend is online (thumbs auto-fetch on visit).
 - **Files**: folder icons for author-hosted shared folders. Owner creates folders and adds files (zip drop or folder auto-zip). Friends browse and download only. Neutral naming (not a media catalog). Large peer downloads require a direct connection; see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md).
