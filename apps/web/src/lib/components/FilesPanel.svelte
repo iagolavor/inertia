@@ -2,12 +2,14 @@
 	import { zipSync } from 'fflate';
 	import {
 		api,
+		blobDownloadUrl,
 		uploadArchiveBlob,
 		ARCHIVE_ZIP_SOFT_WARN_BYTES,
 		type ArchiveEntry,
 		type ArchiveFolder,
 		type ArchiveFolderSummary
 	} from '$lib/api';
+	import { saveFileFromApi } from '$lib/save-download';
 
 	type Folder = ArchiveFolder | ArchiveFolderSummary;
 
@@ -222,7 +224,19 @@
 					[entry.id]: `${status.state} ${status.chunks_done}/${status.chunks_total}${transport}`
 				};
 				if (status.state === 'complete') {
-					downloadStatus = { ...downloadStatus, [entry.id]: 'Ready (direct)' };
+					downloadStatus = { ...downloadStatus, [entry.id]: 'Saving…' };
+					try {
+						await saveFileFromApi(blobDownloadUrl(entry.root_hash, entry.name), entry.name);
+						downloadStatus = {
+							...downloadStatus,
+							[entry.id]: 'Saved to Downloads (check Files app)'
+						};
+					} catch (e) {
+						downloadStatus = {
+							...downloadStatus,
+							[entry.id]: e instanceof Error ? e.message : 'Save failed'
+						};
+					}
 					return;
 				}
 				if (status.state === 'failed') {

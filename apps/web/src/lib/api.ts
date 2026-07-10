@@ -270,7 +270,12 @@ export interface PublishPhotoResult {
 }
 
 export function blobUrl(hash: string): string {
-  return `${getApiBase()}/blobs/${hash}`;
+  return `${getApiBase()}/blobs/${encodeURIComponent(hash)}`;
+}
+
+export function blobDownloadUrl(hash: string, filename: string): string {
+  const params = new URLSearchParams({ download: filename });
+  return `${blobUrl(hash)}?${params.toString()}`;
 }
 
 export interface OutboxEntry {
