@@ -95,6 +95,28 @@ impl Store {
             .map_err(CoreError::from)
     }
 
+    /// All profile photo hashes (durable items + legacy profile_photos mirror).
+    pub fn profile_blob_hashes(&self) -> CoreResult<Vec<String>> {
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for hash in self.profile_item_blob_hashes()? {
+            if seen.insert(hash.clone()) {
+                out.push(hash);
+            }
+        }
+        let mut stmt = self
+            .conn
+            .prepare("SELECT blob_hash FROM profile_photos")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for hash in rows {
+            let hash = hash?;
+            if seen.insert(hash.clone()) {
+                out.push(hash);
+            }
+        }
+        Ok(out)
+    }
+
     pub fn insert_profile_comment(&self, comment: &ProfileComment) -> CoreResult<()> {
         self.conn.execute(
             "INSERT OR IGNORE INTO profile_comments

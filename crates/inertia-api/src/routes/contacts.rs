@@ -24,6 +24,10 @@ pub fn routes() -> Router<AppState> {
             "/contacts/:contact_id/archive/folders/:folder_id",
             get(fetch_friend_archive_folder),
         )
+        .route(
+            "/contacts/:contact_id/blobs/:hash/fetch",
+            axum::routing::post(fetch_friend_blob),
+        )
 }
 
 async fn get_contact(
@@ -117,6 +121,18 @@ async fn fetch_friend_archive_folder(
         .await
         .map_err(api_err)?;
     Ok(Json(FriendArchiveFolderResponse { folder, entries }))
+}
+
+async fn fetch_friend_blob(
+    State(state): State<AppState>,
+    Path((contact_id, hash)): Path<(String, String)>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .fetch_blob_from_contact(&contact_id, &hash)
+        .await
+        .map(|_| StatusCode::NO_CONTENT)
+        .map_err(api_err)
 }
 
 #[derive(serde::Serialize)]

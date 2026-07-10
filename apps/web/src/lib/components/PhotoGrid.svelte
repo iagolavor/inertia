@@ -47,6 +47,41 @@
 
 	const urlFor = (hash: string) => (photoUrl ? photoUrl(hash) : blobUrl(hash));
 
+	let blobReady = $state<Record<string, boolean>>({});
+	const pendingBlobFetches = new Map<string, Promise<boolean>>();
+
+	async function ensureFriendBlob(hash: string): Promise<boolean> {
+		if (!ownerContactId || disabled) return true;
+		if (blobReady[hash]) return true;
+		const pending = pendingBlobFetches.get(hash);
+		if (pending) return pending;
+
+		const task = (async () => {
+			try {
+				await api.fetchFriendBlob(ownerContactId!, hash);
+				blobReady = { ...blobReady, [hash]: true };
+				return true;
+			} catch {
+				return false;
+			} finally {
+				pendingBlobFetches.delete(hash);
+			}
+		})();
+		pendingBlobFetches.set(hash, task);
+		return task;
+	}
+
+	function friendPhotoReady(hash: string): boolean {
+		return !ownerContactId || !!blobReady[hash];
+	}
+
+	$effect(() => {
+		if (!ownerContactId || disabled) return;
+		for (const photo of photos) {
+			void ensureFriendBlob(photo.blob_hash);
+		}
+	});
+
 	const gridCells = $derived(
 		sortProfileGridCells(computeProfileGridLayout(photos, selectedItemId))
 	);
@@ -172,7 +207,18 @@
 					aria-label={cell.photo.caption ?? 'Open photo'}
 					aria-pressed={selectedItemId === cell.photo.id}
 				>
-					<img src={urlFor(cell.photo.blob_hash)} alt={cell.photo.caption ?? 'Profile photo'} loading="lazy" />
+					{#if friendPhotoReady(cell.photo.blob_hash)}
+						{#key cell.photo.blob_hash}
+							<img
+								src={urlFor(cell.photo.blob_hash)}
+								alt={cell.photo.caption ?? 'Profile photo'}
+								loading={ownerContactId ? 'eager' : 'lazy'}
+								decoding="async"
+							/>
+						{/key}
+					{:else}
+						<span class="photo-placeholder" aria-hidden="true"></span>
+					{/if}
 				</button>
 			{/if}
 		{/each}
@@ -241,6 +287,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.35rem;
+		width: 100%;
 	}
 
 	.empty-grid {
@@ -252,7 +299,7 @@
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: 6px;
-		margin-bottom: 0.75rem;
+		margin-bottom: 0;
 		grid-auto-flow: row dense;
 	}
 
@@ -290,6 +337,24 @@
 		object-fit: cover;
 		display: block;
 		transition: opacity 0.15s ease;
+	}
+
+	.photo-placeholder {
+		display: block;
+		width: 100%;
+		height: 100%;
+		background: color-mix(in srgb, var(--border) 35%, var(--bg));
+		animation: photo-pulse 1.1s ease-in-out infinite;
+	}
+
+	@keyframes photo-pulse {
+		0%,
+		100% {
+			opacity: 0.55;
+		}
+		50% {
+			opacity: 0.9;
+		}
 	}
 
 	.photo-btn {

@@ -525,6 +525,12 @@ export const api = {
     ),
   fetchFriendProfile: (contactId: string) =>
     request<ProfileManifest>(`/contacts/${encodeURIComponent(contactId)}/profile`),
+  fetchFriendBlob: (contactId: string, hash: string) =>
+    request<void>(
+      `/contacts/${encodeURIComponent(contactId)}/blobs/${encodeURIComponent(hash)}/fetch`,
+      { method: 'POST' },
+      UPLOAD_TIMEOUT_MS
+    ),
   listOwnProfileComments: (itemId: string) =>
     request<ProfileComment[]>(`/profile/items/${encodeURIComponent(itemId)}/comments`),
   addOwnProfileComment: (itemId: string, body: string) =>

@@ -127,7 +127,7 @@ pub async fn handle_inbound_request(
             if !blob_is_servable(store, &req.hash).await {
                 return Ok(InertiaResponse::BlobNotFound);
             }
-            match store.with(|s| s.read_blob(&req.hash)).await {
+            match store.with(|s| s.read_blob_resolved(&req.hash)).await {
                 Ok(data) if data.len() <= MAX_BLOB_BYTES => Ok(InertiaResponse::BlobData(BlobData {
                     hash: req.hash,
                     data,
@@ -492,7 +492,7 @@ async fn blob_is_servable(store: &StoreHandle, hash: &str) -> bool {
     let hash = hash.to_string();
     store
         .with(move |s| {
-            if s.profile_item_blob_hashes()?.iter().any(|h| h == &hash) {
+            if s.profile_blob_hashes()?.iter().any(|h| h == &hash) {
                 return Ok(true);
             }
             if let Ok(Some(identity)) = s.load_identity() {

@@ -136,7 +136,7 @@ impl Engine {
         let manifest = node.request_profile_manifest_from_peer(peer_id).await?;
         drop(p2p_guard);
 
-        // Auto-fetch profile photo thumbs (and avatar) for a smooth visit.
+        // Auto-fetch profile photo blobs (and avatar) for a smooth visit.
         let mut hashes: Vec<String> = manifest
             .items
             .iter()
@@ -146,23 +146,60 @@ impl Engine {
             hashes.push(avatar.clone());
         }
         for hash in hashes {
-            let already = self
-                .store
-                .with(|s| Ok(s.blob_exists(&hash)))
-                .await
-                .unwrap_or(false);
-            if already {
-                continue;
-            }
-            let p2p_guard = self.p2p.lock().await;
-            if let Some(node) = p2p_guard.as_ref() {
-                if let Err(e) = node.request_blob_from_peer(peer_id, &hash).await {
-                    tracing::warn!(%hash, error = %e, "profile thumb fetch failed");
-                }
+            if let Err(e) = self.fetch_blob_from_contact(contact_id, &hash).await {
+                tracing::warn!(%hash, %contact_id, error = %e, "profile blob fetch failed");
             }
         }
 
         Ok(manifest)
+    }
+
+    /// Pull a single blob from a friend when missing locally (profile thumbs, avatar).
+    pub async fn fetch_blob_from_contact(
+        &self,
+        contact_id: &str,
+        hash: &str,
+    ) -> CoreResult<()> {
+        if self
+            .store
+            .with(|s| Ok(s.blob_exists(hash)))
+            .await?
+        {
+            return Ok(());
+        }
+
+        let contact = self.get_contact(contact_id).await?;
+        let peer_id_str = contact.peer_id.as_ref().ok_or_else(|| {
+            CoreError::P2p(format!("friend {contact_id} has no peer id (offline)"))
+        })?;
+        let peer_id: libp2p::PeerId = peer_id_str
+            .parse()
+            .map_err(|e| CoreError::P2p(format!("invalid peer id: {e}")))?;
+
+        let connected = {
+            let p2p_guard = self.p2p.lock().await;
+            let node = p2p_guard
+                .as_ref()
+                .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
+            node.connected_peer_ids().await
+        };
+        if !connected.iter().any(|id| id == peer_id_str) {
+            use std::time::Duration;
+            self.wait_for_peer_connected_redial(
+                peer_id_str,
+                &contact.multiaddrs,
+                Duration::from_secs(20),
+                "profile blob",
+                2,
+            )
+            .await?;
+        }
+
+        let p2p_guard = self.p2p.lock().await;
+        let node = p2p_guard
+            .as_ref()
+            .ok_or_else(|| CoreError::P2p("p2p not started".into()))?;
+        node.request_blob_from_peer(peer_id, hash).await
     }
 
     /// List comments for a profile item. Own items: local DB. Friend items: live P2P pull.

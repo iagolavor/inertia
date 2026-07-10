@@ -678,7 +678,6 @@
     border-radius: var(--radius-lg);
     background: var(--surface);
     overflow: hidden;
-    min-height: 12rem;
   }
 
   .panel-chrome {
