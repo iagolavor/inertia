@@ -394,7 +394,7 @@
 
   {#if profileTab === 'posts'}
     <p class="tab-blurb muted">
-      Photos stay on your profile. Publishing also sends a 7-day post to friends' feeds.
+      Photos stay on your profile, only accessible when you are online(or have the app open). Publishing also sends a 7-day post to friends' feeds.
     </p>
     <div class="tab-panel">
       <header class="panel-chrome">
@@ -429,7 +429,7 @@
   {:else if identityState.apiOnline}
     <p class="tab-blurb muted">
       Folders stay on your device. Friends can browse and download only when you are both online,
-      over a direct (hole-punched) connection - not the relay. Transfers can resume if interrupted.
+      over a direct (hole-punched) connection. Transfers can resume if interrupted.
     </p>
     <FilesPanel
       mode="owner"
