@@ -36,6 +36,19 @@ pub fn blob_content_type(data: &[u8]) -> &'static str {
     }
 }
 
+pub fn content_disposition_attachment(filename: &str) -> String {
+    let safe: String = filename
+        .chars()
+        .filter(|c| !matches!(c, '"' | '\\' | '\r' | '\n'))
+        .collect();
+    let name = if safe.is_empty() {
+        "download".to_string()
+    } else {
+        safe
+    };
+    format!("attachment; filename=\"{name}\"")
+}
+
 pub fn blob_too_large_err() -> (StatusCode, Json<ApiError>) {
     (
         StatusCode::PAYLOAD_TOO_LARGE,

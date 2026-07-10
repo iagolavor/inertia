@@ -28,6 +28,12 @@ pub enum P2pEvent {
         author_id: String,
         body: String,
     },
+    ProfileCommentReceived {
+        profile_item_id: String,
+        content_id: String,
+        author_id: String,
+        body: String,
+    },
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
 }

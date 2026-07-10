@@ -81,3 +81,30 @@ pub fn build_comment_envelope(
     envelope.signature = identity.sign(&envelope.signing_bytes())?;
     Ok(envelope)
 }
+
+pub fn build_profile_comment_envelope(
+    identity: &Identity,
+    recipient: &Contact,
+    profile_item_id: &str,
+    body: &str,
+) -> CoreResult<ContentEnvelope> {
+    let payload = crate::content::ProfileCommentPayload {
+        profile_item_id: profile_item_id.to_string(),
+        body: body.to_string(),
+    };
+    let plaintext = serde_json::to_vec(&payload)?;
+    let ciphertext = encrypt_for_recipient(
+        identity.encryption_secret()?,
+        &recipient.encryption_pubkey,
+        &plaintext,
+    )?;
+
+    let mut envelope = ContentEnvelope::new_profile_comment(
+        identity.signing_pubkey.clone(),
+        identity.encryption_pubkey.clone(),
+        ciphertext,
+        vec![],
+    );
+    envelope.signature = identity.sign(&envelope.signing_bytes())?;
+    Ok(envelope)
+}

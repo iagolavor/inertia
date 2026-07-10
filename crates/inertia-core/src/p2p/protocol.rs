@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::content::ContentEnvelope;
+use crate::storage::{
+    ArchiveEntry, ArchiveFolderSummary, ProfileComment, ProfileManifest,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriendRequest {
@@ -73,6 +76,19 @@ pub struct BlobHave {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileManifestRequest {}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileCommentsRequest {
+    pub profile_item_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveListRequest {
+    pub folder_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InertiaRequest {
     FriendRequest(FriendRequest),
     FriendAccept(FriendAccept),
@@ -84,6 +100,9 @@ pub enum InertiaRequest {
     BlobChunkRequest(BlobChunkRequest),
     /// Reserved — advertise held chunks to friends (Phase C).
     BlobHave(BlobHave),
+    ProfileManifest(ProfileManifestRequest),
+    ProfileComments(ProfileCommentsRequest),
+    ArchiveList(ArchiveListRequest),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,6 +114,15 @@ pub enum InertiaResponse {
     BlobNotFound,
     BlobChunkData(BlobChunkData),
     BlobChunkNotFound,
+    ProfileManifest(ProfileManifest),
+    ProfileComments(Vec<ProfileComment>),
+    ArchiveList {
+        folder: ArchiveFolderSummary,
+        entries: Vec<ArchiveEntry>,
+        /// Media manifests keyed by root_hash so the viewer can pull chunks.
+        manifests: Vec<crate::content::MediaManifest>,
+    },
+    ArchiveNotFound,
     Error(String),
 }
 

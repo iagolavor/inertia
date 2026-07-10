@@ -121,7 +121,13 @@ pub async fn handle_inbound_request(
             ))
         }
         InertiaRequest::BlobRequest(req) => {
-            match store.with(|s| s.read_blob(&req.hash)).await {
+            if !peer_is_known_contact(store, &peer).await {
+                return Ok(InertiaResponse::BlobNotFound);
+            }
+            if !blob_is_servable(store, &req.hash).await {
+                return Ok(InertiaResponse::BlobNotFound);
+            }
+            match store.with(|s| s.read_blob_resolved(&req.hash)).await {
                 Ok(data) if data.len() <= MAX_BLOB_BYTES => Ok(InertiaResponse::BlobData(BlobData {
                     hash: req.hash,
                     data,
@@ -130,6 +136,9 @@ pub async fn handle_inbound_request(
             }
         }
         InertiaRequest::BlobPush(blob) => {
+            if !peer_is_known_contact(store, &peer).await {
+                return Ok(InertiaResponse::Error("unknown peer".into()));
+            }
             store
                 .with_mut(|s| s.store_blob_verified(&blob.hash, &blob.data))
                 .await?;
@@ -137,6 +146,12 @@ pub async fn handle_inbound_request(
             Ok(InertiaResponse::Ok)
         }
         InertiaRequest::BlobChunkRequest(req) => {
+            if !peer_is_known_contact(store, &peer).await {
+                return Ok(InertiaResponse::BlobChunkNotFound);
+            }
+            if !chunk_root_is_servable(store, &req.root_hash).await {
+                return Ok(InertiaResponse::BlobChunkNotFound);
+            }
             match store
                 .with(|s| s.read_chunk(&req.root_hash, req.chunk_index))
                 .await
@@ -152,6 +167,61 @@ pub async fn handle_inbound_request(
             }
         }
         InertiaRequest::BlobHave(_) => Ok(InertiaResponse::Ok),
+        InertiaRequest::ProfileManifest(_) => {
+            if !peer_is_known_contact(store, &peer).await {
+                return Ok(InertiaResponse::Error("unknown peer".into()));
+            }
+            match build_local_profile_manifest(store, identity).await {
+                Ok(manifest) => Ok(InertiaResponse::ProfileManifest(manifest)),
+                Err(e) => Ok(InertiaResponse::Error(e.to_string())),
+            }
+        }
+        InertiaRequest::ProfileComments(req) => {
+            if !peer_is_known_contact(store, &peer).await {
+                return Ok(InertiaResponse::Error("unknown peer".into()));
+            }
+            match store
+                .with(|s| s.list_profile_comments(&req.profile_item_id))
+                .await
+            {
+                Ok(comments) => Ok(InertiaResponse::ProfileComments(comments)),
+                Err(e) => Ok(InertiaResponse::Error(e.to_string())),
+            }
+        }
+        InertiaRequest::ArchiveList(req) => {
+            if !peer_is_known_contact(store, &peer).await {
+                return Ok(InertiaResponse::Error("unknown peer".into()));
+            }
+            match store.with(|s| s.get_archive_folder(&req.folder_id)).await {
+                Ok(Some(folder)) => {
+                    let entries = store
+                        .with(|s| s.list_archive_entries(&req.folder_id))
+                        .await
+                        .unwrap_or_default();
+                    let entry_count = entries.len() as u32;
+                    let mut manifests = Vec::new();
+                    for entry in &entries {
+                        if let Ok(Some(m)) =
+                            store.with(|s| s.get_manifest(&entry.root_hash)).await
+                        {
+                            manifests.push(m);
+                        }
+                    }
+                    Ok(InertiaResponse::ArchiveList {
+                        folder: crate::storage::ArchiveFolderSummary {
+                            id: folder.id,
+                            name: folder.name,
+                            entry_count,
+                            created_at: folder.created_at,
+                        },
+                        entries,
+                        manifests,
+                    })
+                }
+                Ok(None) => Ok(InertiaResponse::ArchiveNotFound),
+                Err(e) => Ok(InertiaResponse::Error(e.to_string())),
+            }
+        }
     }
 }
 
@@ -207,6 +277,10 @@ pub async fn handle_outbound_response(
         }
         InertiaResponse::BlobData(_) | InertiaResponse::BlobNotFound => {}
         InertiaResponse::BlobChunkData(_) | InertiaResponse::BlobChunkNotFound => {}
+        InertiaResponse::ProfileManifest(_)
+        | InertiaResponse::ProfileComments(_)
+        | InertiaResponse::ArchiveList { .. }
+        | InertiaResponse::ArchiveNotFound => {}
     }
     Ok(())
 }
@@ -285,6 +359,54 @@ async fn process_incoming_envelope(
             });
             return Ok(None);
         }
+        ContentType::ProfileComment => {
+            let payload: crate::content::ProfileCommentPayload =
+                serde_json::from_slice(&plaintext)?;
+            let sender_id = envelope.author_signing_pubkey.clone();
+            let author_name = store
+                .with(|s| s.list_contacts())
+                .await
+                .ok()
+                .and_then(|contacts| {
+                    contacts
+                        .into_iter()
+                        .find(|c| c.id == sender_id || c.signing_pubkey == sender_id)
+                        .map(|c| c.display_name)
+                })
+                .unwrap_or_else(|| "Friend".to_string());
+
+            // Only accept if this device owns the profile item (author-hosted comments).
+            let owns_item = store
+                .with(|s| s.get_profile_item(&payload.profile_item_id))
+                .await?
+                .is_some();
+            if !owns_item {
+                warn!(
+                    item = %payload.profile_item_id,
+                    "ignoring profile comment for unknown item"
+                );
+                return Ok(None);
+            }
+
+            let comment = crate::storage::ProfileComment {
+                id: envelope.id.clone(),
+                profile_item_id: payload.profile_item_id,
+                author_id: sender_id,
+                author_name,
+                body: payload.body,
+                created_at: envelope.created_at,
+            };
+            store
+                .with_mut(|s| s.insert_profile_comment(&comment))
+                .await?;
+            let _ = event_tx.send(P2pEvent::ProfileCommentReceived {
+                profile_item_id: comment.profile_item_id.clone(),
+                content_id: comment.id.clone(),
+                author_id: comment.author_id.clone(),
+                body: comment.body.clone(),
+            });
+            return Ok(None);
+        }
     };
 
     let sender_id = envelope.author_signing_pubkey.clone();
@@ -349,4 +471,108 @@ async fn process_incoming_envelope(
         contact_id,
     });
     Ok(sync_hash)
+}
+
+async fn peer_is_known_contact(store: &StoreHandle, peer: &PeerId) -> bool {
+    let peer_str = peer.to_string();
+    store
+        .with(|s| s.list_contacts())
+        .await
+        .ok()
+        .map(|contacts| {
+            contacts
+                .iter()
+                .any(|c| c.peer_id.as_deref() == Some(&peer_str))
+        })
+        .unwrap_or(false)
+}
+
+/// Serve blobs that are referenced by local profile, archive, feed, or outbox media.
+async fn blob_is_servable(store: &StoreHandle, hash: &str) -> bool {
+    let hash = hash.to_string();
+    store
+        .with(move |s| {
+            if s.profile_blob_hashes()?.iter().any(|h| h == &hash) {
+                return Ok(true);
+            }
+            if let Ok(Some(identity)) = s.load_identity() {
+                if identity.avatar_blob_hash.as_deref() == Some(&hash) {
+                    return Ok(true);
+                }
+            }
+            if s.archive_entry_root_hashes()?.iter().any(|h| h == &hash) {
+                return Ok(true);
+            }
+            if let Ok(Some(manifest)) = s.get_manifest(&hash) {
+                if manifest.thumb_hash == hash || manifest.root_hash == hash {
+                    return Ok(true);
+                }
+            }
+            // Feed / inbox / local posts may still reference photo blobs.
+            for post in s.list_local_posts()? {
+                if post.media_ref.as_deref() == Some(&hash) {
+                    return Ok(true);
+                }
+            }
+            for entry in s.list_inbox()? {
+                if entry.media_ref.as_deref() == Some(&hash) {
+                    return Ok(true);
+                }
+            }
+            // Manifest thumbs for archive/video.
+            for root in s.archive_entry_root_hashes()? {
+                if let Ok(Some(m)) = s.get_manifest(&root) {
+                    if m.thumb_hash == hash {
+                        return Ok(true);
+                    }
+                }
+            }
+            Ok(false)
+        })
+        .await
+        .unwrap_or(false)
+}
+
+async fn chunk_root_is_servable(store: &StoreHandle, root_hash: &str) -> bool {
+    let root = root_hash.to_string();
+    store
+        .with(move |s| {
+            if s.archive_entry_root_hashes()?.iter().any(|h| h == &root) {
+                return Ok(true);
+            }
+            if s.get_manifest(&root)?.is_some() {
+                // Allow serving chunks for any stored manifest (video posts + archive).
+                return Ok(true);
+            }
+            Ok(false)
+        })
+        .await
+        .unwrap_or(false)
+}
+
+async fn build_local_profile_manifest(
+    store: &StoreHandle,
+    identity: &Arc<RwLock<Identity>>,
+) -> CoreResult<crate::storage::ProfileManifest> {
+    let id = identity.read().await;
+    if !id.is_initialized() {
+        return Err(crate::error::CoreError::IdentityNotInitialized);
+    }
+    let display_name = id.display_name.clone();
+    let bio = id.bio.clone();
+    let avatar_blob_hash = id.avatar_blob_hash.clone();
+    let signing_pubkey = id.signing_pubkey.clone();
+    drop(id);
+
+    let items = store.with(|s| s.list_profile_items()).await?;
+    let archive_folders = store.with(|s| s.list_archive_folder_summaries()).await?;
+
+    Ok(crate::storage::ProfileManifest {
+        display_name,
+        bio,
+        avatar_blob_hash,
+        signing_pubkey,
+        items,
+        archive_folders,
+    })
 }

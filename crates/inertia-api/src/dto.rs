@@ -77,6 +77,25 @@ pub struct AddCommentRequest {
 }
 
 #[derive(Deserialize)]
+pub struct CreateArchiveFolderRequest {
+    pub name: String,
+}
+
+#[derive(Deserialize)]
+pub struct AddArchiveEntryRequest {
+    pub name: String,
+    pub data_base64: String,
+    pub mime: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct BeginArchiveUploadRequest {
+    pub name: String,
+    pub mime: Option<String>,
+    pub total_bytes: u64,
+}
+
+#[derive(Deserialize)]
 pub struct UploadPhotoRequest {
     pub data_base64: String,
     pub caption: Option<String>,

@@ -93,6 +93,102 @@ impl Store {
         self.ensure_contact_multiaddrs_column()?;
         self.ensure_sent_messages_table()?;
         self.ensure_media_manifests_table()?;
+        self.ensure_profile_items_table()?;
+        self.ensure_profile_comments_table()?;
+        self.ensure_archive_tables()?;
+        self.ensure_archive_uploads_table()?;
+        Ok(())
+    }
+
+    fn ensure_archive_uploads_table(&self) -> CoreResult<()> {
+        self.conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS archive_uploads (
+                id TEXT PRIMARY KEY,
+                folder_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                mime TEXT NOT NULL,
+                total_bytes INTEGER NOT NULL,
+                chunk_size INTEGER NOT NULL,
+                chunks_total INTEGER NOT NULL,
+                root_hash TEXT,
+                created_at TEXT NOT NULL,
+                completed_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_archive_uploads_folder
+                ON archive_uploads(folder_id);
+            ",
+        )?;
+        Ok(())
+    }
+
+    fn ensure_profile_items_table(&self) -> CoreResult<()> {
+        self.conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS profile_items (
+                id TEXT PRIMARY KEY,
+                blob_hash TEXT NOT NULL,
+                caption TEXT,
+                content_id TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_profile_items_sort
+                ON profile_items(sort_order, created_at);
+            ",
+        )?;
+        // One-time copy from legacy profile_photos (idempotent via INSERT OR IGNORE).
+        self.conn.execute_batch(
+            "
+            INSERT OR IGNORE INTO profile_items
+                (id, blob_hash, caption, content_id, sort_order, created_at)
+            SELECT id, blob_hash, caption, content_id, sort_order, created_at
+            FROM profile_photos;
+            ",
+        )?;
+        Ok(())
+    }
+
+    fn ensure_profile_comments_table(&self) -> CoreResult<()> {
+        self.conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS profile_comments (
+                id TEXT PRIMARY KEY,
+                profile_item_id TEXT NOT NULL,
+                author_id TEXT NOT NULL,
+                author_name TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_profile_comments_item
+                ON profile_comments(profile_item_id, created_at);
+            ",
+        )?;
+        Ok(())
+    }
+
+    fn ensure_archive_tables(&self) -> CoreResult<()> {
+        self.conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS archive_folders (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS archive_entries (
+                id TEXT PRIMARY KEY,
+                folder_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                root_hash TEXT NOT NULL,
+                total_bytes INTEGER NOT NULL DEFAULT 0,
+                mime TEXT NOT NULL DEFAULT 'application/octet-stream',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (folder_id) REFERENCES archive_folders(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_archive_entries_folder
+                ON archive_entries(folder_id, created_at);
+            ",
+        )?;
         Ok(())
     }
 

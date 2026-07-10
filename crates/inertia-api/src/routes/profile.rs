@@ -1,19 +1,24 @@
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::get;
 use axum::{Json, Router};
-use inertia_core::{ProfilePhoto, PublishPhotoResult};
+use inertia_core::{ProfileComment, ProfilePhoto, PublishPhotoResult};
 
-use crate::dto::UploadPhotoRequest;
+use crate::dto::{AddCommentRequest, UploadPhotoRequest};
 use crate::error::{api_err, ApiError};
 use crate::state::AppState;
 use crate::util::{base64_decode, blob_too_large_err, MAX_BLOB_BYTES};
 
 pub fn routes() -> Router<AppState> {
-    Router::new().route(
-        "/profile/photos",
-        get(list_profile_photos).post(upload_profile_photo),
-    )
+    Router::new()
+        .route(
+            "/profile/photos",
+            get(list_profile_photos).post(upload_profile_photo),
+        )
+        .route(
+            "/profile/items/:item_id/comments",
+            get(list_own_profile_comments).post(add_own_profile_comment),
+        )
 }
 
 async fn list_profile_photos(
@@ -38,6 +43,31 @@ async fn upload_profile_photo(
     let engine = state.engine.lock().await;
     engine
         .publish_profile_photo(&data, body.caption.as_deref())
+        .await
+        .map(Json)
+        .map_err(api_err)
+}
+
+async fn list_own_profile_comments(
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
+) -> Result<Json<Vec<ProfileComment>>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .list_profile_comments(&item_id)
+        .await
+        .map(Json)
+        .map_err(api_err)
+}
+
+async fn add_own_profile_comment(
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
+    Json(body): Json<AddCommentRequest>,
+) -> Result<Json<ProfileComment>, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .add_profile_comment(&item_id, &body.body, None)
         .await
         .map(Json)
         .map_err(api_err)

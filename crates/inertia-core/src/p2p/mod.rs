@@ -9,7 +9,10 @@ mod node;
 pub mod protocol;
 mod swarm_task;
 
-pub use envelopes::{build_comment_envelope, build_message_envelope, build_post_envelope};
+pub use envelopes::{
+    build_comment_envelope, build_message_envelope, build_post_envelope,
+    build_profile_comment_envelope,
+};
 pub use events::P2pEvent;
 pub use multiaddr::{
     filter_friend_multiaddrs, is_lan_multiaddr_str, is_relay_circuit_multiaddr_str,

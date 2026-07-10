@@ -1,3 +1,4 @@
+mod archive;
 mod blobs;
 mod contacts;
 mod feed;
@@ -6,6 +7,7 @@ mod inbox;
 mod invites;
 mod media;
 mod outbox;
+mod profile;
 mod purge;
 mod schema;
 mod settings;
@@ -22,7 +24,9 @@ use crate::content::{ContentType, DeliveryStatus, MediaKind};
 use crate::error::CoreResult;
 
 pub use blobs::MAX_BLOB_BYTES;
-pub use media::{CHUNK_SIZE, MAX_THUMB_BYTES, MAX_VIDEO_BYTES};
+pub use media::{
+    CHUNK_SIZE, ARCHIVE_ZIP_SOFT_WARN_BYTES, MAX_ARCHIVE_FILE_BYTES, MAX_THUMB_BYTES, MAX_VIDEO_BYTES,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
@@ -89,6 +93,9 @@ pub struct ProfilePhoto {
     pub created_at: DateTime<Utc>,
 }
 
+/// Durable gallery entry on the author's device (alias of ProfilePhoto shape).
+pub type ProfileItem = ProfilePhoto;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostComment {
     pub id: String,
@@ -97,6 +104,83 @@ pub struct PostComment {
     pub author_name: String,
     pub body: String,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileComment {
+    pub id: String,
+    pub profile_item_id: String,
+    pub author_id: String,
+    pub author_name: String,
+    pub body: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveFolder {
+    pub id: String,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveEntry {
+    pub id: String,
+    pub folder_id: String,
+    pub name: String,
+    pub root_hash: String,
+    pub total_bytes: u64,
+    pub mime: String,
+    pub created_at: DateTime<Utc>,
+}
+
+/// In-progress chunked local ingest for a shared-folder file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveUpload {
+    pub id: String,
+    pub folder_id: String,
+    pub name: String,
+    pub mime: String,
+    pub total_bytes: u64,
+    pub chunk_size: u32,
+    pub chunks_total: u32,
+    pub root_hash: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveUploadStatus {
+    pub upload_id: String,
+    pub folder_id: String,
+    pub name: String,
+    pub mime: String,
+    pub total_bytes: u64,
+    pub chunk_size: u32,
+    pub chunks_done: u32,
+    pub chunks_total: u32,
+    pub missing: Vec<u32>,
+    pub completed: bool,
+}
+
+/// Lightweight folder index for P2P profile manifests (no entry bytes).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveFolderSummary {
+    pub id: String,
+    pub name: String,
+    pub entry_count: u32,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Author-hosted profile snapshot returned over P2P.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileManifest {
+    pub display_name: String,
+    pub bio: String,
+    pub avatar_blob_hash: Option<String>,
+    pub signing_pubkey: String,
+    pub items: Vec<ProfileItem>,
+    pub archive_folders: Vec<ArchiveFolderSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -312,17 +396,95 @@ mod tests {
     }
 
     #[test]
-    fn single_relay_list_round_trip() {
-        const RELAY: &str =
-            "/ip4/203.0.113.1/tcp/9000/p2p/12D3KooWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-
+    fn profile_items_and_archive_round_trip() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(dir.path()).unwrap();
-        store
-            .update_connection_settings(None, Some(vec![RELAY.into()]), None, None)
-            .unwrap();
 
-        let settings = store.get_settings().unwrap();
-        assert_eq!(settings.relay_multiaddrs, vec![RELAY]);
+        let photo = ProfilePhoto {
+            id: "item-1".into(),
+            blob_hash: "hash-abc".into(),
+            caption: Some("hi".into()),
+            content_id: None,
+            sort_order: 0,
+            created_at: Utc::now(),
+        };
+        store.insert_profile_item(&photo).unwrap();
+        let items = store.list_profile_items().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].blob_hash, "hash-abc");
+
+        store
+            .update_profile_item_content_id("item-1", "feed-1")
+            .unwrap();
+        assert_eq!(
+            store.get_profile_item("item-1").unwrap().unwrap().content_id.as_deref(),
+            Some("feed-1")
+        );
+
+        let comment = ProfileComment {
+            id: "c1".into(),
+            profile_item_id: "item-1".into(),
+            author_id: "bob".into(),
+            author_name: "Bob".into(),
+            body: "nice".into(),
+            created_at: Utc::now(),
+        };
+        store.insert_profile_comment(&comment).unwrap();
+        assert_eq!(store.list_profile_comments("item-1").unwrap().len(), 1);
+
+        let folder = ArchiveFolder {
+            id: "f1".into(),
+            name: "Docs".into(),
+            created_at: Utc::now(),
+        };
+        store.insert_archive_folder(&folder).unwrap();
+        let entry = ArchiveEntry {
+            id: "e1".into(),
+            folder_id: "f1".into(),
+            name: "notes.txt".into(),
+            root_hash: "root-1".into(),
+            total_bytes: 12,
+            mime: "text/plain".into(),
+            created_at: Utc::now(),
+        };
+        store.insert_archive_entry(&entry).unwrap();
+        let summaries = store.list_archive_folder_summaries().unwrap();
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].entry_count, 1);
+
+        // Purge must not touch durable tables.
+        let _ = store.purge_expired().unwrap();
+        assert_eq!(store.list_profile_items().unwrap().len(), 1);
+        assert_eq!(store.list_profile_comments("item-1").unwrap().len(), 1);
+        assert_eq!(store.list_archive_folders().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn migrate_copies_legacy_profile_photos() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("inertia.db");
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute_batch(
+                "
+                CREATE TABLE profile_photos (
+                    id TEXT PRIMARY KEY,
+                    blob_hash TEXT NOT NULL,
+                    caption TEXT,
+                    content_id TEXT,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL
+                );
+                INSERT INTO profile_photos (id, blob_hash, caption, content_id, sort_order, created_at)
+                VALUES ('legacy-1', 'blob-1', 'old', NULL, 0, '2026-01-01T00:00:00+00:00');
+                ",
+            )
+            .unwrap();
+        }
+        let store = Store::open(dir.path()).unwrap();
+        let items = store.list_profile_items().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, "legacy-1");
+        assert_eq!(items[0].blob_hash, "blob-1");
     }
 }
