@@ -443,9 +443,16 @@ textarea {
 .badge-failed { background: var(--badge-failed-bg); color: var(--danger); }
 .badge-delivered { background: var(--badge-success-bg); color: var(--success); }
 
-h1 {
-  font-size: 1.75rem;
+h1,
+h1.page-title {
   margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h1.page-title {
+  margin-bottom: 0.25rem;
 }
 
 .subtitle {

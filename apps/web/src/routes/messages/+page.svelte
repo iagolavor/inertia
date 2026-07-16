@@ -109,10 +109,6 @@
   }
 
   .page-title {
-    margin: 0 0 0.25rem;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;

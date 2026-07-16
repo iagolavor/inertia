@@ -116,11 +116,11 @@
     </label>
 
     <div class="actions">
-      <button class="btn btn-secondary" type="button" onclick={exportBackup} disabled={restoring}>
+      <button class="backup-btn" type="button" onclick={exportBackup} disabled={restoring}>
         Export backup
       </button>
       <button
-        class="btn btn-secondary"
+        class="backup-btn"
         type="button"
         onclick={openRestorePicker}
         disabled={restoring}
@@ -167,22 +167,35 @@
   }
 
   .actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
   }
 
-  .actions .btn {
+  .backup-btn {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    width: 100%;
-    padding-inline: 0.75rem;
-    font-size: 0.875rem;
+    padding: 0.28rem 0.65rem;
+    border: 1px solid color-mix(in srgb, var(--text) 28%, var(--border));
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--text) 10%, var(--surface));
+    color: var(--text);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    cursor: pointer;
   }
 
-  @media (max-width: 420px) {
-    .actions {
-      grid-template-columns: 1fr;
-    }
+  .backup-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--text) 16%, var(--surface));
+    border-color: color-mix(in srgb, var(--text) 42%, var(--border));
+  }
+
+  .backup-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .file-input {

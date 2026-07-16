@@ -200,13 +200,6 @@
     min-width: 0;
   }
 
-  .page-title {
-    margin: 0 0 0.25rem;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-
   .muted {
     color: var(--muted);
   }
