@@ -1,7 +1,7 @@
 <script lang="ts">
   import StatusDot from './StatusDot.svelte';
   import type { P2pStatus as P2pStatusInfo } from '$lib/api';
-  import { formatActivityLine, presencePulseActive } from '$lib/presence.svelte';
+  import { presencePulseActive } from '$lib/presence.svelte';
 
   interface Props {
     status: P2pStatusInfo | null;
@@ -14,10 +14,6 @@
   let open = $state(false);
 
   const tone = $derived(loading ? 'loading' : (status?.tone ?? 'off'));
-
-  const activityLines = $derived(
-    (status?.recent_activity ?? []).slice(0, 6).map(formatActivityLine)
-  );
 
   /** Header pill - always "P2P"; details live in the tap panel. */
   const displayLabel = $derived(compact ? 'P2P' : (status?.labels.headline ?? 'P2P'));
@@ -119,13 +115,6 @@
             {status.labels.sync.replace(/^Outbox: /, '')}
           </li>
         </ul>
-        {#if activityLines.length > 0 && status.running}
-          <ul class="activity-strip" aria-live="polite">
-            {#each activityLines as line}
-              <li>{line}</li>
-            {/each}
-          </ul>
-        {/if}
       {/if}
     </div>
   {/if}
@@ -270,21 +259,5 @@
     min-width: 3.25rem;
     font-weight: 600;
     color: var(--text);
-  }
-
-  .activity-strip {
-    list-style: none;
-    margin: 0;
-    padding: 0.4rem 0 0;
-    border-top: 1px solid var(--border);
-    font-size: 0.72rem;
-    color: var(--muted);
-    line-height: 1.35;
-  }
-
-  .activity-strip li {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 </style>
