@@ -63,11 +63,11 @@
   function timeAgo(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diff / 60_000);
-    if (mins < 1) return 'agora';
-    if (mins < 60) return `há ${mins}m`;
+    if (mins < 1) return 'now';
+    if (mins < 60) return `${mins}m`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `há ${hours}h`;
-    return `há ${Math.floor(hours / 24)}d`;
+    if (hours < 24) return `${hours}h`;
+    return `${Math.floor(hours / 24)}d`;
   }
 
   function commentTimeAgo(iso: string): string {
@@ -85,8 +85,8 @@
     const diff = new Date(iso).getTime() - Date.now();
     if (diff <= 0) return 'a expirar';
     const hours = Math.floor(diff / 3_600_000);
-    if (hours < 1) return `${Math.floor(diff / 60_000)}m restantes`;
-    return `${hours}h restantes`;
+    if (hours < 1) return `${Math.floor(diff / 60_000)}m left`;
+    return `${hours}h left`;
   }
 
   function expand() {

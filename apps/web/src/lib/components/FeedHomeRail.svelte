@@ -163,15 +163,15 @@
 
   .rail-title {
     margin: 0;
-    font-size: 0.82rem;
-    font-weight: 600;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
     color: var(--text);
   }
 
   .rail-meta {
     flex-shrink: 0;
-    font-size: 0.72rem;
-    font-weight: 500;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
     color: var(--muted);
     text-align: right;
   }
@@ -179,7 +179,7 @@
   .rail-empty,
   .rail-footnote {
     margin: 0;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     color: var(--muted);
     line-height: 1.4;
   }
@@ -213,8 +213,8 @@
     background: color-mix(in srgb, var(--bg) 55%, var(--surface));
     color: var(--text);
     font: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
   }
 
@@ -277,13 +277,13 @@
   }
 
   .chat-name {
-    font-size: 0.82rem;
-    font-weight: 600;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
   }
 
   .chat-unread {
-    font-size: 0.65rem;
-    font-weight: 700;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
     padding: 0.12rem 0.35rem;
     border-radius: 999px;
     background: var(--accent);
@@ -292,7 +292,7 @@
 
   .chat-preview {
     margin: 0.15rem 0 0;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     color: var(--muted);
     line-height: 1.35;
     overflow: hidden;
@@ -302,7 +302,7 @@
 
   .chat-when {
     flex-shrink: 0;
-    font-size: 0.68rem;
+    font-size: var(--font-size-xs);
     color: var(--muted);
     padding-top: 0.1rem;
   }

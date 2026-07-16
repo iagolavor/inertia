@@ -106,7 +106,7 @@
   }
 
   onMount(() => {
-    void hydrateFromCache().then(() => loadFeed());
+    void hydrateFromCache();
     registerFeedRefresh(refreshFeedSilently);
     const unsubFeed = subscribeFeedSync((items) => {
       feed = items;
@@ -140,6 +140,13 @@
       unsubUnread();
       document.removeEventListener('visibilitychange', onVisible);
     };
+  });
+
+  // Identity loads async after mount - retry feed once it is available.
+  $effect(() => {
+    if (identityState.loading) return;
+    if (!identityState.identity) return;
+    void loadFeed();
   });
 </script>
 
@@ -200,13 +207,9 @@
     min-width: 0;
   }
 
-  .muted {
-    color: var(--muted);
-  }
-
   .offline-hint {
     margin: 0 0 1rem;
-    font-size: 0.875rem;
+    font-size: var(--font-size-md);
   }
 
   .feed-composer {
@@ -215,7 +218,7 @@
 
   .cache-hint {
     margin: 0 0 0.75rem;
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
   }
 
   .feed-list {
