@@ -79,6 +79,12 @@ impl Engine {
         Ok(contact)
     }
 
+    pub async fn delete_contact(&self, contact_id: &str) -> CoreResult<()> {
+        self.store
+            .with_mut(|store| store.delete_contact(contact_id))
+            .await
+    }
+
     pub async fn list_conversation_messages(
         &self,
         contact_id: &str,

@@ -105,7 +105,7 @@
 	});
 </script>
 
-<a class="chat-back-link" href="/friends">← Messages</a>
+<a class="chat-back-link" href="/messages">← Messages</a>
 
 {#if loading}
 	<p class="empty">Loading…</p>

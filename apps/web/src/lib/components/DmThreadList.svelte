@@ -77,7 +77,7 @@
 {:else if threads.length === 0}
   <div class="empty-state">
     <p class="empty">No friends yet.</p>
-    <a class="btn" href="/friends/add">Add a friend</a>
+    <a class="btn" href="/connections">Connections</a>
   </div>
 {:else}
   {#if groups.connected.length > 0}

@@ -8,9 +8,10 @@
   const primaryTabs = [
     { href: '/', label: 'Feed', match: (path: string) => path === '/' },
     {
-      href: '/friends',
+      href: '/messages',
       label: 'Messages',
-      match: (path: string) => path.startsWith('/friends')
+      match: (path: string) =>
+        path.startsWith('/messages') || path.startsWith('/friends/')
     },
     { href: '/profile', label: 'Profile', match: (path: string) => path.startsWith('/profile') },
     {
@@ -21,8 +22,8 @@
   ] as const;
 
   const moreLinks = [
-    { href: '/friends/add', label: 'Add friend' },
-    { href: '/invite', label: 'Aceitar convite' },
+    { href: '/connections', label: 'Connections' },
+    { href: '/invite', label: 'Accept invite' },
     { href: '/outbox', label: 'Outbox' }
   ];
 
