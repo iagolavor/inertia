@@ -107,9 +107,19 @@
     min-height: 0;
   }
 
+  /* Chat must own the viewport so the composer stays above the system nav / home indicator. */
+  .app-shell:has(:global(.chat-fill)) {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
   .main-grow > main.container:has(:global(.chat-fill)) {
     display: flex;
     flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: max(0.75rem, var(--safe-bottom));
   }
 
   .welcome-grow {
