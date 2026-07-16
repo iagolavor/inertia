@@ -419,6 +419,8 @@ export const api = {
   listContacts: () => request<Contact[]>('/contacts'),
   getContact: (contactId: string) =>
     request<Contact>(`/contacts/${encodeURIComponent(contactId)}`),
+  deleteContact: (contactId: string) =>
+    request<void>(`/contacts/${encodeURIComponent(contactId)}`, { method: 'DELETE' }),
   listConversationMessages: (contactId: string) =>
     request<ConversationMessage[]>(`/contacts/${encodeURIComponent(contactId)}/messages`),
   listInbox: () => request<InboxEntry[]>('/inbox'),
