@@ -62,13 +62,14 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 - Splash → health wait → WebView at `127.0.0.1:4783`; invite deep links stay in-app (`InertiaWebViewClient`, `inertia://invite/…`)
 - Invite accept: relay apply + dial waits, paste normalization ([invite-input.ts](apps/web/src/lib/invite-input.ts))
 
-**Resume next** (mobile polish — branch from `development` as `feature/android-*`)
+**Resume next** (mobile polish - branch from `development` as `feature/android-*`)
 
-1. **P2pStatus on touch** — replace hover `title` tooltip with tap-to-expand panel in header
-2. **Invite preview UX** — remove or fix misleading red offline dot on `ProfileHeader` (not inviter presence)
-3. **Stage A smoke** — confirm `android:reverse` loop still works after Stage B changes
-4. **Release** — Play signing, optional APK in CI (Windows zip only today)
-5. **Optional** — `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
+1. **Invite preview UX** - remove or fix misleading red offline dot on `ProfileHeader` (not inviter presence)
+2. **Stage A smoke** - confirm `android:reverse` loop still works after Stage B changes
+3. **Release** - Play signing, optional APK in CI (Windows zip only today)
+4. **Optional** - `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
+
+**Done recently:** header **P2pStatus** tap panel via reusable `TipPanel` (touch-friendly; replaces hover-only `title`).
 
 ### What not to do on mobile
 
