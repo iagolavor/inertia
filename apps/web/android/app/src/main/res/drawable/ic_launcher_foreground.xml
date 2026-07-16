@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Inertia mutual-link mark (Midnight), centered in adaptive safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Left ring -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M36.8,40.8 h7.2 a6,6 0 0 1 6,6 v7.2 a6,6 0 0 1 -6,6 h-7.2 a6,6 0 0 1 -6,-6 v-7.2 a6,6 0 0 1 6,-6 z"
+        android:strokeWidth="2.4"
+        android:strokeColor="#fb923c" />
+    <!-- Right ring -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M68,40.8 h7.2 a6,6 0 0 1 6,6 v7.2 a6,6 0 0 1 -6,6 h-7.2 a6,6 0 0 1 -6,-6 v-7.2 a6,6 0 0 1 6,-6 z"
+        android:strokeWidth="2.4"
+        android:strokeColor="#fb923c" />
+    <!-- Bridge -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M50,54 L58,54"
+        android:strokeWidth="2.4"
+        android:strokeColor="#9aa0a6"
+        android:strokeLineCap="round" />
+</vector>
