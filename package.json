@@ -22,7 +22,8 @@
     "android:reverse": "node scripts/run-native.mjs adb-reverse",
     "android:api:build": "node scripts/run-native.mjs build-android-api",
     "android:package": "node scripts/run-native.mjs package-android",
-    "android:stage-b": "npm run android:api:build && npm run web:build && npm run android:package && npm run android:sync",
+    "android:install": "npm run android:api:build && npm run web:build && npm run android:package && npm run android:sync",
+    "android:stage-b": "npm run android:install",
     "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1"
   }
 }

@@ -1,4 +1,4 @@
-# Cross-compile inertia-api for Android arm64 (Stage B).
+# Cross-compile inertia-api for Android arm64 (on-device install).
 # Requires: Rust, Android SDK/NDK (npm run android:sdk), cargo-ndk.
 # Usage: powershell -ExecutionPolicy Bypass -File scripts/build-android-api.ps1
 

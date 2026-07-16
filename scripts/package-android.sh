@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage B: package inertia-api (jniLibs) + web (assets). Mirrors Windows zip layout.
+# Package inertia-api (jniLibs) + web (assets) for on-device Android. Mirrors Windows zip layout.
 
 set -euo pipefail
 

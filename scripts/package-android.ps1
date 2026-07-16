@@ -1,4 +1,4 @@
-# Stage B: package inertia-api (jniLibs) + web (assets). Mirrors Windows zip layout.
+# Package inertia-api (jniLibs) + web (assets) for on-device Android. Mirrors Windows zip layout.
 
 # Usage: powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1
 

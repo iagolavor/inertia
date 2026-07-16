@@ -25,7 +25,7 @@ Until those gates pass, focus stays on delivery and correctness.
 ## Local boundary and keys
 
 - [ ] **Private keys out of plaintext SQLite** — OS keychain (mobile/desktop) or encrypted key blob; migration path for existing `data/` installs.
-- [ ] **API auth on non-localhost** — required for Capacitor/mobile; token or IPC boundary so other processes cannot drive `127.0.0.1:4783`. **Android Stage B** already binds API to loopback only; auth still needed before any LAN/0.0.0.0 exposure.
+- [ ] **API auth on non-localhost** - required for Capacitor/mobile; token or IPC boundary so other processes cannot drive `127.0.0.1:4783`. **Android on-device install** already binds API to loopback only; auth still needed before any LAN/0.0.0.0 exposure.
 - [ ] **Tighten CORS** — replace `Any` origin when API bind policy is defined per platform.
 
 ## Blobs and media

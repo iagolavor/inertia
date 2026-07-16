@@ -331,7 +331,7 @@ blobs/            (content-addressed media files)
 - **inertia-core** (Rust): identity, invites, P2P, storage, expiry.
 - **inertia-api** (Rust): local HTTP bridge — runs on the user's machine, not in the cloud.
 - **SvelteKit** (web/PWA): feed, profile, settings, invites, connections, messages, outbox, Files tab. Live updates: [LIVE-SYNC.md](./LIVE-SYNC.md).
-- **Capacitor** (Android Stage B alpha shipped): native WebView + on-device `inertia-api`. iOS and polish remain. See [CAPACITOR.md](./CAPACITOR.md).
+- **Capacitor** (Android on-device install shipped): native WebView + on-device `inertia-api`. iOS and polish remain. See [CAPACITOR.md](./CAPACITOR.md).
 - **Tauri** (next): desktop shell that starts the local API and opens the UI in one window, plus a simpler install path than the Windows zip + browser flow.
 
 ---
@@ -367,7 +367,7 @@ blobs/            (content-addressed media files)
 | 4 | Invite flow, feed, profile, settings, backup | Done |
 | 4b | **VPS relay** (`inertia-relay`), relay client, invite v2 with embedded relay | Done |
 | 4c | **Event-driven live sync** (SSE), Messages/Connections polish, Profile Posts + Files (archive P2P / DCUtR) | Done |
-| 5 | Capacitor Android Stage B (API + UI on device, v0.10) | Done (alpha); iOS + mobile polish remain |
+| 5 | Capacitor Android on-device install (API + UI on device, v0.10+) | Done; iOS + mobile polish remain |
 | 6 | **Tauri desktop shell** + easier install path (sidecar or in-process API, app data dir, installers) | **Next** |
 | 7 | Thumbnails, orphan blob GC | Planned |
 | 8 | **Community relays** - public relay list, optional PIX join fee in invite v3, host health hints | Planned |

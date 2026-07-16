@@ -1,4 +1,4 @@
-# Forward phone localhost:4783 -> PC API (USB Stage A). Re-run after unplugging the cable.
+# Forward phone localhost:4783 -> PC API (USB; UI on phone, API on PC). Re-run after unplugging the cable.
 # Usage:
 #   npm run android:reverse              # set up reverse
 #   npm run android:reverse -- --remove  # clear reverse (free PC port 4783 for local API)
