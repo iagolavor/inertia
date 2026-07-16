@@ -148,7 +148,7 @@
 <style>
   .muted {
     color: var(--muted);
-    font-size: 0.875rem;
+    font-size: var(--font-size-md);
     margin: 0 0 0.85rem;
     line-height: 1.45;
   }
@@ -157,7 +157,7 @@
     display: flex;
     align-items: flex-start;
     gap: 0.6rem;
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
     cursor: pointer;
     margin-bottom: 0.85rem;
   }
@@ -182,8 +182,8 @@
     background: color-mix(in srgb, var(--text) 10%, var(--surface));
     color: var(--text);
     font: inherit;
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
     line-height: 1.25;
     cursor: pointer;
   }
@@ -204,12 +204,12 @@
 
   .success {
     margin: 0.65rem 0 0;
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
     color: var(--success);
   }
 
   .error {
     margin: 0.65rem 0 0;
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
   }
 </style>

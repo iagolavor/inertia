@@ -220,9 +220,9 @@
   }
 
   .brand-name {
-    font-family: 'Archivo', system-ui, sans-serif;
-    font-size: 1.2rem;
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
     letter-spacing: -0.035em;
     line-height: 1.05;
     color: var(--text);
@@ -254,8 +254,8 @@
     gap: 0.3rem;
     padding: 0.3rem 0.75rem;
     border-radius: 7px;
-    font-size: 0.8125rem;
-    font-weight: 600;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
     line-height: 1;
     color: var(--muted);
     text-decoration: none;
@@ -285,8 +285,8 @@
     border-radius: 999px;
     background: var(--accent);
     color: var(--btn-on-accent, #fff);
-    font-size: 0.65rem;
-    font-weight: 700;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
     line-height: 1;
   }
 
@@ -313,8 +313,8 @@
     background: transparent;
     color: var(--muted);
     font: inherit;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
     line-height: 1.2;
     flex-shrink: 0;
     cursor: pointer;
@@ -345,8 +345,8 @@
     display: block;
     padding: 0.55rem 0.7rem;
     border-radius: 7px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-medium);
     color: var(--muted);
     text-decoration: none;
   }
@@ -378,7 +378,7 @@
       flex: 1 1 0;
       min-width: 0;
       padding: 0.45rem 0.35rem;
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
     }
   }
 

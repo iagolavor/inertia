@@ -96,8 +96,8 @@
   }
 
   .identity-row dt {
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--muted);
@@ -105,7 +105,7 @@
 
   .identity-row dd {
     margin: 0;
-    font-size: 0.8125rem;
+    font-size: var(--font-size-sm);
     word-break: break-all;
   }
 
@@ -118,13 +118,9 @@
     margin: 1rem 0 0;
     padding: 0.2rem 0.55rem;
     border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
     color: var(--success);
     background: var(--badge-success-bg);
-  }
-
-  .muted {
-    color: var(--muted);
   }
 </style>
