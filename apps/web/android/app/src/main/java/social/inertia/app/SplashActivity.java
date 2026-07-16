@@ -5,7 +5,7 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 
-/** Boots bundled on-device API or passes through to MainActivity (dev shell + PC API). */
+/** Boots bundled on-device API or passes through to MainActivity when the API is already up. */
 public class SplashActivity extends Activity {
     private static final long HEALTH_TIMEOUT_MS = 45_000L;
     private String pendingInviteUrl;

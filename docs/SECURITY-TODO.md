@@ -25,13 +25,13 @@ Until those gates pass, focus stays on delivery and correctness.
 ## Local boundary and keys
 
 - [ ] **Private keys out of plaintext SQLite** — OS keychain (mobile/desktop) or encrypted key blob; migration path for existing `data/` installs.
-- [ ] **API auth on non-localhost** — required for Capacitor/mobile; token or IPC boundary so other processes cannot drive `127.0.0.1:4783`. **Android Stage B** already binds API to loopback only; auth still needed before any LAN/0.0.0.0 exposure.
+- [ ] **API auth on non-localhost** - required for Capacitor/mobile; token or IPC boundary so other processes cannot drive `127.0.0.1:4783`. **Android on-device install** already binds API to loopback only; auth still needed before any LAN/0.0.0.0 exposure.
 - [ ] **Tighten CORS** — replace `Any` origin when API bind policy is defined per platform.
 
 ## Blobs and media
 
 - [x] **Blob fetch authorization** - serve profile/archive/feed/inbox hashes only to known contacts (`peer_is_known_contact` + `blob_is_servable` / `chunk_root_is_servable` in P2P handlers). Archive peer downloads additionally require DCUtR/direct (no relay bulk); see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md).
-- [ ] **Orphan blob GC** - Phase 6; limit disk growth from abandoned or never-referenced blobs. Must call `Store::durable_blob_refs()` so profile items, shared folders, and avatars are never deleted when feed copies expire.
+- [ ] **Orphan blob GC** - Phase 7; limit disk growth from abandoned or never-referenced blobs. Must call `Store::durable_blob_refs()` so profile items, shared folders, and avatars are never deleted when feed copies expire.
 
 ## Metadata and ops
 

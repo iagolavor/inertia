@@ -281,4 +281,4 @@ DCUtR hole punching remains in the behaviour stack. Friend **discovery and redia
 |-----|--------|
 | [LIVE-SYNC.md](./LIVE-SYNC.md) | SSE + sync modules after P2P delivers content |
 | [VISION.md](./VISION.md) | Product principles and invite trust model |
-| [CAPACITOR.md](./CAPACITOR.md) | Android Stage B invite accept over relay |
+| [CAPACITOR.md](./CAPACITOR.md) | Android on-device install; invite accept over relay |

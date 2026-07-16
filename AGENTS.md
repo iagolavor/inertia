@@ -28,12 +28,14 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 
 | Phase | Status | Scope |
 |-------|--------|-------|
-| 0–2 | Done | Rust core, P2P, storage |
-| 3–4 | **Current** | SvelteKit web UI, invite flow, feed, profile, settings, backup |
-| 5 | **In progress** | **Capacitor Android** — Stage B shell shipped in v0.10; polish + iOS remain |
-| 6 | Planned | P2P blob sync, thumbnails, orphan file GC |
+| 0–4 | Done | Rust core, P2P, Svelte UI, invites, feed, profile, backup, relay |
+| 4c | Done | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) |
+| 5 | Done | Capacitor Android on-device install (v0.10+); iOS + mobile polish remain |
+| 6 | **Next** | Tauri desktop shell + easier install path |
+| 7 | Planned | Thumbnails, orphan blob GC |
+| 8 | Planned | Community relays |
 
-**Yes — we are building the web app first.** That is intentional. The Svelte app is the shared UI for web and mobile.
+**Yes - the Svelte app is the shared UI** for web, Android (Capacitor), and upcoming desktop (Tauri). Do not fork product UI per shell.
 
 ## Capacitor + Ionic
 
@@ -45,14 +47,14 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 - `ssr = false`, `prerender = true` (client-only app)
 - All data via `apps/web/src/lib/api.ts` → `/api` (no server-side Svelte data fetching)
 
-### Capacitor Android (v0.10 — Stage B alpha)
+### Capacitor Android (v0.10+)
 
-**Shipped in v0.10.0** — see [docs/CAPACITOR.md](docs/CAPACITOR.md) for build commands and resume checklist.
+**Shipped** - self-contained APK with on-device API. See [docs/CAPACITOR.md](docs/CAPACITOR.md).
 
-| Mode | Status |
-|------|--------|
-| **Stage B** (API + UI on phone) | Working — `npm run android:stage-b`, separate device identity/DB, P2P + invite accept tested PC ↔ phone |
-| **Stage A** (UI on phone, API on PC) | Supported — `adb reverse`, `npm run android:sync`; less exercised after Stage B |
+```powershell
+npm run android:install
+npm run android:run
+```
 
 **Done**
 
@@ -65,9 +67,8 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 **Resume next** (mobile polish - branch from `development` as `feature/android-*`)
 
 1. **Invite preview UX** - remove or fix misleading red offline dot on `ProfileHeader` (not inviter presence)
-2. **Stage A smoke** - confirm `android:reverse` loop still works after Stage B changes
-3. **Release** - Play signing, optional APK in CI (Windows zip only today)
-4. **Optional** - `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
+2. **Release** - Play signing, optional APK in CI (Windows zip only today)
+3. **Optional** - `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
 
 **Done recently:** header **P2pStatus** tap-to-open details panel (touch-friendly). No hover `title` (it steals clicks on some desktops).
 
@@ -134,14 +135,7 @@ npm run api:stop
 ### Android quick commands
 
 ```powershell
-# Stage B — self-contained phone build (default for real-device testing)
-npm run android:stage-b
-npm run android:run
-
-# Stage A — UI on phone, API on PC
-npm run api:release
-npm run android:sync
-npm run android:reverse
+npm run android:install
 npm run android:run
 ```
 

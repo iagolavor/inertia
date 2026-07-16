@@ -116,8 +116,8 @@
   }
 
   .cache-badge {
-    font-size: 0.68rem;
-    font-weight: 500;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
     padding: 0.12rem 0.4rem;
     border-radius: 999px;
     border: 1px solid var(--border);
@@ -134,8 +134,8 @@
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
     line-height: 1.2;
     text-decoration: none;
   }
@@ -145,14 +145,12 @@
     text-decoration: none;
   }
 
-  .subtitle {
-    color: var(--muted);
-    margin: 0;
-    font-size: 0.9rem;
+  .page-intro .subtitle {
+    margin-bottom: 0;
   }
 
   .offline-hint {
     margin: -0.5rem 0 1rem;
-    font-size: 0.875rem;
+    font-size: var(--font-size-md);
   }
 </style>

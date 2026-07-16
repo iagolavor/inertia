@@ -8,7 +8,7 @@ import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeWebViewClient;
 
 /**
- * Keep invite links and the Stage B API origin inside the app — Capacitor opens other origins in Chrome.
+ * Keep invite links and the on-device API origin inside the app - Capacitor opens other origins in Chrome.
  */
 public final class InertiaWebViewClient extends BridgeWebViewClient {
 

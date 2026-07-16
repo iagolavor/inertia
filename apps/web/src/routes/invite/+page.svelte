@@ -106,7 +106,7 @@
   </p>
 
   <div class="card action-card">
-    <h3>Invite link or code</h3>
+    <h3 class="section-title">Invite link or code</h3>
     <p class="muted lead">
       Your friend should stay online while you accept. Confirm the safety code before accepting.
     </p>
@@ -162,32 +162,21 @@
 {/if}
 
 <style>
-  .subtitle {
-    color: var(--muted);
-    margin: 0 0 1.25rem;
-    font-size: 0.9rem;
-  }
-
   .action-card {
     padding: 0.75rem 1.25rem 1.1rem;
   }
 
-  .action-card h3 {
-    margin: 0 0 0.45rem;
-    font-size: 1rem;
-  }
-
   .action-card :global(.btn) {
     padding: 0.35rem 0.75rem;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
     border-radius: 6px;
     gap: 0.35rem;
   }
 
   .lead {
     margin: 0 0 0.85rem;
-    font-size: 0.875rem;
+    font-size: var(--font-size-md);
     line-height: 1.45;
   }
 
@@ -207,19 +196,19 @@
   .safety-code {
     margin: 0.35rem 0 0.65rem;
     font-family: monospace;
-    font-size: 1.05rem;
-    font-weight: 700;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
     letter-spacing: 0.04em;
   }
 
   .meta {
     margin: 0.25rem 0 0;
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
   }
 
   .relay-warn {
     margin: 0.65rem 0 0;
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
     color: var(--warning);
   }
 
@@ -234,7 +223,7 @@
   .field label {
     display: block;
     margin-bottom: 0.35rem;
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
     color: var(--muted);
   }
 
@@ -247,7 +236,7 @@
     background: var(--input-bg, var(--bg));
     color: var(--text);
     font: inherit;
-    font-size: 0.85rem;
+    font-size: var(--font-size-md);
     resize: vertical;
   }
 </style>

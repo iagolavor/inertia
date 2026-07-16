@@ -66,7 +66,7 @@
   }
 
   .group-label {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     color: var(--muted);
     text-transform: uppercase;
@@ -87,8 +87,8 @@
     border: none;
     background: transparent;
     color: var(--muted);
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
     padding: 0.35rem 0.75rem;
     border-radius: 999px;
     line-height: 1.2;
@@ -106,12 +106,12 @@
 
   .active-variant {
     margin: 0;
-    font-size: 0.8125rem;
+    font-size: var(--font-size-sm);
     color: var(--muted);
   }
 
   .active-variant strong {
     color: var(--text);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
   }
 </style>

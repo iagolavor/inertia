@@ -11,15 +11,15 @@ function nativeDownloadBridge(): InertiaDownloadBridge | null {
 	return bridge?.enqueue ? bridge : null;
 }
 
-/** Stage B serves UI from the on-device API; Capacitor may still report "web". */
-function isStageBShell(): boolean {
+/** On-device install serves UI from the local API; Capacitor may still report "web". */
+function isOnDeviceApiOrigin(): boolean {
 	if (typeof window === 'undefined') return false;
 	const { hostname, port } = window.location;
 	return hostname === '127.0.0.1' && port === '4783';
 }
 
 function isNativeDownloadContext(): boolean {
-	return Capacitor.isNativePlatform() || isStageBShell();
+	return Capacitor.isNativePlatform() || isOnDeviceApiOrigin();
 }
 
 /** Save a file served by inertia-api (uses Content-Disposition when provided). */
@@ -30,7 +30,7 @@ export async function saveFileFromApi(url: string, filename: string): Promise<vo
 	const name = filename.trim() || 'download';
 	const bridge = nativeDownloadBridge();
 
-	// Bridge is registered on Android even when Capacitor.isNativePlatform() is false (Stage B).
+	// Bridge is registered on Android even when Capacitor.isNativePlatform() is false (on-device API).
 	if (bridge) {
 		bridge.enqueue(url, name);
 		return;
@@ -38,7 +38,7 @@ export async function saveFileFromApi(url: string, filename: string): Promise<vo
 
 	if (isNativeDownloadContext()) {
 		throw new Error(
-			'Download bridge unavailable. Reinstall the app (npm run android:stage-b).'
+			'Download bridge unavailable. Reinstall the app (npm run android:install).'
 		);
 	}
 

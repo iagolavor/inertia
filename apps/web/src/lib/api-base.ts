@@ -6,7 +6,7 @@ function trimBase(url: string): string {
 	return url.replace(/\/$/, '');
 }
 
-/** Capacitor shell (localhost) serves index.html for `/api/*`; Stage B UI should use the device API. */
+/** Capacitor shell (localhost) serves index.html for `/api/*`; on-device UI should use the device API. */
 function isCapacitorShellOrigin(): boolean {
 	if (typeof window === 'undefined') return false;
 	const { hostname, port } = window.location;

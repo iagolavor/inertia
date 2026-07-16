@@ -289,7 +289,7 @@ export interface OutboxEntry {
 }
 
 const API_HTML_RESPONSE_HINT =
-	'Got the app shell instead of the API — reinstall from Android Studio after npm run android:stage-b, or force-stop and reopen the app.';
+	'Got the app shell instead of the API - reinstall from Android Studio after npm run android:install, or force-stop and reopen the app.';
 
 async function fetchWithTimeout(
   path: string,
@@ -346,7 +346,7 @@ async function request<T>(
       throw new ApiRequestError({
         kind: 'offline',
         message:
-          'API route not found (405) — rebuild the app (npm run android:stage-b) or paste only the invite code after # in the link'
+          'API route not found (405) - rebuild the app (npm run android:install) or paste only the invite code after # in the link'
       });
     }
     throw new ApiRequestError(classifyHttpFailure(res.status, raw, code));
@@ -530,6 +530,10 @@ export const api = {
       },
       UPLOAD_TIMEOUT_MS
     ),
+  deleteProfilePhoto: (item_id: string) =>
+    request<void>(`/profile/photos/${encodeURIComponent(item_id)}`, {
+      method: 'DELETE'
+    }),
   fetchFriendProfile: (contactId: string) =>
     request<ProfileManifest>(`/contacts/${encodeURIComponent(contactId)}/profile`),
   fetchFriendBlob: (contactId: string, hash: string) =>

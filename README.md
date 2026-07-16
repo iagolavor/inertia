@@ -26,7 +26,76 @@
 
 Identity is cryptographic. There is no signup server. You add friends with signed invite links (and optional QR codes). When both sides are online, content travels peer-to-peer; an optional [VPS relay](crates/inertia-relay/README.md) you control helps with NAT.
 
-> **Status:** Active prototype. Expect rough edges. Default branch is `development`.
+> **Status:** Usable alpha for a small circle. Web + Windows zip + Android install work; desktop install UX and polish are the main gaps. Default branch is `development`.
+
+---
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/feed.jpg" alt="Inertia Feed with Online now rail" width="720" />
+</p>
+
+<p align="center"><em>Feed</em> - your circle, in order, no algorithm</p>
+
+<details>
+<summary><strong>Messages and chat</strong> - reach friends and send DMs that expire in 7 days</summary>
+<br />
+<table>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/messages.jpg" alt="Inertia Messages thread list" width="100%" /><br />
+<em>Messages</em> - friends who are connected or reachable
+</td>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/messages-chat.jpg" alt="Inertia open conversation" width="100%" /><br />
+<em>Chat</em> - private DMs that expire in 7 days
+</td>
+</tr>
+</table>
+</details>
+
+<details>
+<summary><strong>Your profile</strong> - durable posts and shared folders on your device</summary>
+<br />
+<table>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/profile-posts.jpg" alt="Inertia Profile Posts tab" width="100%" /><br />
+<em>Posts</em> - durable photo grid on your device
+</td>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/profile-files.jpg" alt="Inertia Profile Files tab" width="100%" /><br />
+<em>Files</em> - folders stay local; friends pull when you are both online
+</td>
+</tr>
+</table>
+</details>
+
+<details>
+<summary><strong>Connections</strong> - signed invites for a closed circle</summary>
+<br />
+<p align="center">
+  <img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="720" />
+</p>
+</details>
+
+<details>
+<summary><strong>Friend profile (when both online)</strong> - browse their posts and files</summary>
+<br />
+<table>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/friend-profile-posts.jpg" alt="Friend profile Posts while online" width="100%" /><br />
+<em>Their posts</em> - load from their device while they are online
+</td>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/friend-profile-files.jpg" alt="Friend profile Files while online" width="100%" /><br />
+<em>Their files</em> - folders they shared; download over a direct path
+</td>
+</tr>
+</table>
+</details>
 
 ---
 
@@ -152,11 +221,21 @@ See [AGENTS.md](AGENTS.md) for agent-oriented notes.
 
 ```
 inertia/
-├── crates/          # inertia-core, inertia-api, inertia-relay
-├── apps/web/        # SvelteKit UI
-├── docker/relay/    # Relay Compose stack
-├── docs/            # Guides (vision, Windows, relay, …)
-└── scripts/         # Release tooling; scripts/windows/ → zip contents
+├── crates/
+│   ├── inertia-core/       # identity, storage, P2P, invites, archives
+│   ├── inertia-api/        # local Axum HTTP bridge (127.0.0.1:4783)
+│   └── inertia-relay/      # optional VPS circuit relay
+├── apps/web/               # SvelteKit PWA (shared UI)
+│   ├── src/                # routes, lib, sync modules, components
+│   └── android/            # Capacitor Android shell (on-device API)
+├── tools/inertia-lint/     # workspace lint helpers
+├── docker/relay/           # Compose stack for inertia-relay
+├── docs/                   # vision, design, Capacitor, live sync, screenshots
+├── scripts/                # release, Android NDK/package, Windows zip helpers
+│   └── windows/            # run.cmd / update.cmd shipped in the zip
+├── .github/workflows/      # CI and release builds
+├── Cargo.toml              # Rust workspace
+└── package.json            # api / web / android / relay npm scripts
 ```
 
 ---
@@ -165,10 +244,12 @@ inertia/
 
 | Phase | Focus |
 |-------|--------|
-| 0–3 | Core, P2P, UI (**done**) |
-| 4 | Invites, feed, profile, backup, relay (**done**) |
-| 5 | Mobile shell — **Android Stage B alpha** (v0.10); see [docs/CAPACITOR.md](docs/CAPACITOR.md) |
-| 6 | Thumbnails, orphan blob GC |
+| 0–4 | Core, P2P, Svelte UI, invites, feed, profile, backup, VPS relay (**done**) |
+| 4c | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) (**done**) |
+| 5 | Android Capacitor on-device install (**shipped** in v0.10+); iOS + mobile polish remain ([CAPACITOR.md](docs/CAPACITOR.md)) |
+| 6 | **Next:** Tauri desktop shell + easier install path (one app window, less zip/`run.cmd` friction) |
+| 7 | Thumbnails, orphan blob GC |
+| 8 | Community relays (public list, optional host funding hints) |
 
 Details in [docs/VISION.md](docs/VISION.md).
 
