@@ -221,11 +221,21 @@ See [AGENTS.md](AGENTS.md) for agent-oriented notes.
 
 ```
 inertia/
-├── crates/          # inertia-core, inertia-api, inertia-relay
-├── apps/web/        # SvelteKit UI
-├── docker/relay/    # Relay Compose stack
-├── docs/            # Guides (vision, Windows, relay, …)
-└── scripts/         # Release tooling; scripts/windows/ → zip contents
+├── crates/
+│   ├── inertia-core/       # identity, storage, P2P, invites, archives
+│   ├── inertia-api/        # local Axum HTTP bridge (127.0.0.1:4783)
+│   └── inertia-relay/      # optional VPS circuit relay
+├── apps/web/               # SvelteKit PWA (shared UI)
+│   ├── src/                # routes, lib, sync modules, components
+│   └── android/            # Capacitor Stage B shell
+├── tools/inertia-lint/     # workspace lint helpers
+├── docker/relay/           # Compose stack for inertia-relay
+├── docs/                   # vision, design, Capacitor, live sync, screenshots
+├── scripts/                # release, Android NDK/package, Windows zip helpers
+│   └── windows/            # run.cmd / update.cmd shipped in the zip
+├── .github/workflows/      # CI and release builds
+├── Cargo.toml              # Rust workspace
+└── package.json            # api / web / android / relay npm scripts
 ```
 
 ---
