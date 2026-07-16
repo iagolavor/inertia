@@ -62,8 +62,9 @@
   --border: #1f2128;
   --text: #f0f0f0;
   --muted: #888888;
-  --accent: #8ab4f8;
-  --accent-dim: #6c9eff;
+  --accent: #c9ccd4;
+  --accent-dim: #b0b4be;
+  --btn-on-accent: #08090c;
   --danger: #f87171;
   --success: #4ade80;
   --warning: #fbbf24;
@@ -235,7 +236,8 @@ textarea {
 }
 
 .container {
-  max-width: 720px;
+  /* Shared shell width with AppHeader so Feed ↔ other pages do not jump */
+  max-width: 960px;
   margin: 0 auto;
   padding: 1.5rem;
   padding-left: max(1.5rem, var(--safe-left));
@@ -441,9 +443,16 @@ textarea {
 .badge-failed { background: var(--badge-failed-bg); color: var(--danger); }
 .badge-delivered { background: var(--badge-success-bg); color: var(--success); }
 
-h1 {
-  font-size: 1.75rem;
+h1,
+h1.page-title {
   margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h1.page-title {
+  margin-bottom: 0.25rem;
 }
 
 .subtitle {

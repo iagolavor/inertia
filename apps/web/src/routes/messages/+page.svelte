@@ -72,15 +72,17 @@
 </script>
 
 <div class="page-head">
-  <h1 class="page-title">
-    Messages
-    {#if showingCached && cacheAge}
-      <span class="cache-badge">saved · {cacheAge}</span>
-    {/if}
-  </h1>
-  <a class="head-action" href="/connections" aria-label="Connections">+</a>
+  <div class="page-intro">
+    <h1 class="page-title">
+      Messages
+      {#if showingCached && cacheAge}
+        <span class="cache-badge">saved · {cacheAge}</span>
+      {/if}
+    </h1>
+    <p class="subtitle">Connected - active session. Reachable - seen in the last day.</p>
+  </div>
+  <a class="head-action" href="/connections">Connections</a>
 </div>
-<p class="subtitle">Connected - active session. Reachable - seen in the last day.</p>
 
 {#if !identityState.apiOnline && identityState.identity}
   <p class="offline-hint muted">Thread list may be outdated while the API is offline.</p>
@@ -97,15 +99,16 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.25rem;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .page-intro {
+    min-width: 0;
+    flex: 1;
   }
 
   .page-title {
-    margin: 0;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -122,18 +125,18 @@
   }
 
   .head-action {
-    display: flex;
+    flex-shrink: 0;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    padding: 0.4rem 0.75rem;
     border-radius: 8px;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    font-size: 1.25rem;
-    font-weight: 400;
-    line-height: 1;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.2;
     text-decoration: none;
   }
 
@@ -144,7 +147,7 @@
 
   .subtitle {
     color: var(--muted);
-    margin: 0 0 1.25rem;
+    margin: 0;
     font-size: 0.9rem;
   }
 

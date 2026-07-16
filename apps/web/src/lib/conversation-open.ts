@@ -1,5 +1,6 @@
 import { goto } from '$app/navigation';
 import { api, type Contact, type ConversationMessage } from '$lib/api';
+import { markDmThreadRead } from '$lib/dm-unread';
 
 export type ConversationPrefetch = {
 	contactId: string;
@@ -31,6 +32,8 @@ export function takeConversationPrefetch(contactId: string): ConversationPrefetc
 }
 
 export function openConversation(contact: Contact) {
+	markDmThreadRead(contact.id);
+	if (contact.signing_pubkey) markDmThreadRead(contact.signing_pubkey);
 	primeConversationOpen(contact);
 	void goto(`/friends/${contact.id}`);
 }
