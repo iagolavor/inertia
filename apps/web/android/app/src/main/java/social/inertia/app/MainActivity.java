@@ -50,8 +50,12 @@ public class MainActivity extends BridgeActivity {
 
         WebSettings settings = getBridge().getWebView().getSettings();
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        getBridge().getWebView().setBackgroundColor(Color.parseColor("#08090c"));
         WebView webView = getBridge().getWebView();
+        // Midnight surface: avoids white flash behind ActionMode / selection UI.
+        int midnight = Color.parseColor("#08090c");
+        webView.setBackgroundColor(midnight);
+        webView.setBackground(new android.graphics.drawable.ColorDrawable(midnight));
+        getWindow().getDecorView().setBackgroundColor(midnight);
         installSafeAreaInsets(webView);
         webView.addJavascriptInterface(new InertiaDownloadBridge(this), "InertiaDownload");
         webView.setDownloadListener(
