@@ -222,52 +222,54 @@
   />
 
   {#if !identityState.apiOnline}
-    <p class="offline-hint muted">Read-only — reconnect the API to send messages.</p>
+    <p class="offline-hint muted">Read-only - reconnect the API to send messages.</p>
   {/if}
 
-  <p class="ephemeral-note">Messages auto-delete after 7 days</p>
+  <div class="chat-shell">
+    <p class="ephemeral-note">Messages auto-delete after 7 days</p>
 
-  <div class="chat-panel" bind:this={chatPanel}>
-    {#if messages.length === 0}
-      <p class="empty chat-empty">No messages yet. Say hello.</p>
-    {:else}
-      <ul class="message-list">
-        {#each messages as msg (msg.content_id)}
-          <li class="stack-msg" class:own={msg.is_own} class:pending={msg.delivery_status === 'pending'}>
-            <div class="msg-body" class:own={msg.is_own}>
-              <FormattedText text={msg.body} />
-            </div>
-            <span class="msg-meta" class:own={msg.is_own}>
-              {messageTime(msg)}
-              {#if msg.is_own}
-                <DeliveryTicks
-                  status={msg.delivery_status}
-                  optimistic={isOptimisticMessageId(msg.content_id)}
-                />
-              {/if}
-            </span>
-          </li>
-        {/each}
-      </ul>
-    {/if}
+    <div class="chat-panel" bind:this={chatPanel}>
+      {#if messages.length === 0}
+        <p class="empty chat-empty">No messages yet. Say hello.</p>
+      {:else}
+        <ul class="message-list">
+          {#each messages as msg (msg.content_id)}
+            <li class="stack-msg" class:own={msg.is_own} class:pending={msg.delivery_status === 'pending'}>
+              <div class="msg-body" class:own={msg.is_own}>
+                <FormattedText text={msg.body} />
+              </div>
+              <span class="msg-meta" class:own={msg.is_own}>
+                {messageTime(msg)}
+                {#if msg.is_own}
+                  <DeliveryTicks
+                    status={msg.delivery_status}
+                    optimistic={isOptimisticMessageId(msg.content_id)}
+                  />
+                {/if}
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+
+    <form class="composer" onsubmit={(e) => { e.preventDefault(); void send(); }}>
+      <input
+        class="composer-input"
+        bind:value={messageBody}
+        placeholder={identityState.apiOnline ? 'Message…' : 'API offline - reconnect to send'}
+        disabled={!identityState.apiOnline}
+        autocomplete="off"
+      />
+      <button
+        type="submit"
+        class="btn btn-secondary"
+        disabled={sending || !messageBody.trim() || !identityState.apiOnline}
+      >
+        Send
+      </button>
+    </form>
   </div>
-
-  <form class="composer" onsubmit={(e) => { e.preventDefault(); void send(); }}>
-    <input
-      class="composer-input"
-      bind:value={messageBody}
-      placeholder={identityState.apiOnline ? 'Message…' : 'API offline — reconnect to send'}
-      disabled={!identityState.apiOnline}
-      autocomplete="off"
-    />
-    <button
-      type="submit"
-      class="btn btn-secondary"
-      disabled={sending || !messageBody.trim() || !identityState.apiOnline}
-    >
-      Send
-    </button>
-  </form>
 
   {#if error}
     <p class="error">{error}</p>
@@ -282,7 +284,7 @@
   }
 
   .ephemeral-note {
-    margin: 0 0 0.75rem;
+    margin: 0.65rem 0.75rem 0.35rem;
   }
 
   .chat-fill {
@@ -293,11 +295,22 @@
     width: 100%;
   }
 
+  .chat-shell {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
   .chat-panel {
     flex: 1;
     min-height: 8rem;
     overflow-y: auto;
-    margin-bottom: 0.75rem;
+    padding: 0.55rem 0.75rem 0.75rem;
   }
 
   .chat-empty {
@@ -333,6 +346,9 @@
     display: flex;
     flex-shrink: 0;
     gap: 0.45rem;
+    padding: 0.55rem 0.65rem;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 45%, var(--surface));
   }
 
   .composer .btn {
