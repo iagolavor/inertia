@@ -4,11 +4,10 @@
   import { ApiRequestError } from '$lib/api-errors';
   import PostComposer from '$lib/components/PostComposer.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
-  import PostDetailModal from '$lib/components/PostDetailModal.svelte';
   import { identityState } from '$lib/identity.svelte';
-import { formatCacheAge, readCachedFeed, writeCachedFeed } from '$lib/local-cache';
-import { refreshFeedSilently, seedFeedSnapshot, subscribeFeedSync } from '$lib/feed-sync';
-import { registerFeedRefresh } from '$lib/presence.svelte';
+  import { formatCacheAge, readCachedFeed } from '$lib/local-cache';
+  import { refreshFeedSilently, seedFeedSnapshot, subscribeFeedSync } from '$lib/feed-sync';
+  import { registerFeedRefresh } from '$lib/presence.svelte';
 
   type FeedRow = FeedItem & {
     local_media_preview?: string;
@@ -20,8 +19,6 @@ import { registerFeedRefresh } from '$lib/presence.svelte';
   let feedError = $state('');
   let showingCached = $state(false);
   let cacheAge = $state<string | null>(null);
-  let selectedPost = $state<FeedItem | null>(null);
-  let detailOpen = $state(false);
 
   async function hydrateFromCache() {
     const cached = await readCachedFeed();
@@ -33,17 +30,8 @@ import { registerFeedRefresh } from '$lib/presence.svelte';
     return true;
   }
 
-  async function openPost(post: FeedItem) {
-    selectedPost = post;
-    detailOpen = true;
-  }
-
   async function onCommentAdded() {
     await loadFeed();
-    if (selectedPost) {
-      const updated = feed.find((p) => p.content_id === selectedPost!.content_id);
-      if (updated) selectedPost = updated;
-    }
   }
 
   async function loadFeed() {
@@ -62,10 +50,6 @@ import { registerFeedRefresh } from '$lib/presence.svelte';
       showingCached = false;
       cacheAge = null;
       seedFeedSnapshot(items);
-      if (selectedPost) {
-        const updated = feed.find((p) => p.content_id === selectedPost!.content_id);
-        if (updated) selectedPost = updated;
-      }
     } catch (e) {
       const hadCache = await hydrateFromCache();
       if (hadCache) {
@@ -118,10 +102,6 @@ import { registerFeedRefresh } from '$lib/presence.svelte';
       feed = items;
       showingCached = false;
       cacheAge = null;
-      if (selectedPost) {
-        const updated = items.find((p) => p.content_id === selectedPost!.content_id);
-        if (updated) selectedPost = updated;
-      }
     });
 
     function onVisible() {
@@ -170,18 +150,14 @@ import { registerFeedRefresh } from '$lib/presence.svelte';
       <p class="empty">Ainda sem posts. Publica algo ou convida um amigo.</p>
     {:else}
       {#each feed as post (post.content_id)}
-        <PostCard {post} onopen={openPost} />
+        <PostCard
+          {post}
+          disabled={!identityState.apiOnline}
+          oncomment={onCommentAdded}
+        />
       {/each}
     {/if}
   </div>
-
-  <PostDetailModal
-    open={detailOpen}
-    post={selectedPost}
-    disabled={!identityState.apiOnline}
-    onclose={() => (detailOpen = false)}
-    oncomment={onCommentAdded}
-  />
 {/if}
 
 <style>
