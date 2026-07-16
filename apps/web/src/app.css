@@ -235,7 +235,8 @@ textarea {
 }
 
 .container {
-  max-width: 720px;
+  /* Shared shell width with AppHeader so Feed ↔ other pages do not jump */
+  max-width: 960px;
   margin: 0 auto;
   padding: 1.5rem;
   padding-left: max(1.5rem, var(--safe-left));

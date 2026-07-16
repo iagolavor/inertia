@@ -28,6 +28,7 @@
     readCachedMessages
   } from '$lib/local-cache';
   import { registerConversationRefresh } from '$lib/presence.svelte';
+  import { markDmThreadRead } from '$lib/dm-unread';
 
   let contact = $state<Contact | null>(null);
   let durable = $state<ConversationMessage[]>([]);
@@ -155,6 +156,7 @@
 
     optimistics = [];
     setOpenConversation(id);
+    markDmThreadRead(id);
     let lastCount = 0;
 
     registerConversationRefresh(() => refreshConversationSilently(id));

@@ -1,9 +1,23 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { page } from '$app/state';
   import InertiaLogo from '$lib/components/InertiaLogo.svelte';
   import OnlineStatus from '$lib/components/OnlineStatus.svelte';
   import P2pStatus from '$lib/components/P2pStatus.svelte';
+  import {
+    countUnreadDmMessages,
+    ensureDmUnreadBaseline,
+    formatUnreadBadge,
+    subscribeDmUnread
+  } from '$lib/dm-unread';
   import { identityState } from '$lib/identity.svelte';
+  import { readCachedMessages } from '$lib/local-cache';
+  import {
+    refreshInboxSilently,
+    seedInboxSnapshot,
+    subscribeInboxSync,
+    type InboxSnapshot
+  } from '$lib/messages-sync';
 
   const primaryTabs = [
     { href: '/', label: 'Feed', match: (path: string) => path === '/' },
@@ -28,6 +42,15 @@
   ];
 
   let moreOpen = $state(false);
+  let inboxSnapshot = $state<InboxSnapshot | null>(null);
+  let unreadTick = $state(0);
+
+  const messagesUnread = $derived.by(() => {
+    unreadTick;
+    if (!inboxSnapshot) return 0;
+    return countUnreadDmMessages(inboxSnapshot.inbox);
+  });
+  const messagesBadge = $derived(formatUnreadBadge(messagesUnread));
 
   function closeMore() {
     moreOpen = false;
@@ -54,6 +77,26 @@
     page.url.pathname;
     closeMore();
   });
+
+  onMount(() => {
+    const unsubInbox = subscribeInboxSync((snapshot) => {
+      ensureDmUnreadBaseline(snapshot.inbox);
+      inboxSnapshot = snapshot;
+    });
+    const unsubUnread = subscribeDmUnread(() => {
+      unreadTick += 1;
+    });
+
+    void readCachedMessages().then((cached) => {
+      if (cached) seedInboxSnapshot({ contacts: cached.contacts, inbox: cached.inbox });
+      if (identityState.apiOnline) void refreshInboxSilently();
+    });
+
+    return () => {
+      unsubInbox();
+      unsubUnread();
+    };
+  });
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -67,12 +110,21 @@
 
     <nav class="primary-tabs" aria-label="Principal">
       {#each primaryTabs as tab}
+        {@const isMessages = tab.href === '/messages'}
         <a
           href={tab.href}
           class:active={tab.match(page.url.pathname)}
           aria-current={tab.match(page.url.pathname) ? 'page' : undefined}
+          aria-label={
+            isMessages && messagesUnread > 0
+              ? `Messages, ${messagesUnread} unread`
+              : undefined
+          }
         >
           {tab.label}
+          {#if isMessages && messagesBadge}
+            <span class="tab-count">{messagesBadge}</span>
+          {/if}
         </a>
       {/each}
     </nav>
@@ -130,21 +182,24 @@
     top: 0;
     z-index: 30;
     padding-top: var(--safe-top);
-    padding-left: var(--safe-left);
-    padding-right: var(--safe-right);
     border-bottom: 1px solid var(--border);
     background: var(--bg);
   }
 
   .header-inner {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: 'brand tabs end';
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand end'
+      'tabs tabs';
     align-items: center;
-    gap: 0.65rem 0.75rem;
-    max-width: 720px;
+    gap: 0.55rem 0.75rem;
+    /* Same max-width as .container (shared app shell) */
+    max-width: 960px;
     margin: 0 auto;
     padding: 0.75rem 1.5rem;
+    padding-left: max(1.5rem, var(--safe-left));
+    padding-right: max(1.5rem, var(--safe-right));
   }
 
   .brand {
@@ -177,7 +232,7 @@
     grid-area: tabs;
     display: inline-flex;
     align-items: center;
-    justify-self: center;
+    justify-self: start;
     padding: 0.2rem;
     border-radius: 9px;
     border: 1px solid var(--border);
@@ -196,6 +251,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0.3rem;
     padding: 0.3rem 0.75rem;
     border-radius: 7px;
     font-size: 0.8125rem;
@@ -217,6 +273,21 @@
   .primary-tabs a.active {
     background: var(--bg);
     color: var(--text);
+  }
+
+  .tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.28rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--btn-on-accent, #fff);
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
   }
 
   .header-end {
@@ -296,13 +367,9 @@
 
   @media (max-width: 640px) {
     .header-inner {
-      grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas:
-        'brand end'
-        'tabs tabs';
-      gap: 0.55rem 0.5rem;
-      padding-left: 1rem;
-      padding-right: 1rem;
+      gap: 0.5rem;
+      padding-left: max(1rem, var(--safe-left));
+      padding-right: max(1rem, var(--safe-right));
     }
 
     .primary-tabs {

@@ -1,12 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api, type FeedItem } from '$lib/api';
+  import { api, type Contact, type FeedItem, type InboxEntry } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
+  import FeedHomeRail from '$lib/components/FeedHomeRail.svelte';
   import PostComposer from '$lib/components/PostComposer.svelte';
   import PostCard from '$lib/components/PostCard.svelte';
   import { identityState } from '$lib/identity.svelte';
-  import { formatCacheAge, readCachedFeed } from '$lib/local-cache';
+  import { formatCacheAge, readCachedFeed, readCachedMessages } from '$lib/local-cache';
   import { refreshFeedSilently, seedFeedSnapshot, subscribeFeedSync } from '$lib/feed-sync';
+  import {
+    refreshInboxSilently,
+    seedInboxSnapshot,
+    subscribeInboxSync
+  } from '$lib/messages-sync';
+  import { subscribeDmUnread } from '$lib/dm-unread';
   import { registerFeedRefresh } from '$lib/presence.svelte';
 
   type FeedRow = FeedItem & {
@@ -19,6 +26,9 @@
   let feedError = $state('');
   let showingCached = $state(false);
   let cacheAge = $state<string | null>(null);
+  let contacts = $state<Contact[]>([]);
+  let inbox = $state<InboxEntry[]>([]);
+  let unreadTick = $state(0);
 
   async function hydrateFromCache() {
     const cached = await readCachedFeed();
@@ -98,21 +108,36 @@
   onMount(() => {
     void hydrateFromCache().then(() => loadFeed());
     registerFeedRefresh(refreshFeedSilently);
-    const unsub = subscribeFeedSync((items) => {
+    const unsubFeed = subscribeFeedSync((items) => {
       feed = items;
       showingCached = false;
       cacheAge = null;
+    });
+    const unsubInbox = subscribeInboxSync((snapshot) => {
+      contacts = snapshot.contacts;
+      inbox = snapshot.inbox;
+    });
+    const unsubUnread = subscribeDmUnread(() => {
+      unreadTick += 1;
+    });
+
+    void readCachedMessages().then((cached) => {
+      if (cached) seedInboxSnapshot({ contacts: cached.contacts, inbox: cached.inbox });
+      if (identityState.apiOnline) void refreshInboxSilently();
     });
 
     function onVisible() {
       if (document.visibilityState === 'visible') {
         void loadFeed();
+        if (identityState.apiOnline) void refreshInboxSilently();
       }
     }
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       registerFeedRefresh(null);
-      unsub();
+      unsubFeed();
+      unsubInbox();
+      unsubUnread();
       document.removeEventListener('visibilitychange', onVisible);
     };
   });
@@ -121,46 +146,60 @@
 {#if identityState.loading || !identityState.identity}
   <p class="empty">Loading...</p>
 {:else}
-  <h1 class="page-title">Feed</h1>
-  <p class="subtitle">Ephemeral P2P social. No tracking, no ads, just your friends.</p>
+  <div class="feed-home">
+    <div class="feed-main">
+      <h1 class="page-title">Feed</h1>
+      <p class="subtitle">Ephemeral P2P social. No tracking, no ads, just your friends.</p>
 
-  {#if !identityState.apiOnline}
-    <p class="offline-hint muted">
-      You're viewing offline. Posting and comments are paused until the API is back.
-    </p>
-  {/if}
+      {#if !identityState.apiOnline}
+        <p class="offline-hint muted">
+          You're viewing offline. Posting and comments are paused until the API is back.
+        </p>
+      {/if}
 
-  <section class="feed-composer">
-    <PostComposer
-      disabled={!identityState.apiOnline}
-      onposted={onPosted}
-    />
-  </section>
+      <section class="feed-composer">
+        <PostComposer disabled={!identityState.apiOnline} onposted={onPosted} />
+      </section>
 
-  {#if showingCached && cacheAge}
-    <p class="cache-hint muted">Saved · {cacheAge}</p>
-  {/if}
+      {#if showingCached && cacheAge}
+        <p class="cache-hint muted">Saved · {cacheAge}</p>
+      {/if}
 
-  <div class="feed-list">
-    {#if feedLoading && feed.length === 0}
-      <p class="empty">A carregar feed…</p>
-    {:else if feedError}
-      <p class="error">{feedError}</p>
-    {:else if feed.length === 0}
-      <p class="empty">Ainda sem posts. Publica algo ou convida um amigo.</p>
-    {:else}
-      {#each feed as post (post.content_id)}
-        <PostCard
-          {post}
-          disabled={!identityState.apiOnline}
-          oncomment={onCommentAdded}
-        />
-      {/each}
-    {/if}
+      <div class="feed-list">
+        {#if feedLoading && feed.length === 0}
+          <p class="empty">A carregar feed…</p>
+        {:else if feedError}
+          <p class="error">{feedError}</p>
+        {:else if feed.length === 0}
+          <p class="empty">Ainda sem posts. Publica algo ou convida um amigo.</p>
+        {:else}
+          {#each feed as post (post.content_id)}
+            <PostCard
+              {post}
+              disabled={!identityState.apiOnline}
+              oncomment={onCommentAdded}
+            />
+          {/each}
+        {/if}
+      </div>
+    </div>
+
+    <FeedHomeRail {contacts} {inbox} {unreadTick} />
   </div>
 {/if}
 
 <style>
+  .feed-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 17.5rem);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .feed-main {
+    min-width: 0;
+  }
+
   .page-title {
     margin: 0 0 0.25rem;
     font-size: 1.35rem;
@@ -189,5 +228,12 @@
   .feed-list {
     display: flex;
     flex-direction: column;
+    gap: 0;
+  }
+
+  @media (max-width: 820px) {
+    .feed-home {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
