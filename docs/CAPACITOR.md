@@ -1,12 +1,12 @@
 # Capacitor - Android shell
 
-Default path: **API + UI on the phone** (same idea as the Windows zip: one local process serves UI and `/api`).
+Default (and only supported) path: **API + UI on the phone** (same idea as the Windows zip: one local process serves UI and `/api`).
 
-| | **Android install** (default) | **Dev: API on PC** (optional) |
-|---|--------------------------------|-------------------------------|
-| UI | Served by on-device `inertia-api` | Bundled Capacitor `webDir` |
-| API | On phone (`127.0.0.1:4783`) | Dev PC (`adb reverse` / LAN) |
-| Layout | `inertia-api` + `web/` + `data/` in app storage | Capacitor assets only |
+| | **Android install** |
+|---|---------------------|
+| UI | Served by on-device `inertia-api` |
+| API | On phone (`127.0.0.1:4783`) |
+| Layout | `inertia-api` + `web/` + `data/` in app storage |
 
 ## Prerequisites
 
@@ -70,7 +70,7 @@ On launch:
 3. Waits for `GET /api/health`
 4. **MainActivity** WebView loads `http://127.0.0.1:4783/` (same origin → `/api` in the UI)
 
-No PC API, no `adb reverse`.
+No PC API required.
 
 ### Scripts
 
@@ -81,59 +81,17 @@ No PC API, no `adb reverse`.
 | `npm run android:install` | Full package pipeline + Capacitor sync |
 | `npm run android:run` | Build APK and install on device |
 
-`android:stage-b` remains as a deprecated alias for `android:install`.
-
 Packaged assets are gitignored; run `android:install` before shipping or sideloading an APK.
-
-## Dev loop (UI on phone, API on PC)
-
-**Terminal 1 - API on PC:**
-
-```powershell
-npm run api:release
-```
-
-**Terminal 2 - sync bundled UI (no `android:package`):**
-
-```powershell
-npm run android:sync
-npm run android:run
-```
-
-**Terminal 3 - port forward (emulator or USB):**
-
-```powershell
-npm run android:reverse
-```
-
-If APK assets do **not** contain the bundled API, the app expects the PC API (bundled UI only).
-
-### Emulator
-
-```powershell
-npm run api:release
-adb reverse tcp:4783 tcp:4783   # after each cold boot
-```
-
-Alternative: `$env:VITE_INERTIA_API_BASE = "http://10.0.2.2:4783/api"` then `npm run android:sync`.
-
-### Wi-Fi (LAN)
-
-```powershell
-$env:VITE_INERTIA_API_BASE = "http://192.168.1.42:4783/api"
-npm run web:build
-npm run android:sync
-```
-
-API must listen on `0.0.0.0:4783`.
 
 ## Cleartext HTTP
 
-Default install uses `http://127.0.0.1:4783` on-device. The PC-API path uses the same via `adb reverse`. `usesCleartextTraffic="true"` is set in the manifest. Tighten before wide public release (see [SECURITY-TODO.md](./SECURITY-TODO.md)).
+The app uses `http://127.0.0.1:4783` on-device. `usesCleartextTraffic="true"` is set in the manifest. Tighten before wide public release (see [SECURITY-TODO.md](./SECURITY-TODO.md)).
 
 ## Status (v0.10+)
 
 **On-device Android is the supported phone path.** A physical arm64 phone can run Inertia from the APK: local API, local SQLite, P2P via relay, and cross-device invite accept (paste payload - do not tap SMS links).
+
+USB debugging is only for developer install (`android:run` / Android Studio), not for routing API traffic to a PC.
 
 ### Verified working
 
@@ -150,7 +108,6 @@ Default install uses `http://127.0.0.1:4783` on-device. The PC-API path uses the
 ### Known rough edges
 
 - [ ] **Invite preview** shows red offline dot on inviter avatar (`ProfileHeader` default) - misleading
-- [ ] **PC-API path** (`adb reverse`) - supported but not re-smoked recently
 - [ ] **arm64 only** - no x86 emulator ABI in `android:api:build`
 - [ ] **Relay OK** is not enough for invite create: inviter needs inbound **reservation** (Friends UI uses `/invite/readiness`); accepter needs relay session + inviter online
 
@@ -162,7 +119,7 @@ Default install uses `http://127.0.0.1:4783` on-device. The PC-API path uses the
 4. PC inviter: `npm run api:release`, relay connected + reservation active (Generate enabled), **Copy for phone** (payload only)
 5. Phone: **⋯ → Accept invite** → paste → Preview → Accept
 
-Pick up polish from the **Resume next** list in [AGENTS.md](../AGENTS.md) (invite avatar dot, PC-API smoke).
+Pick up polish from the **Resume next** list in [AGENTS.md](../AGENTS.md) (invite avatar dot).
 
 ## Not yet implemented
 

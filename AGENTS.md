@@ -51,10 +51,10 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 
 **Shipped** - self-contained APK with on-device API. See [docs/CAPACITOR.md](docs/CAPACITOR.md).
 
-| Mode | Status |
-|------|--------|
-| **Android install** (API + UI on phone) | Default - `npm run android:install` then `npm run android:run` |
-| **Dev: API on PC** | Optional - `adb reverse`, `npm run android:sync` |
+```powershell
+npm run android:install
+npm run android:run
+```
 
 **Done**
 
@@ -67,9 +67,8 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 **Resume next** (mobile polish - branch from `development` as `feature/android-*`)
 
 1. **Invite preview UX** - remove or fix misleading red offline dot on `ProfileHeader` (not inviter presence)
-2. **PC-API smoke** - confirm `android:reverse` loop still works after on-device packaging changes
-3. **Release** - Play signing, optional APK in CI (Windows zip only today)
-4. **Optional** - `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
+2. **Release** - Play signing, optional APK in CI (Windows zip only today)
+3. **Optional** - `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
 
 **Done recently:** header **P2pStatus** tap-to-open details panel (touch-friendly). No hover `title` (it steals clicks on some desktops).
 
@@ -136,14 +135,7 @@ npm run api:stop
 ### Android quick commands
 
 ```powershell
-# Default: package on-device API + UI, then install APK
 npm run android:install
-npm run android:run
-
-# Optional: UI on phone, API on PC
-npm run api:release
-npm run android:sync
-npm run android:reverse
 npm run android:run
 ```
 
