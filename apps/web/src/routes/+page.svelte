@@ -67,7 +67,7 @@
       } else if (e instanceof ApiRequestError) {
         feedError = e.message;
       } else {
-        feedError = e instanceof Error ? e.message : 'Falha ao carregar feed';
+        feedError = e instanceof Error ? e.message : 'Failed to load feed';
       }
     } finally {
       feedLoading = false;
@@ -106,7 +106,7 @@
   }
 
   onMount(() => {
-    void hydrateFromCache().then(() => loadFeed());
+    void hydrateFromCache();
     registerFeedRefresh(refreshFeedSilently);
     const unsubFeed = subscribeFeedSync((items) => {
       feed = items;
@@ -141,6 +141,13 @@
       document.removeEventListener('visibilitychange', onVisible);
     };
   });
+
+  // Identity loads async after mount - retry feed once it is available.
+  $effect(() => {
+    if (identityState.loading) return;
+    if (!identityState.identity) return;
+    void loadFeed();
+  });
 </script>
 
 {#if identityState.loading || !identityState.identity}
@@ -167,11 +174,11 @@
 
       <div class="feed-list">
         {#if feedLoading && feed.length === 0}
-          <p class="empty">A carregar feed…</p>
+          <p class="empty">Loading feed…</p>
         {:else if feedError}
           <p class="error">{feedError}</p>
         {:else if feed.length === 0}
-          <p class="empty">Ainda sem posts. Publica algo ou convida um amigo.</p>
+          <p class="empty">No posts yet. Share something or invite a friend.</p>
         {:else}
           {#each feed as post (post.content_id)}
             <PostCard
@@ -200,13 +207,9 @@
     min-width: 0;
   }
 
-  .muted {
-    color: var(--muted);
-  }
-
   .offline-hint {
     margin: 0 0 1rem;
-    font-size: 0.875rem;
+    font-size: var(--font-size-md);
   }
 
   .feed-composer {
@@ -215,7 +218,7 @@
 
   .cache-hint {
     margin: 0 0 0.75rem;
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
   }
 
   .feed-list {

@@ -45,7 +45,7 @@
 </script>
 
 <h1>Outbox</h1>
-<p class="subtitle">Pending and failed deliveries — retry or let them expire.</p>
+<p class="subtitle">Pending and failed deliveries - retry or let them expire.</p>
 
 {#if error}<p class="error">{error}</p>{/if}
 

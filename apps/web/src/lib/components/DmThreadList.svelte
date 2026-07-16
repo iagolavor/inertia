@@ -109,8 +109,8 @@
 
 <style>
   .group-label {
-    font-size: 0.62rem;
-    font-weight: 700;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--muted);
@@ -167,19 +167,19 @@
   }
 
   .presence-name {
-    font-weight: 700;
-    font-size: 0.92rem;
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-base);
     margin-bottom: 0.08rem;
   }
 
   .presence-status {
-    font-size: 0.72rem;
+    font-size: var(--font-size-xs);
     margin-bottom: 0.12rem;
   }
 
   .presence-preview {
     margin: 0;
-    font-size: 0.78rem;
+    font-size: var(--font-size-sm);
     color: var(--muted);
     white-space: nowrap;
     overflow: hidden;

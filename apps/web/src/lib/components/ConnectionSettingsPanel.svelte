@@ -164,8 +164,8 @@
   }
 
   .field label {
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--muted);
@@ -180,19 +180,19 @@
     background: var(--bg);
     color: var(--text);
     font: inherit;
-    font-size: 0.875rem;
+    font-size: var(--font-size-md);
   }
 
   .field-hint {
     margin: 0;
-    font-size: 0.8125rem;
+    font-size: var(--font-size-sm);
     color: var(--muted);
     line-height: 1.45;
   }
 
   .field-hint code {
     font-family: monospace;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
   }
 
   .share-row {
@@ -205,7 +205,7 @@
   .share-row code {
     flex: 1;
     word-break: break-all;
-    font-size: 0.8125rem;
+    font-size: var(--font-size-sm);
   }
 
   .actions {
@@ -214,19 +214,19 @@
 
   .btn-compact {
     padding: 0.4rem 0.75rem;
-    font-size: 0.8125rem;
-    font-weight: 500;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
   }
 
   .notice {
     margin: 0.75rem 0 0;
-    font-size: 0.8125rem;
+    font-size: var(--font-size-sm);
     color: var(--success);
   }
 
   .error {
     margin: 0.75rem 0 0;
-    font-size: 0.8125rem;
+    font-size: var(--font-size-sm);
     color: var(--danger);
   }
 
@@ -236,7 +236,7 @@
 
   .muted {
     color: var(--muted);
-    font-size: 0.875rem;
+    font-size: var(--font-size-md);
     margin: 0 0 0.85rem;
     line-height: 1.45;
   }

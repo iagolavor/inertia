@@ -62,9 +62,4 @@
     flex: 1;
   }
 
-  .profile-name {
-    margin: 0;
-    font-size: 1.35rem;
-    line-height: 1.3;
-  }
 </style>

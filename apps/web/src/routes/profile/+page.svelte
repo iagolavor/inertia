@@ -540,20 +540,6 @@
 
 
 
-  .profile-name {
-
-    margin: 0;
-
-    font-size: 0.95rem;
-
-    font-weight: 700;
-
-    line-height: 1.35;
-
-  }
-
-
-
   .btn-edit-plain {
 
     display: inline-flex;

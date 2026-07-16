@@ -126,13 +126,14 @@
 
   .presence-name {
     margin: 0 0 0.08rem;
-    font-weight: 700;
-    font-size: 0.92rem;
-    line-height: 1.3;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--letter-tight);
+    line-height: 1.25;
   }
 
   .connection-status {
-    font-size: 0.72rem;
+    font-size: var(--font-size-xs);
     margin-bottom: 0;
     color: var(--connection-live);
   }
@@ -143,14 +144,14 @@
 
   .presence-detail {
     margin: 0.12rem 0 0;
-    font-size: 0.78rem;
+    font-size: var(--font-size-sm);
     color: var(--muted);
   }
 
   .cache-badge {
     flex-shrink: 0;
-    font-size: 0.68rem;
-    font-weight: 500;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
     padding: 0.12rem 0.4rem;
     border-radius: 999px;
     border: 1px solid var(--border);
@@ -159,8 +160,8 @@
 
   .header-action {
     flex-shrink: 0;
-    font-size: 0.78rem;
-    font-weight: 600;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
     padding: 0.4rem 0.65rem;
     border-radius: var(--radius-md);
     border: 1px solid var(--border);
