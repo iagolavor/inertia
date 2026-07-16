@@ -4,6 +4,13 @@
   import { api, type Contact, type InviteReadiness, type InviteResponse } from '$lib/api';
   import { ApiRequestError } from '$lib/api-errors';
   import Avatar from '$lib/components/Avatar.svelte';
+  import {
+    contactWithLivePresence,
+    effectiveConnectionState,
+    hasContactRoute,
+    presenceIndicator
+  } from '$lib/dmThreads';
+  import { identityState } from '$lib/identity.svelte';
 
   let contacts = $state<Contact[]>([]);
   let invite = $state<InviteResponse | null>(null);
@@ -19,13 +26,24 @@
 
   const filteredContacts = $derived.by(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return contacts;
-    return contacts.filter((c) => {
+    const live = contacts.map((c) =>
+      contactWithLivePresence(c, identityState.p2pStatus?.connected_peer_ids)
+    );
+    if (!q) return live;
+    return live.filter((c) => {
       const name = c.display_name.toLowerCase();
       const code = c.signing_pubkey.slice(0, 8).toLowerCase();
       return name.includes(q) || code.includes(q);
     });
   });
+
+  function rosterStatusLabel(contact: Contact): string {
+    const state = effectiveConnectionState(contact);
+    if (state === 'online') return 'connected';
+    if (state === 'reachable') return 'reachable';
+    if (!hasContactRoute(contact)) return 'no route yet';
+    return 'unreachable';
+  }
 
   onMount(load);
 
@@ -98,8 +116,15 @@
   }
 </script>
 
-<h1>Connections</h1>
-<p class="subtitle"><a href="/messages">← Back to messages</a> · Manage who you are connected to, or share an invite. No global directory.</p>
+<div class="page-head">
+  <div class="page-intro">
+    <h1 class="page-title">Connections</h1>
+    <p class="subtitle">
+      <a href="/messages">← Back to messages</a> · Manage who you are connected to, or share an invite.
+      No global directory.
+    </p>
+  </div>
+</div>
 
 <div class="card action-card">
   <h3>Invite someone</h3>
@@ -153,7 +178,7 @@
 <div class="card action-card">
   <h3>Accept an invite</h3>
   <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem;">
-    Use <strong>⋯ → Accept invite</strong> in the header, or open the accept page below. Paste the
+    Use <strong>Menu → Accept invite</strong> in the header, or open the accept page below. Paste the
     invite code, Preview, then Accept. On another phone: tap <strong>Copy for phone</strong> above,
     then paste there (do not tap the link in Messages).
   </p>
@@ -183,17 +208,30 @@
       <p class="empty">No connections match “{searchQuery.trim()}”.</p>
     {:else}
       {#each filteredContacts as contact (contact.id)}
-        <div class="card">
+        {@const state = effectiveConnectionState(contact)}
+        {@const statusLabel = rosterStatusLabel(contact)}
+        <div class="card contact-card">
           <div class="contact-row">
-            <Avatar seed={contact.signing_pubkey} alt={contact.display_name} size={44} />
+            <Avatar seed={contact.signing_pubkey} alt={contact.display_name} size={32} />
             <div class="contact-meta">
               <div class="contact-top">
-                <strong>{contact.display_name}</strong>
-                <span class="badge badge-{contact.connection_state}">{contact.connection_state}</span>
+                <strong class="contact-name">{contact.display_name}</strong>
+                <span
+                  class="status-chip"
+                  class:connected={state === 'online'}
+                  class:reachable={state === 'reachable'}
+                  class:unreachable={state === 'unreachable' || state === 'offline'}
+                  title={statusLabel}
+                >
+                  <span class="status-dot" aria-hidden="true">{presenceIndicator(contact)}</span>
+                  {statusLabel}
+                </span>
               </div>
               <p class="contact-detail">
-                Safety code: {contact.signing_pubkey.slice(0, 8)}
-                {#if contact.peer_id}<br />Peer: {contact.peer_id}{/if}
+                <span>Safety code: {contact.signing_pubkey.slice(0, 8)}</span>
+                {#if contact.peer_id}
+                  <span class="peer-id">Peer: {contact.peer_id}</span>
+                {/if}
               </p>
             </div>
             <button
@@ -212,6 +250,23 @@
 </section>
 
 <style>
+  .page-head {
+    margin-bottom: 1.25rem;
+  }
+
+  .page-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
   .action-card {
     padding: 0.75rem 1.25rem 1.1rem;
   }
@@ -241,28 +296,29 @@
   }
 
   .roster {
-    margin-top: 2rem;
+    margin-top: 1.5rem;
   }
 
   .roster h3 {
-    margin: 0 0 0.75rem;
+    margin: 0 0 0.55rem;
+    font-size: 0.95rem;
   }
 
   .search {
     display: block;
-    margin: 0 0 0.85rem;
+    margin: 0 0 0.6rem;
   }
 
   .search input {
     width: 100%;
     box-sizing: border-box;
-    padding: 0.55rem 0.75rem;
+    padding: 0.4rem 0.65rem;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 7px;
     background: var(--surface);
     color: var(--text);
     font: inherit;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
   }
 
   .search input::placeholder {
@@ -281,10 +337,16 @@
     border: 0;
   }
 
+  .contact-card {
+    padding: 0.55rem 0.7rem;
+    margin-bottom: 0.45rem;
+    border-radius: var(--radius-md, 8px);
+  }
+
   .contact-row {
     display: flex;
     align-items: center;
-    gap: 0.85rem;
+    gap: 0.55rem;
   }
 
   .contact-meta {
@@ -294,26 +356,80 @@
 
   .contact-top {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .contact-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    padding: 0.08rem 0.4rem 0.08rem 0.28rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+    color: var(--muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    text-transform: none;
+  }
+
+  .status-dot {
+    font-size: 0.55rem;
+    line-height: 1;
+  }
+
+  .status-chip.connected {
+    color: var(--connection-live);
+    border-color: color-mix(in srgb, var(--connection-live) 35%, var(--border));
+    background: color-mix(in srgb, var(--connection-live) 10%, var(--surface));
+  }
+
+  .status-chip.reachable {
+    color: var(--connection-reachable);
+    border-color: color-mix(in srgb, var(--connection-reachable) 35%, var(--border));
+    background: color-mix(in srgb, var(--connection-reachable) 10%, var(--surface));
+  }
+
+  .status-chip.unreachable {
+    color: var(--muted);
+    border-style: dashed;
+    background: transparent;
   }
 
   .contact-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
     color: var(--muted);
-    font-size: 0.8rem;
-    margin: 0.35rem 0 0;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    margin: 0.15rem 0 0;
+  }
+
+  .peer-id {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .btn-remove {
     flex-shrink: 0;
-    padding: 0.35rem 0.65rem;
+    padding: 0.25rem 0.5rem;
     border: none;
     border-radius: 6px;
     background: transparent;
     color: var(--danger);
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 600;
     cursor: pointer;
   }

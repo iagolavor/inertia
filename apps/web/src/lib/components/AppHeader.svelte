@@ -29,6 +29,12 @@
     },
     { href: '/profile', label: 'Profile', match: (path: string) => path.startsWith('/profile') },
     {
+      href: '/connections',
+      label: 'Connections',
+      match: (path: string) =>
+        path.startsWith('/connections') || path.startsWith('/invite')
+    },
+    {
       href: '/settings',
       label: 'Settings',
       match: (path: string) => path.startsWith('/settings')
@@ -36,7 +42,6 @@
   ] as const;
 
   const moreLinks = [
-    { href: '/connections', label: 'Connections' },
     { href: '/invite', label: 'Accept invite' },
     { href: '/outbox', label: 'Outbox' }
   ];
@@ -145,16 +150,11 @@
         <button
           type="button"
           class="more-trigger"
-          aria-label="Mais opções"
           aria-expanded={moreOpen}
           aria-haspopup="true"
           onclick={() => (moreOpen = !moreOpen)}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="5" cy="12" r="1.75" fill="currentColor" />
-            <circle cx="12" cy="12" r="1.75" fill="currentColor" />
-            <circle cx="19" cy="12" r="1.75" fill="currentColor" />
-          </svg>
+          Menu
         </button>
 
         {#if moreOpen}
@@ -307,12 +307,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.28rem 0.45rem;
+    padding: 0.28rem 0.55rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: transparent;
     color: var(--muted);
-    line-height: 1;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.2;
     flex-shrink: 0;
     cursor: pointer;
     transition:
@@ -324,12 +327,6 @@
   .more-trigger:hover {
     color: var(--text);
     background: color-mix(in srgb, var(--border) 35%, transparent);
-  }
-
-  .more-trigger svg {
-    width: 0.75rem;
-    height: 0.75rem;
-    display: block;
   }
 
   .more-panel {

@@ -62,8 +62,9 @@
   --border: #1f2128;
   --text: #f0f0f0;
   --muted: #888888;
-  --accent: #8ab4f8;
-  --accent-dim: #6c9eff;
+  --accent: #c9ccd4;
+  --accent-dim: #b0b4be;
+  --btn-on-accent: #08090c;
   --danger: #f87171;
   --success: #4ade80;
   --warning: #fbbf24;
