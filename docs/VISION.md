@@ -330,8 +330,9 @@ blobs/            (content-addressed media files)
 
 - **inertia-core** (Rust): identity, invites, P2P, storage, expiry.
 - **inertia-api** (Rust): local HTTP bridge — runs on the user's machine, not in the cloud.
-- **SvelteKit** (web/PWA): feed, profile, settings, invites, friends, messages, outbox. Live updates: [LIVE-SYNC.md](./LIVE-SYNC.md).
-- **Capacitor / Tauri** (future): mobile and desktop shells.
+- **SvelteKit** (web/PWA): feed, profile, settings, invites, connections, messages, outbox, Files tab. Live updates: [LIVE-SYNC.md](./LIVE-SYNC.md).
+- **Capacitor** (Android Stage B alpha shipped): native WebView + on-device `inertia-api`. iOS and polish remain. See [CAPACITOR.md](./CAPACITOR.md).
+- **Tauri** (next): desktop shell that starts the local API and opens the UI in one window, plus a simpler install path than the Windows zip + browser flow.
 
 ---
 
@@ -365,9 +366,10 @@ blobs/            (content-addressed media files)
 | 3 | SvelteKit UI + local API | Done |
 | 4 | Invite flow, feed, profile, settings, backup | Done |
 | 4b | **VPS relay** (`inertia-relay`), relay client, invite v2 with embedded relay | Done |
-| 4c | **Event-driven live sync** — SSE over polling for messages, feed, P2P status (v0.13.0) | Done |
-| 5 | Capacitor mobile shell | **In progress** — Android Stage B in v0.10; iOS + polish remain |
-| 6 | Thumbnails, orphan blob GC | Planned |
-| 7 | **Community relays** — public relay list, optional PIX join fee in invite v3, host health hints | Planned |
+| 4c | **Event-driven live sync** (SSE), Messages/Connections polish, Profile Posts + Files (archive P2P / DCUtR) | Done |
+| 5 | Capacitor Android Stage B (API + UI on device, v0.10) | Done (alpha); iOS + mobile polish remain |
+| 6 | **Tauri desktop shell** + easier install path (sidecar or in-process API, app data dir, installers) | **Next** |
+| 7 | Thumbnails, orphan blob GC | Planned |
+| 8 | **Community relays** - public relay list, optional PIX join fee in invite v3, host health hints | Planned |
 
-P2P blob sync for photo posts ships in Phase 4; Phase 6 covers thumbnails and orphan blob GC only.
+P2P blob sync for photo posts ships in Phase 4. Shared-folder peer pulls are DCUtR/direct (see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md)). Phase 7 is thumbnails and orphan blob GC only.

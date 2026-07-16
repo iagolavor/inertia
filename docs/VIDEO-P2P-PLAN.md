@@ -222,6 +222,6 @@ Relay VPS: still **no disk**; bandwidth only when direct path fails.
 
 ## Related docs
 
-- [VISION.md](./VISION.md) — Phase 6/7 roadmap
+- [VISION.md](./VISION.md) - Phase 7/8 roadmap
 - [inertia-relay README](../crates/inertia-relay/README.md) — relay caps and bandwidth
 - [RELAY-CONNECTIVITY.md](./RELAY-CONNECTIVITY.md) — relay circuits, reservations, invite bootstrap
