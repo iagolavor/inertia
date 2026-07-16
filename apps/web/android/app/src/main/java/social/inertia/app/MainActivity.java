@@ -8,10 +8,15 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Toast;
 
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.getcapacitor.BridgeActivity;
+
+import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
     public static final String EXTRA_BUNDLED_API = "bundled_api";
@@ -20,6 +25,10 @@ public class MainActivity extends BridgeActivity {
     private boolean bundledApi;
     private String inviteLoadUrl;
     private LocalDownloadSaver downloadSaver;
+    private int safeInsetLeft;
+    private int safeInsetTop;
+    private int safeInsetRight;
+    private int safeInsetBottom;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +52,7 @@ public class MainActivity extends BridgeActivity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         getBridge().getWebView().setBackgroundColor(Color.parseColor("#08090c"));
         WebView webView = getBridge().getWebView();
+        installSafeAreaInsets(webView);
         webView.addJavascriptInterface(new InertiaDownloadBridge(this), "InertiaDownload");
         webView.setDownloadListener(
             (url, userAgent, contentDisposition, mimeType, contentLength) -> {
@@ -53,12 +63,60 @@ public class MainActivity extends BridgeActivity {
                 startLocalDownload(url, fileNameFromDisposition(contentDisposition));
             }
         );
-        getBridge().setWebViewClient(new InertiaWebViewClient(getBridge()));
+        getBridge().setWebViewClient(
+            new InertiaWebViewClient(getBridge(), () -> injectSafeAreaCss(webView))
+        );
 
         if (bundledApi) {
             ensureApiServiceRunning();
             ensureBundledWebUrl();
         }
+    }
+
+    /**
+     * Android WebView leaves env(safe-area-inset-*) at 0 while drawing edge-to-edge.
+     * Mirror system bar / IME insets into our --safe-* CSS variables.
+     */
+    private void installSafeAreaInsets(WebView webView) {
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, windowInsets) -> {
+            // Prefer root insets - intermediate views may have already consumed system bars.
+            WindowInsetsCompat source = ViewCompat.getRootWindowInsets(v);
+            if (source == null) {
+                source = windowInsets;
+            }
+            Insets bars = source.getInsets(
+                WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
+            );
+            Insets ime = source.getInsets(WindowInsetsCompat.Type.ime());
+            safeInsetLeft = bars.left;
+            safeInsetTop = bars.top;
+            safeInsetRight = bars.right;
+            safeInsetBottom = Math.max(bars.bottom, ime.bottom);
+            injectSafeAreaCss(webView);
+            return windowInsets;
+        });
+        ViewCompat.requestApplyInsets(webView);
+    }
+
+    private void injectSafeAreaCss(WebView webView) {
+        float density = webView.getResources().getDisplayMetrics().density;
+        if (density <= 0f) {
+            density = 1f;
+        }
+        String js = String.format(
+            Locale.US,
+            "(function(){var r=document.documentElement;"
+                + "r.style.setProperty('--safe-top','%.2fpx');"
+                + "r.style.setProperty('--safe-right','%.2fpx');"
+                + "r.style.setProperty('--safe-bottom','%.2fpx');"
+                + "r.style.setProperty('--safe-left','%.2fpx');"
+                + "})();",
+            safeInsetTop / density,
+            safeInsetRight / density,
+            safeInsetBottom / density,
+            safeInsetLeft / density
+        );
+        webView.evaluateJavascript(js, null);
     }
 
     /** Called from InertiaDownloadBridge (WebView ignores anchor download clicks). */

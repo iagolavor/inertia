@@ -66,10 +66,22 @@
     });
   }
 
+  function waitForLayout(): Promise<void> {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+  }
+
   async function scrollToLatest() {
     await tick();
-    if (!chatPanel) return;
-    chatPanel.scrollTop = chatPanel.scrollHeight;
+    // Flex chat height often settles one frame after the panel mounts.
+    await waitForLayout();
+    const panel = chatPanel;
+    if (!panel) return;
+    // Only scroll the message panel - scrollIntoView can move the page and hide the composer.
+    panel.scrollTop = panel.scrollHeight;
   }
 
   async function hydrateFromCache() {
@@ -175,6 +187,12 @@
       registerConversationRefresh(null);
       setOpenConversation(null);
     };
+  });
+
+  // Scroll after Loading unmounts and the panel has real flex height (open + cache hydrate).
+  $effect(() => {
+    if (loading || !chatPanel || messages.length === 0) return;
+    void scrollToLatest();
   });
 
   async function send() {
@@ -351,6 +369,8 @@
     padding: 0.55rem 0.65rem;
     border-top: 1px solid var(--border);
     background: color-mix(in srgb, var(--bg) 45%, var(--surface));
+    position: relative;
+    z-index: 1;
   }
 
   .composer .btn {
