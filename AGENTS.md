@@ -28,12 +28,14 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 
 | Phase | Status | Scope |
 |-------|--------|-------|
-| 0–2 | Done | Rust core, P2P, storage |
-| 3–4 | **Current** | SvelteKit web UI, invite flow, feed, profile, settings, backup |
-| 5 | **In progress** | **Capacitor Android** — Stage B shell shipped in v0.10; polish + iOS remain |
-| 6 | Planned | P2P blob sync, thumbnails, orphan file GC |
+| 0–4 | Done | Rust core, P2P, Svelte UI, invites, feed, profile, backup, relay |
+| 4c | Done | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) |
+| 5 | Done (alpha) | Capacitor Android Stage B (v0.10); iOS + mobile polish remain |
+| 6 | **Next** | Tauri desktop shell + easier install path |
+| 7 | Planned | Thumbnails, orphan blob GC |
+| 8 | Planned | Community relays |
 
-**Yes — we are building the web app first.** That is intentional. The Svelte app is the shared UI for web and mobile.
+**Yes - the Svelte app is the shared UI** for web, Android (Capacitor), and upcoming desktop (Tauri). Do not fork product UI per shell.
 
 ## Capacitor + Ionic
 

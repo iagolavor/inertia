@@ -741,7 +741,11 @@
 	.tool.accent {
 		border: none;
 		background: var(--accent);
-		color: #fff;
+		color: var(--btn-on-accent);
+	}
+
+	.tool.accent:hover:not(:disabled) {
+		background: var(--accent-dim);
 	}
 
 	.tool.danger {
