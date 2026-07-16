@@ -36,6 +36,8 @@
 	let loadingEntries = $state(false);
 	let nameDraft = $state('');
 	let creatingFolder = $state(false);
+	let deleteMode = $state(false);
+	let selectedIds = $state<Set<string>>(new Set());
 	let busy = $state(false);
 	let progress = $state('');
 	let downloadStatus = $state<Record<string, string>>({});
@@ -47,6 +49,10 @@
 		folderId ? (folders.find((f) => f.id === folderId) ?? null) : null
 	);
 	const atRoot = $derived(folderId == null);
+	const selectedCount = $derived(selectedIds.size);
+	const canDeleteHere = $derived(
+		mode === 'owner' && (atRoot ? folders.length > 0 : entries.length > 0)
+	);
 
 	function entryCount(folder: Folder): number | null {
 		return 'entry_count' in folder ? folder.entry_count : null;
@@ -77,18 +83,44 @@
 		await onfolderschange?.();
 	}
 
+	function clearSelection() {
+		selectedIds = new Set();
+	}
+
+	function exitDeleteMode() {
+		deleteMode = false;
+		clearSelection();
+	}
+
+	function enterDeleteMode() {
+		if (mode !== 'owner' || disabled || busy) return;
+		creatingFolder = false;
+		nameDraft = '';
+		deleteMode = true;
+		clearSelection();
+	}
+
+	function toggleSelected(id: string) {
+		const next = new Set(selectedIds);
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		selectedIds = next;
+	}
+
 	function goRoot() {
 		folderId = null;
 		entries = [];
 		creatingFolder = false;
+		exitDeleteMode();
 		progress = '';
 		dragOver = false;
 	}
 
 	async function openFolder(id: string) {
-		if (disabled) return;
+		if (disabled || deleteMode) return;
 		folderId = id;
 		creatingFolder = false;
+		exitDeleteMode();
 		loadingEntries = true;
 		entries = [];
 		try {
@@ -102,6 +134,20 @@
 			reportError(e, 'Failed to open folder');
 		} finally {
 			loadingEntries = false;
+		}
+	}
+
+	function onFolderActivate(id: string) {
+		if (deleteMode) {
+			toggleSelected(id);
+			return;
+		}
+		void openFolder(id);
+	}
+
+	function onEntryActivate(entry: ArchiveEntry) {
+		if (deleteMode && mode === 'owner') {
+			toggleSelected(entry.id);
 		}
 	}
 
@@ -207,7 +253,7 @@
 	async function onDrop(e: DragEvent) {
 		e.preventDefault();
 		dragOver = false;
-		if (disabled || busy || mode !== 'owner' || !folderId) return;
+		if (disabled || busy || deleteMode || mode !== 'owner' || !folderId) return;
 		await onFilesPicked(e.dataTransfer?.files ?? null);
 	}
 
@@ -260,16 +306,29 @@
 		}
 	}
 
-	async function deleteEntry(entry: ArchiveEntry) {
-		if (mode !== 'owner' || busy) return;
-		if (!confirm(`Remove ${entry.name}?`)) return;
+	async function confirmDelete() {
+		if (mode !== 'owner' || busy || !deleteMode || selectedCount === 0) return;
+		const ids = [...selectedIds];
 		busy = true;
+		progress = atRoot ? 'Deleting folders…' : 'Deleting files…';
 		try {
-			await api.deleteArchiveEntry(entry.id);
-			if (folderId) entries = await api.listArchiveEntries(folderId);
-			await refreshFolders();
+			if (atRoot) {
+				for (const id of ids) {
+					await api.deleteArchiveFolder(id);
+				}
+				await refreshFolders();
+			} else {
+				for (const id of ids) {
+					await api.deleteArchiveEntry(id);
+				}
+				if (folderId) entries = await api.listArchiveEntries(folderId);
+				await refreshFolders();
+			}
+			exitDeleteMode();
+			progress = '';
 		} catch (e) {
 			reportError(e, 'Failed to delete');
+			progress = '';
 		} finally {
 			busy = false;
 		}
@@ -295,7 +354,24 @@
 		</nav>
 
 		<div class="toolbar">
-			{#if mode === 'owner' && atRoot}
+			{#if mode === 'owner' && deleteMode}
+				<button
+					type="button"
+					class="tool danger"
+					disabled={disabled || busy || selectedCount === 0}
+					onclick={() => void confirmDelete()}
+				>
+					Confirm delete{selectedCount > 0 ? ` (${selectedCount})` : ''}
+				</button>
+				<button
+					type="button"
+					class="tool ghost"
+					disabled={busy}
+					onclick={exitDeleteMode}
+				>
+					Cancel
+				</button>
+			{:else if mode === 'owner' && atRoot}
 				{#if creatingFolder}
 					<form
 						class="new-folder"
@@ -334,6 +410,16 @@
 					>
 						New folder
 					</button>
+					{#if canDeleteHere}
+						<button
+							type="button"
+							class="tool ghost danger"
+							disabled={disabled || busy}
+							onclick={enterDeleteMode}
+						>
+							Delete
+						</button>
+					{/if}
 				{/if}
 			{:else if mode === 'owner' && !atRoot}
 				<button
@@ -352,6 +438,16 @@
 				>
 					Add folder
 				</button>
+				{#if canDeleteHere}
+					<button
+						type="button"
+						class="tool ghost danger"
+						disabled={disabled || busy}
+						onclick={enterDeleteMode}
+					>
+						Delete
+					</button>
+				{/if}
 			{/if}
 		</div>
 	</header>
@@ -362,17 +458,24 @@
 
 	<div
 		class="pane"
-		class:drop-target={!atRoot && mode === 'owner'}
+		class:drop-target={!atRoot && mode === 'owner' && !deleteMode}
 		class:drag-over={dragOver}
+		class:selecting={deleteMode}
 		ondragover={(e) => {
-			if (atRoot || mode !== 'owner') return;
+			if (atRoot || mode !== 'owner' || deleteMode) return;
 			e.preventDefault();
 			dragOver = true;
 		}}
 		ondragleave={() => (dragOver = false)}
 		ondrop={onDrop}
 		role="region"
-		aria-label={atRoot ? 'Folders' : 'Folder contents'}
+		aria-label={deleteMode
+			? atRoot
+				? 'Select folders to delete'
+				: 'Select files to delete'
+			: atRoot
+				? 'Folders'
+				: 'Folder contents'}
 	>
 		{#if atRoot}
 			{#if folders.length === 0}
@@ -393,16 +496,23 @@
 					</p>
 				</div>
 			{:else}
+				{#if deleteMode}
+					<p class="select-hint muted">Select folders to delete, then Confirm delete.</p>
+				{/if}
 				<ul class="icon-grid">
 					{#each folders as folder (folder.id)}
 						<li>
 							<button
 								type="button"
 								class="icon-item"
-								disabled={disabled}
-								ondblclick={() => openFolder(folder.id)}
-								onclick={() => openFolder(folder.id)}
+								class:selected={selectedIds.has(folder.id)}
+								disabled={disabled || busy}
+								aria-pressed={deleteMode ? selectedIds.has(folder.id) : undefined}
+								onclick={() => onFolderActivate(folder.id)}
 							>
+								{#if deleteMode}
+									<span class="check" aria-hidden="true"></span>
+								{/if}
 								<svg class="glyph folder" viewBox="0 0 24 24" aria-hidden="true">
 									<path
 										fill="currentColor"
@@ -432,38 +542,49 @@
 				</p>
 			</div>
 		{:else}
+			{#if deleteMode}
+				<p class="select-hint muted">Select files to delete, then Confirm delete.</p>
+			{/if}
 			<ul class="file-table" role="list">
 				{#each entries as entry (entry.id)}
-					<li class="file-row">
-						<span class="file-icon" data-kind={fileGlyph(entry.name, entry.mime)} aria-hidden="true"></span>
-						<div class="file-main">
-							<span class="file-name">{entry.name}</span>
-							<span class="file-size muted">{formatBytes(entry.total_bytes)}</span>
-							{#if downloadStatus[entry.id]}
-								<span class="file-status muted">{downloadStatus[entry.id]}</span>
-							{/if}
-						</div>
-						<div class="file-actions">
+					<li class="file-row" class:selected={selectedIds.has(entry.id)}>
+						{#if deleteMode}
+							<button
+								type="button"
+								class="file-select"
+								disabled={disabled || busy}
+								aria-pressed={selectedIds.has(entry.id)}
+								onclick={() => onEntryActivate(entry)}
+							>
+								<span class="check" aria-hidden="true"></span>
+								<span class="file-icon" data-kind={fileGlyph(entry.name, entry.mime)} aria-hidden="true"></span>
+								<span class="file-main">
+									<span class="file-name">{entry.name}</span>
+									<span class="file-size muted">{formatBytes(entry.total_bytes)}</span>
+								</span>
+							</button>
+						{:else}
+							<span class="file-icon" data-kind={fileGlyph(entry.name, entry.mime)} aria-hidden="true"></span>
+							<div class="file-main">
+								<span class="file-name">{entry.name}</span>
+								<span class="file-size muted">{formatBytes(entry.total_bytes)}</span>
+								{#if downloadStatus[entry.id]}
+									<span class="file-status muted">{downloadStatus[entry.id]}</span>
+								{/if}
+							</div>
 							{#if mode === 'friend'}
-								<button
-									type="button"
-									class="tool accent"
-									disabled={disabled}
-									onclick={() => downloadEntry(entry)}
-								>
-									Download
-								</button>
-							{:else}
-								<button
-									type="button"
-									class="tool danger"
-									disabled={disabled || busy}
-									onclick={() => deleteEntry(entry)}
-								>
-									Remove
-								</button>
+								<div class="file-actions">
+									<button
+										type="button"
+										class="tool accent"
+										disabled={disabled}
+										onclick={() => downloadEntry(entry)}
+									>
+										Download
+									</button>
+								</div>
 							{/if}
-						</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -624,8 +745,17 @@
 	}
 
 	.tool.danger {
-		border-color: color-mix(in srgb, #c44 40%, var(--border));
-		color: #c44;
+		border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+		color: var(--danger);
+	}
+
+	.tool.ghost.danger {
+		border-color: transparent;
+		color: var(--danger);
+	}
+
+	.tool.danger:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--danger) 12%, var(--surface));
 	}
 
 	.status {
@@ -639,7 +769,7 @@
 	.pane {
 		flex: 1;
 		min-height: 12rem;
-		padding: 0.75rem;
+		padding: 0.35rem 0.4rem 0.5rem;
 		transition: background 0.15s ease, outline-color 0.15s ease;
 	}
 
@@ -647,6 +777,30 @@
 		background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 		outline: 2px dashed color-mix(in srgb, var(--accent) 55%, var(--border));
 		outline-offset: -6px;
+	}
+
+	.select-hint {
+		margin: 0 0 0.45rem;
+		font-size: 0.75rem;
+		line-height: 1.35;
+	}
+
+	.check {
+		position: absolute;
+		top: 0.35rem;
+		left: 0.35rem;
+		width: 0.95rem;
+		height: 0.95rem;
+		border: 1.5px solid color-mix(in srgb, var(--muted) 70%, var(--border));
+		border-radius: 3px;
+		background: var(--surface);
+	}
+
+	.icon-item.selected .check,
+	.file-select[aria-pressed='true'] .check {
+		border-color: var(--danger);
+		background: var(--danger);
+		box-shadow: inset 0 0 0 2px var(--surface);
 	}
 
 	.icon-grid {
@@ -659,12 +813,13 @@
 	}
 
 	.icon-item {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 0.3rem;
+		gap: 0.25rem;
 		width: 100%;
-		padding: 0.7rem 0.4rem 0.55rem;
+		padding: 0.35rem 0.25rem 0.4rem;
 		border: 1px solid transparent;
 		border-radius: 10px;
 		background: transparent;
@@ -678,6 +833,11 @@
 		background: color-mix(in srgb, var(--border) 28%, transparent);
 		border-color: color-mix(in srgb, var(--border) 70%, transparent);
 		outline: none;
+	}
+
+	.icon-item.selected {
+		background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+		border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
 	}
 
 	.icon-item:disabled {
@@ -721,10 +881,41 @@
 		gap: 0.65rem;
 		padding: 0.55rem 0.35rem;
 		border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+		border-radius: 8px;
 	}
 
 	.file-row:last-child {
 		border-bottom: none;
+	}
+
+	.file-row.selected {
+		background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+	}
+
+	.file-select {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
+		width: 100%;
+		padding: 0;
+		border: none;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+		position: relative;
+	}
+
+	.file-select:focus-visible {
+		outline: 2px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+		outline-offset: 2px;
+		border-radius: 6px;
+	}
+
+	.file-select .check {
+		position: static;
+		flex-shrink: 0;
 	}
 
 	.file-icon {
