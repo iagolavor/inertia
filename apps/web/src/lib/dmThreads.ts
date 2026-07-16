@@ -176,11 +176,17 @@ export function deliveryTickState(
   return null;
 }
 
-export function messageTtlLabel(expiresAt: string): string {
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  if (ms <= 0) return 'expired';
-  const days = Math.ceil(ms / 86_400_000);
-  return days <= 1 ? '<1d left' : `${days}d left`;
+/**
+ * Remaining lifetime when under 24h (same units as feed: `11h left` / `20m left`).
+ * Null when plenty of time left so chat/thread UI stays quiet most of the week.
+ */
+export function messageTtlLabel(expiresAt: string): string | null {
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  if (diff <= 0) return 'expired';
+  const hours = Math.floor(diff / 3_600_000);
+  if (hours >= 24) return null;
+  if (hours < 1) return `${Math.max(1, Math.floor(diff / 60_000))}m left`;
+  return `${hours}h left`;
 }
 
 const PENDING_MESSAGE_PREFIX = 'pending-';
