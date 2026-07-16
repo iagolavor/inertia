@@ -7,7 +7,6 @@
   import {
     countUnreadDmMessages,
     ensureDmUnreadBaseline,
-    formatUnreadBadge,
     subscribeDmUnread
   } from '$lib/dm-unread';
   import { identityState } from '$lib/identity.svelte';
@@ -55,7 +54,6 @@
     if (!inboxSnapshot) return 0;
     return countUnreadDmMessages(inboxSnapshot.inbox);
   });
-  const messagesBadge = $derived(formatUnreadBadge(messagesUnread));
 
   function closeMore() {
     moreOpen = false;
@@ -127,8 +125,8 @@
           }
         >
           {tab.label}
-          {#if isMessages && messagesBadge}
-            <span class="tab-count">{messagesBadge}</span>
+          {#if isMessages && messagesUnread > 0}
+            <span class="tab-dot" aria-hidden="true"></span>
           {/if}
         </a>
       {/each}
@@ -248,10 +246,10 @@
   }
 
   .primary-tabs a {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.3rem;
     padding: 0.3rem 0.75rem;
     border-radius: 7px;
     font-size: var(--font-size-sm);
@@ -275,19 +273,17 @@
     color: var(--text);
   }
 
-  .tab-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.15rem;
-    height: 1.15rem;
-    padding: 0 0.28rem;
-    border-radius: 999px;
+  /* Minimal unread cue; count stays in aria-label / Messages list. */
+  .tab-dot {
+    position: absolute;
+    top: 0.2rem;
+    right: 0.28rem;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
     background: var(--accent);
-    color: var(--btn-on-accent, #fff);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-bold);
-    line-height: 1;
+    box-shadow: 0 0 0 1.5px var(--surface);
+    pointer-events: none;
   }
 
   .header-end {

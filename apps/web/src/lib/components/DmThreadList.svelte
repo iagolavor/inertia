@@ -66,7 +66,10 @@
         </p>
       </div>
       {#if thread.lastMessage}
-        <span class="ttl-chip">{messageTtlLabel(thread.lastMessage.expires_at)}</span>
+        {@const ttl = messageTtlLabel(thread.lastMessage.expires_at)}
+        {#if ttl}
+          <span class="ttl-chip">{ttl}</span>
+        {/if}
       {/if}
     </button>
   </li>
