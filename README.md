@@ -75,7 +75,7 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 </td>
 <td width="50%" valign="top" align="center">
 <img src="docs/screenshots/friend-profile-files.jpg" alt="Friend profile Files while online" width="100%" /><br />
-<em>Their files</em> - folders they shared; download over a direct path
+<em>Their files</em> - folders they shared; download over a DCUtR hole punching
 </td>
 </tr>
 </table>
