@@ -397,7 +397,7 @@
           </ProfileHeader>
         {/if}
         <div class="btn-row" style="margin-top: 1.25rem;">
-          <button class="btn btn-block" onclick={() => enterApp('/friends')}>Open messages</button>
+          <button class="btn btn-block" onclick={() => enterApp('/messages')}>Open messages</button>
           <button class="btn btn-secondary btn-block" onclick={() => enterApp('/')}>
             Go to feed
           </button>
@@ -475,7 +475,7 @@
       {:else}
         <h2 class="panel-title">Ready to invite</h2>
         <p class="muted panel-lead">
-          Generate a one-time link from Add friend and share it over SMS or in person. Stay online
+          Generate a one-time link from Connections and share it over SMS or in person. Stay online
           while they accept.
         </p>
         {#if relayOk}
@@ -490,7 +490,7 @@
           </p>
         {/if}
         <div class="btn-row" style="margin-top: 1.25rem;">
-          <button class="btn btn-block" onclick={() => enterApp('/friends/add')}>
+          <button class="btn btn-block" onclick={() => enterApp('/connections')}>
             Invite a friend
           </button>
           <button class="btn btn-secondary btn-block" onclick={() => enterApp('/')}>

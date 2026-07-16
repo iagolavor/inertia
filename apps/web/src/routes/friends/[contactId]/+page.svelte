@@ -209,11 +209,11 @@
 {#if loading}
   <p class="empty">Loading…</p>
 {:else if !displayContact}
-  <a class="chat-back-link" href="/friends">← Messages</a>
+  <a class="chat-back-link" href="/messages">← Messages</a>
   <p class="error">Friend not found.</p>
 {:else}
   <div class="chat-fill">
-  <a class="chat-back-link" href="/friends">← Messages</a>
+  <a class="chat-back-link" href="/messages">← Messages</a>
 
   <FriendPresenceHeader
     contact={displayContact}
