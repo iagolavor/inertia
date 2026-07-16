@@ -49,6 +49,19 @@ impl Engine {
         Ok(PublishPhotoResult { photo, content_id })
     }
 
+    pub async fn delete_profile_photo(&self, item_id: &str) -> CoreResult<()> {
+        let removed = self
+            .store
+            .with_mut(|store| store.delete_profile_item(item_id))
+            .await?;
+        if !removed {
+            return Err(CoreError::ContentNotFound(format!(
+                "profile photo {item_id}"
+            )));
+        }
+        Ok(())
+    }
+
     async fn insert_profile_item_record(
         &self,
         blob_hash: String,

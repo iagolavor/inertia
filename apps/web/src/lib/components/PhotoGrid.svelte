@@ -23,9 +23,13 @@
 		selectedPostLoading?: boolean;
 		/** When set, comments use profile-item APIs against this contact (friend profile). */
 		ownerContactId?: string | null;
+		/** Owner Posts tab: select cells for delete instead of expanding. */
+		deleteMode?: boolean;
+		selectedDeleteIds?: Set<string>;
 		onuploaded?: () => void;
 		onselect?: (itemId: string | null) => void;
 		oncomment?: () => void;
+		ontoggledelete?: (itemId: string) => void;
 	}
 
 	let {
@@ -40,9 +44,12 @@
 		selectedPost = null,
 		selectedPostLoading = false,
 		ownerContactId = null,
+		deleteMode = false,
+		selectedDeleteIds = new Set<string>(),
 		onuploaded,
 		onselect,
-		oncomment
+		oncomment,
+		ontoggledelete
 	}: Props = $props();
 
 	const urlFor = (hash: string) => (photoUrl ? photoUrl(hash) : blobUrl(hash));
@@ -153,6 +160,10 @@
 
 	function togglePhoto(photo: ProfilePhoto) {
 		if (disabled) return;
+		if (deleteMode) {
+			ontoggledelete?.(photo.id);
+			return;
+		}
 		if (selectedItemId === photo.id) {
 			onselect?.(null);
 			return;
@@ -189,9 +200,13 @@
 		<p class="empty-grid muted">{emptyLabel}</p>
 	{/if}
 
-	<div class="photo-grid" class:has-selection={selectedItemId != null}>
+	<div
+		class="photo-grid"
+		class:has-selection={selectedItemId != null && !deleteMode}
+		class:delete-mode={deleteMode}
+	>
 		{#each displayCells as cell (cellKey(cell))}
-			{#if cell.kind === 'expand'}
+			{#if cell.kind === 'expand' && !deleteMode}
 				<div class="expand-cell" bind:this={expandEl} style={gridCellStyle(cell)}>
 					<ProfilePostExpand
 						post={selectedPost}
@@ -203,15 +218,21 @@
 						oncomment={oncomment}
 					/>
 				</div>
-			{:else}
+			{:else if cell.kind !== 'expand'}
+				{@const marked = selectedDeleteIds.has(cell.photo.id)}
 				<button
 					type="button"
 					class="photo-cell photo-btn"
+					class:marked={deleteMode && marked}
 					style={gridCellStyle(cell)}
 					onclick={() => togglePhoto(cell.photo)}
 					disabled={disabled}
-					aria-label={cell.photo.caption ?? 'Open photo'}
-					aria-pressed={selectedItemId === cell.photo.id}
+					aria-label={deleteMode
+						? marked
+							? `Deselect ${cell.photo.caption ?? 'photo'}`
+							: `Select ${cell.photo.caption ?? 'photo'} for delete`
+						: (cell.photo.caption ?? 'Open photo')}
+					aria-pressed={deleteMode ? marked : selectedItemId === cell.photo.id}
 				>
 					{#if friendPhotoReady(cell.photo.blob_hash)}
 						{#key cell.photo.blob_hash}
@@ -224,6 +245,9 @@
 						{/key}
 					{:else}
 						<span class="photo-placeholder" aria-hidden="true"></span>
+					{/if}
+					{#if deleteMode && marked}
+						<span class="mark" aria-hidden="true">✓</span>
 					{/if}
 				</button>
 			{/if}
@@ -317,11 +341,34 @@
 	}
 
 	.photo-cell {
+		position: relative;
 		aspect-ratio: 1;
 		overflow: hidden;
 		background: var(--bg);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm, 6px);
+	}
+
+	.photo-grid.delete-mode .photo-cell.marked {
+		outline: 2px solid var(--danger);
+		outline-offset: -2px;
+	}
+
+	.photo-cell .mark {
+		position: absolute;
+		top: 0.35rem;
+		right: 0.35rem;
+		width: 1.25rem;
+		height: 1.25rem;
+		border-radius: 999px;
+		background: var(--danger);
+		color: #fff;
+		font-size: 0.7rem;
+		font-weight: 700;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 1;
 	}
 
 	.expand-cell {

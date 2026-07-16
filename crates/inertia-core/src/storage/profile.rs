@@ -171,4 +171,56 @@ impl Store {
         )?;
         Ok(())
     }
+
+    /// Remove a durable profile item, its comments, and the legacy photos mirror row.
+    /// Linked ephemeral `local_posts` (feed announcement) are removed when still present.
+    /// Blob files are left for orphan GC.
+    pub fn delete_profile_item(&self, item_id: &str) -> CoreResult<bool> {
+        let item = match self.get_profile_item(item_id)? {
+            Some(item) => item,
+            None => {
+                // Legacy-only row (pre-migration).
+                let mut stmt = self.conn.prepare(
+                    "SELECT id, blob_hash, caption, content_id, sort_order, created_at
+                     FROM profile_photos WHERE id = ?1",
+                )?;
+                let mut rows = stmt.query(params![item_id])?;
+                let Some(row) = rows.next()? else {
+                    return Ok(false);
+                };
+                ProfilePhoto {
+                    id: row.get("id")?,
+                    blob_hash: row.get("blob_hash")?,
+                    caption: row.get("caption")?,
+                    content_id: row.get("content_id")?,
+                    sort_order: row.get("sort_order")?,
+                    created_at: DateTime::parse_from_rfc3339(
+                        &row.get::<_, String>("created_at")?,
+                    )
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                }
+            }
+        };
+
+        self.conn.execute(
+            "DELETE FROM profile_comments WHERE profile_item_id = ?1",
+            params![item_id],
+        )?;
+        self.conn.execute(
+            "DELETE FROM profile_items WHERE id = ?1",
+            params![item_id],
+        )?;
+        self.conn.execute(
+            "DELETE FROM profile_photos WHERE id = ?1",
+            params![item_id],
+        )?;
+        if let Some(content_id) = item.content_id.as_deref() {
+            let _ = self.conn.execute(
+                "DELETE FROM local_posts WHERE content_id = ?1",
+                params![content_id],
+            );
+        }
+        Ok(true)
+    }
 }

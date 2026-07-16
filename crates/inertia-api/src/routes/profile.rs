@@ -1,6 +1,6 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::get;
+use axum::routing::{delete, get};
 use axum::{Json, Router};
 use inertia_core::{ProfileComment, ProfilePhoto, PublishPhotoResult};
 
@@ -15,6 +15,7 @@ pub fn routes() -> Router<AppState> {
             "/profile/photos",
             get(list_profile_photos).post(upload_profile_photo),
         )
+        .route("/profile/photos/:item_id", delete(delete_profile_photo))
         .route(
             "/profile/items/:item_id/comments",
             get(list_own_profile_comments).post(add_own_profile_comment),
@@ -45,6 +46,18 @@ async fn upload_profile_photo(
         .publish_profile_photo(&data, body.caption.as_deref())
         .await
         .map(Json)
+        .map_err(api_err)
+}
+
+async fn delete_profile_photo(
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    let engine = state.engine.lock().await;
+    engine
+        .delete_profile_photo(&item_id)
+        .await
+        .map(|_| StatusCode::NO_CONTENT)
         .map_err(api_err)
 }
 
