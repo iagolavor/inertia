@@ -20,6 +20,16 @@
 
 ---
 
+<p align="center">
+  <video src="docs/screenshots/demo.webm" width="720" autoplay muted loop playsinline>
+    <a href="docs/screenshots/demo.webm">Inertia demo video</a>
+  </video>
+</p>
+
+<p align="center"><em>Quick tour</em> - Feed, Messages, Connections, Profile Posts and Files, Settings</p>
+
+---
+
 ## Overview
 
 **Inertia** is a small, chronological social app for a closed circle of friends. Each person runs the stack on their own machine: a Rust API, embedded database, and libp2p networking. Posts and messages expire after seven days unless you keep a local archive.
@@ -51,15 +61,21 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="docs/screenshots/profile.jpg" alt="Inertia Profile" width="100%" /><br />
-<em>Profile</em> - durable photo grid on your device
+<img src="docs/screenshots/profile-posts.jpg" alt="Inertia Profile Posts tab" width="100%" /><br />
+<em>Profile Posts</em> - durable photo grid on your device
 </td>
 <td width="50%" valign="top" align="center">
-<img src="docs/screenshots/settings.jpg" alt="Inertia Settings" width="100%" /><br />
-<em>Settings</em> - theme, feed history, and backups
+<img src="docs/screenshots/profile-files.jpg" alt="Inertia Profile Files tab" width="100%" /><br />
+<em>Profile Files</em> - shared folders friends can pull when online
 </td>
 </tr>
 </table>
+
+<p align="center">
+  <img src="docs/screenshots/settings.jpg" alt="Inertia Settings" width="480" />
+</p>
+
+<p align="center"><em>Settings</em> - theme, feed history, and backups</p>
 
 ---
 
