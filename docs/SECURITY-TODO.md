@@ -31,7 +31,7 @@ Until those gates pass, focus stays on delivery and correctness.
 ## Blobs and media
 
 - [x] **Blob fetch authorization** - serve profile/archive/feed/inbox hashes only to known contacts (`peer_is_known_contact` + `blob_is_servable` / `chunk_root_is_servable` in P2P handlers). Archive peer downloads additionally require DCUtR/direct (no relay bulk); see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md).
-- [ ] **Orphan blob GC** - Phase 6; limit disk growth from abandoned or never-referenced blobs. Must call `Store::durable_blob_refs()` so profile items, shared folders, and avatars are never deleted when feed copies expire.
+- [ ] **Orphan blob GC** - Phase 7; limit disk growth from abandoned or never-referenced blobs. Must call `Store::durable_blob_refs()` so profile items, shared folders, and avatars are never deleted when feed copies expire.
 
 ## Metadata and ops
 
