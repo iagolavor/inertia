@@ -69,7 +69,7 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 3. **Release** - Play signing, optional APK in CI (Windows zip only today)
 4. **Optional** - `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
 
-**Done recently:** header **P2pStatus** tap panel via reusable `TipPanel` (touch-friendly; replaces hover-only `title`).
+**Done recently:** header **P2pStatus** tap-to-open details panel (touch-friendly), with hover `title` kept for desktop.
 
 ### What not to do on mobile
 

@@ -145,7 +145,7 @@ Both stages use `http://127.0.0.1:4783` on-device (Stage B) or via reverse (Stag
 
 ### Known rough edges
 
-- [x] Header **P2pStatus** tap panel (`TipPanel`) for touch / mobile status details
+- [x] Header **P2pStatus** tap panel for touch / mobile status details (hover title still works on desktop)
 - [ ] **Invite preview** shows red offline dot on inviter avatar (`ProfileHeader` default) — misleading
 - [ ] **Stage A** (`adb reverse` + PC API) — supported but not re-smoked recently
 - [ ] **arm64 only** — no x86 emulator ABI in `android:api:build`

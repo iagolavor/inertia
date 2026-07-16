@@ -1,6 +1,5 @@
 <script lang="ts">
   import StatusDot from './StatusDot.svelte';
-  import TipPanel from './TipPanel.svelte';
   import type { P2pStatus as P2pStatusInfo } from '$lib/api';
   import { formatActivityLine, presencePulseActive } from '$lib/presence.svelte';
 
@@ -11,6 +10,9 @@
   }
 
   let { status, loading = false, compact = false }: Props = $props();
+
+  let open = $state(false);
+  let root: HTMLDivElement | null = $state(null);
 
   const tone = $derived(loading ? 'loading' : (status?.tone ?? 'off'));
 
@@ -26,83 +28,152 @@
     return `P2P: ${status.labels.headline}`;
   });
 
+  const hoverTitle = $derived.by(() => {
+    if (loading || !status) return 'Checking P2P connection…';
+    return [
+      status.labels.headline,
+      '',
+      status.labels.node,
+      status.labels.relay,
+      status.labels.friends,
+      status.labels.sync
+    ].join('\n');
+  });
+
   const dotOnline = $derived(
     tone === 'online' || tone === 'idle' || tone === 'warn' || tone === 'loading'
   );
 
   const showPulse = $derived(!loading && (presencePulseActive() || tone === 'warn'));
+
+  function toggle() {
+    open = !open;
+  }
+
+  function close() {
+    open = false;
+  }
+
+  function onKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && open) {
+      e.stopPropagation();
+      close();
+    }
+  }
+
+  $effect(() => {
+    if (typeof document === 'undefined' || !open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && root && !root.contains(target)) close();
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  });
 </script>
 
-<TipPanel label={summaryLabel} align="end">
-  {#snippet trigger()}
-    <span
-      class="p2p-status"
-      class:compact
-      class:is-online={tone === 'online' && !loading}
-      class:is-idle={tone === 'idle' && !loading}
-      class:is-warn={(tone === 'warn' || showPulse) && !loading}
-      class:is-offline={(tone === 'off' || tone === 'error') && !loading}
-      class:is-loading={loading}
-      class:is-pulse={showPulse}
-    >
-      <StatusDot
-        online={dotOnline}
-        {loading}
-        pulse={showPulse && !loading}
-        size={compact ? 8 : 9}
-      />
-      <span class="label">{displayLabel}</span>
-    </span>
-  {/snippet}
+<svelte:window onkeydown={onKeydown} />
 
-  <div class="panel-body">
-    {#if loading || !status}
-      <p class="panel-title">Checking P2P…</p>
-    {:else}
-      <p class="panel-title">{status.labels.headline}</p>
-      <ul class="status-layers" aria-label="Connection status">
-        <li><span class="layer-key">Node</span> {status.labels.node}</li>
-        <li>
-          <span class="layer-key">Relay</span>
-          {status.labels.relay.replace(/^Relay: /, '')}
-        </li>
-        <li>
-          <span class="layer-key">Friends</span>
-          {status.labels.friends.replace(/^Friends: /, '')}
-        </li>
-        <li>
-          <span class="layer-key">Outbox</span>
-          {status.labels.sync.replace(/^Outbox: /, '')}
-        </li>
-      </ul>
-      {#if activityLines.length > 0 && status.running}
-        <ul class="activity-strip" aria-live="polite">
-          {#each activityLines as line}
-            <li>{line}</li>
-          {/each}
+<div class="p2p-wrap" bind:this={root}>
+  <button
+    type="button"
+    class="p2p-status"
+    class:compact
+    class:is-online={tone === 'online' && !loading}
+    class:is-idle={tone === 'idle' && !loading}
+    class:is-warn={(tone === 'warn' || showPulse) && !loading}
+    class:is-offline={(tone === 'off' || tone === 'error') && !loading}
+    class:is-loading={loading}
+    class:is-pulse={showPulse}
+    class:is-open={open}
+    title={open ? undefined : hoverTitle}
+    aria-label={summaryLabel}
+    aria-expanded={open}
+    aria-haspopup="dialog"
+    onclick={toggle}
+  >
+    <StatusDot
+      online={dotOnline}
+      {loading}
+      pulse={showPulse && !loading}
+      size={compact ? 8 : 9}
+    />
+    <span class="label">{displayLabel}</span>
+  </button>
+
+  {#if open}
+    <div class="tip-panel" role="dialog" aria-label={summaryLabel}>
+      {#if loading || !status}
+        <p class="panel-title">Checking P2P…</p>
+      {:else}
+        <p class="panel-title">{status.labels.headline}</p>
+        <ul class="status-layers" aria-label="Connection status">
+          <li><span class="layer-key">Node</span> {status.labels.node}</li>
+          <li>
+            <span class="layer-key">Relay</span>
+            {status.labels.relay.replace(/^Relay: /, '')}
+          </li>
+          <li>
+            <span class="layer-key">Friends</span>
+            {status.labels.friends.replace(/^Friends: /, '')}
+          </li>
+          <li>
+            <span class="layer-key">Outbox</span>
+            {status.labels.sync.replace(/^Outbox: /, '')}
+          </li>
         </ul>
+        {#if activityLines.length > 0 && status.running}
+          <ul class="activity-strip" aria-live="polite">
+            {#each activityLines as line}
+              <li>{line}</li>
+            {/each}
+          </ul>
+        {/if}
       {/if}
-    {/if}
-  </div>
-</TipPanel>
+    </div>
+  {/if}
+</div>
 
 <style>
+  .p2p-wrap {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
   .p2p-status {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
+    margin: 0;
     padding: 0.35rem 0.65rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: transparent;
     color: var(--text);
+    font: inherit;
     font-size: 0.8rem;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
     flex-shrink: 0;
-    transition: border-color 0.25s ease;
+    cursor: pointer;
+    transition:
+      border-color 0.25s ease,
+      background 0.15s ease;
+  }
+
+  .p2p-status:hover,
+  .p2p-status.is-open {
+    background: color-mix(in srgb, var(--border) 28%, transparent);
+  }
+
+  .p2p-status:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+    outline-offset: 2px;
   }
 
   .p2p-status.is-pulse {
@@ -160,7 +231,20 @@
     color: var(--danger);
   }
 
-  .panel-body {
+  .tip-panel {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    right: 0;
+    z-index: 40;
+    min-width: 14.5rem;
+    max-width: min(20rem, calc(100vw - 1.5rem));
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 8px 24px color-mix(in srgb, #000 18%, transparent);
+    color: var(--text);
+    text-align: left;
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
