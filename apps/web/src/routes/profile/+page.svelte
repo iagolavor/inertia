@@ -57,6 +57,47 @@
 
   let profileTab = $state<'posts' | 'files'>('posts');
 
+  let postsDeleteMode = $state(false);
+  let postsDeleteIds = $state<Set<string>>(new Set());
+  let postsDeleting = $state(false);
+
+  function exitPostsDeleteMode() {
+    postsDeleteMode = false;
+    postsDeleteIds = new Set();
+    postsDeleting = false;
+  }
+
+  function enterPostsDeleteMode() {
+    if (!identityState.apiOnline || photos.length === 0) return;
+    selectItem(null);
+    postsDeleteMode = true;
+    postsDeleteIds = new Set();
+  }
+
+  function togglePostsDeleteId(itemId: string) {
+    const next = new Set(postsDeleteIds);
+    if (next.has(itemId)) next.delete(itemId);
+    else next.add(itemId);
+    postsDeleteIds = next;
+  }
+
+  async function confirmPostsDelete() {
+    if (!postsDeleteMode || postsDeleting || postsDeleteIds.size === 0) return;
+    const ids = [...postsDeleteIds];
+    postsDeleting = true;
+    error = '';
+    try {
+      for (const id of ids) {
+        await api.deleteProfilePhoto(id);
+      }
+      exitPostsDeleteMode();
+      await reloadPhotos();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to delete posts';
+      postsDeleting = false;
+    }
+  }
+
 
 
   function photoUrl(hash: string) {
@@ -377,7 +418,10 @@
         class="grid-tab"
         class:active={profileTab === 'files'}
         aria-current={profileTab === 'files' ? 'page' : undefined}
-        onclick={() => (profileTab = 'files')}
+        onclick={() => {
+          exitPostsDeleteMode();
+          profileTab = 'files';
+        }}
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -400,13 +444,45 @@
       <header class="panel-chrome">
         <span class="panel-title">Posts</span>
         {#if identityState.apiOnline}
-          <button
-            type="button"
-            class="panel-tool"
-            onclick={() => photoGrid?.openPhotoPicker()}
-          >
-            Add photo
-          </button>
+          <div class="panel-tools">
+            {#if postsDeleteMode}
+              <button
+                type="button"
+                class="panel-tool danger"
+                disabled={postsDeleting || postsDeleteIds.size === 0}
+                onclick={() => void confirmPostsDelete()}
+              >
+                Confirm delete{postsDeleteIds.size > 0 ? ` (${postsDeleteIds.size})` : ''}
+              </button>
+              <button
+                type="button"
+                class="panel-tool ghost"
+                disabled={postsDeleting}
+                onclick={exitPostsDeleteMode}
+              >
+                Cancel
+              </button>
+            {:else}
+              <button
+                type="button"
+                class="panel-tool"
+                disabled={postsDeleting}
+                onclick={() => photoGrid?.openPhotoPicker()}
+              >
+                Add photo
+              </button>
+              {#if photos.length > 0}
+                <button
+                  type="button"
+                  class="panel-tool ghost danger"
+                  disabled={postsDeleting}
+                  onclick={enterPostsDeleteMode}
+                >
+                  Delete
+                </button>
+              {/if}
+            {/if}
+          </div>
         {/if}
       </header>
       <div class="panel-body">
@@ -414,15 +490,18 @@
           bind:this={photoGrid}
           {photos}
           photoUrl={photoUrl}
-          disabled={!identityState.apiOnline}
+          disabled={!identityState.apiOnline || postsDeleting}
           authorId={identityState.identity.signing_pubkey}
           authorName={identityState.identity.display_name}
-          selectedItemId={selectedItemId}
+          selectedItemId={postsDeleteMode ? null : selectedItemId}
           {selectedPost}
           selectedPostLoading={selectedPostLoading}
+          deleteMode={postsDeleteMode}
+          selectedDeleteIds={postsDeleteIds}
           onuploaded={reloadPhotos}
           onselect={selectItem}
           oncomment={onCommentAdded}
+          ontoggledelete={togglePostsDeleteId}
         />
       </div>
     </div>
@@ -683,6 +762,13 @@
     color: var(--text);
   }
 
+  .panel-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
   .panel-tool {
     padding: 0.3rem 0.65rem;
     border: 1px solid var(--border);
@@ -696,8 +782,26 @@
     white-space: nowrap;
   }
 
-  .panel-tool:hover {
+  .panel-tool:hover:not(:disabled) {
     background: color-mix(in srgb, var(--border) 22%, var(--surface));
+  }
+
+  .panel-tool:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .panel-tool.ghost {
+    background: transparent;
+  }
+
+  .panel-tool.danger {
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+  }
+
+  .panel-tool.danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 12%, var(--surface));
   }
 
   .panel-body {

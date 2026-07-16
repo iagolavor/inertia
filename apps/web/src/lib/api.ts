@@ -530,6 +530,10 @@ export const api = {
       },
       UPLOAD_TIMEOUT_MS
     ),
+  deleteProfilePhoto: (item_id: string) =>
+    request<void>(`/profile/photos/${encodeURIComponent(item_id)}`, {
+      method: 'DELETE'
+    }),
   fetchFriendProfile: (contactId: string) =>
     request<ProfileManifest>(`/contacts/${encodeURIComponent(contactId)}/profile`),
   fetchFriendBlob: (contactId: string, hash: string) =>
