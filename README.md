@@ -26,7 +26,7 @@
   </video>
 </p>
 
-<p align="center"><em>Quick tour</em> - Feed, Messages, open chat, Connections, Profile Posts and Files, Settings</p>
+<p align="center"><em>Quick tour</em> - Feed, Messages, Chat, Connections, Profile Posts and Files, Settings</p>
 
 ---
 
