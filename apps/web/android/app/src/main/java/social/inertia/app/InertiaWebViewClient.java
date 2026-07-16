@@ -12,8 +12,23 @@ import com.getcapacitor.BridgeWebViewClient;
  */
 public final class InertiaWebViewClient extends BridgeWebViewClient {
 
+    private final Runnable onPageReady;
+
     public InertiaWebViewClient(Bridge bridge) {
+        this(bridge, null);
+    }
+
+    public InertiaWebViewClient(Bridge bridge, Runnable onPageReady) {
         super(bridge);
+        this.onPageReady = onPageReady;
+    }
+
+    @Override
+    public void onPageFinished(WebView view, String url) {
+        super.onPageFinished(view, url);
+        if (onPageReady != null) {
+            onPageReady.run();
+        }
     }
 
     @Override

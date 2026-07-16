@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <!-- Force dark AppCompat (not DayNight) to avoid light flashes on ActionMode / IME. -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:colorBackground">@color/windowBackground</item>
         <item name="android:windowBackground">@color/windowBackground</item>
         <item name="android:statusBarColor">@color/windowBackground</item>
         <item name="android:navigationBarColor">@color/windowBackground</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="actionModeBackground">@color/windowBackground</item>
+        <item name="actionModeStyle">@style/InertiaActionMode</item>
+        <item name="android:forceDarkAllowed">false</item>
     </style>
 
     <style name="AppTheme.NoActionBar" parent="AppTheme">
@@ -16,8 +20,23 @@
         <item name="windowNoTitle">true</item>
     </style>
 
-
+    <!-- Splash only for the system splash API; postSplashScreenTheme returns to AppTheme. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/windowBackground</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <item name="android:windowBackground">@color/windowBackground</item>
+        <item name="android:statusBarColor">@color/windowBackground</item>
+        <item name="android:navigationBarColor">@color/windowBackground</item>
+    </style>
+
+    <style name="InertiaActionMode" parent="Widget.AppCompat.ActionMode">
+        <item name="background">@color/windowBackground</item>
+        <item name="titleTextStyle">@style/InertiaActionModeTitle</item>
+        <item name="subtitleTextStyle">@style/InertiaActionModeTitle</item>
+    </style>
+
+    <style name="InertiaActionModeTitle" parent="TextAppearance.AppCompat.Widget.ActionMode.Title">
+        <item name="android:textColor">#f0f0f0</item>
     </style>
 </resources>
