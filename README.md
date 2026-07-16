@@ -26,7 +26,7 @@
   </video>
 </p>
 
-<p align="center"><em>Quick tour</em> - Feed, Messages, Connections, Profile Posts and Files, Settings</p>
+<p align="center"><em>Quick tour</em> - Feed, Messages, open chat, Connections, Profile Posts and Files, Settings</p>
 
 ---
 
@@ -51,12 +51,22 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="docs/screenshots/messages.jpg" alt="Inertia Messages" width="100%" /><br />
+<img src="docs/screenshots/messages.jpg" alt="Inertia Messages thread list" width="100%" /><br />
 <em>Messages</em> - connected and reachable friends
 </td>
 <td width="50%" valign="top" align="center">
+<img src="docs/screenshots/messages-chat.jpg" alt="Inertia open conversation" width="100%" /><br />
+<em>Chat</em> - open a connection to send ephemeral DMs
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top" align="center">
 <img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="100%" /><br />
 <em>Connections</em> - invites and your closed circle
+</td>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/settings.jpg" alt="Inertia Settings" width="100%" /><br />
+<em>Settings</em> - theme, feed history, and backups
 </td>
 </tr>
 <tr>
@@ -70,12 +80,6 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 </td>
 </tr>
 </table>
-
-<p align="center">
-  <img src="docs/screenshots/settings.jpg" alt="Inertia Settings" width="480" />
-</p>
-
-<p align="center"><em>Settings</em> - theme, feed history, and backups</p>
 
 ---
 
