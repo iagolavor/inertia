@@ -20,16 +20,6 @@
 
 ---
 
-<p align="center">
-  <video src="docs/screenshots/demo.webm" width="720" autoplay muted loop playsinline>
-    <a href="docs/screenshots/demo.webm">Inertia demo video</a>
-  </video>
-</p>
-
-<p align="center"><em>Quick tour</em> - Feed, Messages, Chat, Connections, Profile Posts and Files, Settings</p>
-
----
-
 ## Overview
 
 **Inertia** is a small, chronological social app for a closed circle of friends. Each person runs the stack on their own machine: a Rust API, embedded database, and libp2p networking. Posts and messages expire after seven days unless you keep a local archive.
@@ -46,40 +36,36 @@ Identity is cryptographic. There is no signup server. You add friends with signe
   <img src="docs/screenshots/feed.jpg" alt="Inertia Feed with Online now rail" width="720" />
 </p>
 
-<p align="center"><em>Feed</em> - compose, chronological posts, and a live circle rail</p>
+<p align="center"><em>Feed</em> - your circle, in order, no algorithm</p>
 
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="docs/screenshots/messages.jpg" alt="Inertia Messages thread list" width="100%" /><br />
-<em>Messages</em> - connected and reachable friends
+<em>Messages</em> - friends who are connected or reachable
 </td>
 <td width="50%" valign="top" align="center">
 <img src="docs/screenshots/messages-chat.jpg" alt="Inertia open conversation" width="100%" /><br />
-<em>Chat</em> - open a connection to send ephemeral DMs
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top" align="center">
-<img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="100%" /><br />
-<em>Connections</em> - invites and your closed circle
-</td>
-<td width="50%" valign="top" align="center">
-<img src="docs/screenshots/settings.jpg" alt="Inertia Settings" width="100%" /><br />
-<em>Settings</em> - theme, feed history, and backups
+<em>Chat</em> - private DMs that expire in 7 days
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="docs/screenshots/profile-posts.jpg" alt="Inertia Profile Posts tab" width="100%" /><br />
-<em>Profile Posts</em> - durable photo grid on your device
+<em>Posts</em> - durable photo grid on your device
 </td>
 <td width="50%" valign="top" align="center">
 <img src="docs/screenshots/profile-files.jpg" alt="Inertia Profile Files tab" width="100%" /><br />
-<em>Profile Files</em> - shared folders friends can pull when online
+<em>Files</em> - folders stay local; friends pull when you are both online
 </td>
 </tr>
 </table>
+
+<p align="center">
+  <img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="720" />
+</p>
+
+<p align="center"><em>Connections</em> - signed invites for a closed circle, not a global network</p>
 
 ---
 
