@@ -12,7 +12,7 @@ import androidx.core.app.NotificationCompat;
 
 import java.io.IOException;
 
-/** Keeps bundled inertia-api alive while the app is backgrounded (Stage B). */
+/** Keeps bundled inertia-api alive while the app is backgrounded (on-device install). */
 public class InertiaApiService extends Service {
     private static final int NOTIFICATION_ID = 1;
     private static final String CHANNEL_ID = "inertia_api";

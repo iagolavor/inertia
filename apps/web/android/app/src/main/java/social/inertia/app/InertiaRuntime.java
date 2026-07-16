@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-/** Extracts and runs bundled inertia-api (Stage B — mirrors Windows zip layout). */
+/** Extracts and runs bundled inertia-api (on-device install - mirrors Windows zip layout). */
 public final class InertiaRuntime {
     private static final String ASSET_WEB_DIR = "inertia/web";
     private static final String ASSET_BUNDLE_ID = "inertia/web/bundle-id";
@@ -48,7 +48,7 @@ public final class InertiaRuntime {
         return UI_URL;
     }
 
-    /** Stage B API origin — keep in WebView; Capacitor otherwise opens Chrome. */
+    /** On-device API origin - keep in WebView; Capacitor otherwise opens Chrome. */
     public static boolean isInertiaApiUrl(Uri uri) {
         return uri != null
             && "http".equals(uri.getScheme())
@@ -197,7 +197,7 @@ public final class InertiaRuntime {
         }
         File binary = resolveApiBinary(context);
         if (binary == null) {
-            throw new IOException("Bundled API not packaged in this APK — run npm run android:stage-b and reinstall");
+            throw new IOException("Bundled API not packaged in this APK - run npm run android:install and reinstall");
         }
         ensureExtracted(context);
         File installDir = getInstallDir(context);
@@ -361,7 +361,7 @@ public final class InertiaRuntime {
         }
     }
 
-    /** Map inertia://, on-device http, or dev localhost invite links to the Stage B WebView URL. */
+    /** Map inertia://, on-device http, or dev localhost invite links to the on-device WebView URL. */
     public static String inviteIntentToUiUrl(Intent intent) {
         if (intent == null) {
             return null;

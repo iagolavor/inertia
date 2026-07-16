@@ -26,7 +26,7 @@
 
 Identity is cryptographic. There is no signup server. You add friends with signed invite links (and optional QR codes). When both sides are online, content travels peer-to-peer; an optional [VPS relay](crates/inertia-relay/README.md) you control helps with NAT.
 
-> **Status:** Usable alpha for a small circle. Web + Windows zip + Android Stage B work; desktop install UX and polish are the main gaps. Default branch is `development`.
+> **Status:** Usable alpha for a small circle. Web + Windows zip + Android install work; desktop install UX and polish are the main gaps. Default branch is `development`.
 
 ---
 
@@ -227,7 +227,7 @@ inertia/
 │   └── inertia-relay/      # optional VPS circuit relay
 ├── apps/web/               # SvelteKit PWA (shared UI)
 │   ├── src/                # routes, lib, sync modules, components
-│   └── android/            # Capacitor Stage B shell
+│   └── android/            # Capacitor Android shell (on-device API)
 ├── tools/inertia-lint/     # workspace lint helpers
 ├── docker/relay/           # Compose stack for inertia-relay
 ├── docs/                   # vision, design, Capacitor, live sync, screenshots
@@ -246,7 +246,7 @@ inertia/
 |-------|--------|
 | 0–4 | Core, P2P, Svelte UI, invites, feed, profile, backup, VPS relay (**done**) |
 | 4c | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) (**done**) |
-| 5 | Android Capacitor Stage B alpha (**shipped** in v0.10); iOS + mobile polish remain ([CAPACITOR.md](docs/CAPACITOR.md)) |
+| 5 | Android Capacitor on-device install (**shipped** in v0.10+); iOS + mobile polish remain ([CAPACITOR.md](docs/CAPACITOR.md)) |
 | 6 | **Next:** Tauri desktop shell + easier install path (one app window, less zip/`run.cmd` friction) |
 | 7 | Thumbnails, orphan blob GC |
 | 8 | Community relays (public list, optional host funding hints) |

@@ -27,7 +27,8 @@
   }: Props = $props();
 
   const uiMode = $derived(webUiMode());
-  const showWebAction = $derived(showWeb && uiMode === 'other');
+  const onDevice = $derived(Capacitor.isNativePlatform());
+  const showWebAction = $derived(showWeb && !onDevice && uiMode === 'other');
 
   let retrying = $state(false);
   let feedback = $state('');
@@ -44,9 +45,9 @@
     retrying = true;
     try {
       await refreshIdentity({ silent: true });
-      if (!identityState.apiOnline && Capacitor.isNativePlatform()) {
+      if (!identityState.apiOnline && onDevice) {
         flash(
-          'Still offline — run: adb reverse tcp:4783 tcp:4783 (API must be running on your PC), then Retry.'
+          'Still offline - force-stop and reopen the app, or rebuild with npm run android:install.'
         );
       }
     } finally {
@@ -93,27 +94,29 @@
     <button type="button" class="action primary" disabled={retrying} onclick={() => void retry()}>
       {retrying ? 'Checking…' : 'Retry'}
     </button>
-    <button type="button" class="action" onclick={() => void copyApi()} title={DEV_COMMANDS.apiRelease}>
-      Start API
-    </button>
-    {#if showWebAction}
+    {#if !onDevice}
+      <button type="button" class="action" onclick={() => void copyApi()} title={DEV_COMMANDS.apiRelease}>
+        Start API
+      </button>
+      {#if showWebAction}
+        <button
+          type="button"
+          class="action"
+          onclick={() => void copyWeb()}
+          title={suggestedWebCommand(uiMode)}
+        >
+          Start web
+        </button>
+      {/if}
       <button
         type="button"
-        class="action"
-        onclick={() => void copyWeb()}
-        title={suggestedWebCommand(uiMode)}
+        class="action subtle"
+        onclick={() => void copyApiWindow()}
+        title={DEV_COMMANDS.apiWindow}
       >
-        Start web
+        API window
       </button>
     {/if}
-    <button
-      type="button"
-      class="action subtle"
-      onclick={() => void copyApiWindow()}
-      title={DEV_COMMANDS.apiWindow}
-    >
-      API window
-    </button>
   </div>
 
   {#if feedback}
