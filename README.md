@@ -59,13 +59,17 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 <em>Files</em> - folders stay local; friends pull when you are both online
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="100%" /><br />
+<em>Connections</em> - signed invites for a closed circle
+</td>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/friend-profile.jpg" alt="Inertia friend profile while online" width="100%" /><br />
+<em>Friend profile</em> - browse their posts and files when both of you are online
+</td>
+</tr>
 </table>
-
-<p align="center">
-  <img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="720" />
-</p>
-
-<p align="center"><em>Connections</em> - signed invites for a closed circle, not a global network</p>
 
 ---
 
