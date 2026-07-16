@@ -67,7 +67,7 @@
       } else if (e instanceof ApiRequestError) {
         feedError = e.message;
       } else {
-        feedError = e instanceof Error ? e.message : 'Falha ao carregar feed';
+        feedError = e instanceof Error ? e.message : 'Failed to load feed';
       }
     } finally {
       feedLoading = false;
@@ -167,11 +167,11 @@
 
       <div class="feed-list">
         {#if feedLoading && feed.length === 0}
-          <p class="empty">A carregar feed…</p>
+          <p class="empty">Loading feed…</p>
         {:else if feedError}
           <p class="error">{feedError}</p>
         {:else if feed.length === 0}
-          <p class="empty">Ainda sem posts. Publica algo ou convida um amigo.</p>
+          <p class="empty">No posts yet. Share something or invite a friend.</p>
         {:else}
           {#each feed as post (post.content_id)}
             <PostCard

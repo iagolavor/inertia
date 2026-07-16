@@ -30,6 +30,39 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/feed.jpg" alt="Inertia Feed with Online now rail" width="720" />
+</p>
+
+<p align="center"><em>Feed</em> - compose, chronological posts, and a live circle rail</p>
+
+<table>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/messages.jpg" alt="Inertia Messages" width="100%" /><br />
+<em>Messages</em> - connected and reachable friends
+</td>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="100%" /><br />
+<em>Connections</em> - invites and your closed circle
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/profile.jpg" alt="Inertia Profile" width="100%" /><br />
+<em>Profile</em> - durable photo grid on your device
+</td>
+<td width="50%" valign="top" align="center">
+<img src="docs/screenshots/settings.jpg" alt="Inertia Settings" width="100%" /><br />
+<em>Settings</em> - theme, feed history, and backups
+</td>
+</tr>
+</table>
+
+---
+
 ## Get started
 
 <table>

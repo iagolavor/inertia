@@ -12,10 +12,10 @@
 
   const title = $derived(
     loading
-      ? 'A verificar ligação…'
+      ? 'Checking API…'
       : online
-        ? 'Clica para desligar o API bridge'
-        : 'API offline — use Start API in the banner, or click here to Retry'
+        ? 'Click to disconnect the API bridge'
+        : 'API offline - use Start API in the banner, or click here to Retry'
   );
   const label = $derived(loading ? 'API' : online ? 'API' : 'Off');
 </script>
