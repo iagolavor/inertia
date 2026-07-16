@@ -101,7 +101,7 @@
 <h1>Connections</h1>
 <p class="subtitle"><a href="/messages">← Back to messages</a> · Manage who you are connected to, or share an invite. No global directory.</p>
 
-<div class="card">
+<div class="card action-card">
   <h3>Invite someone</h3>
   <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem;">
     Each link works <strong>once</strong> and expires in <strong>15 minutes</strong>. Stay online with the app open while your friend accepts.
@@ -150,7 +150,7 @@
   {/if}
 </div>
 
-<div class="card">
+<div class="card action-card">
   <h3>Accept an invite</h3>
   <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem;">
     Use <strong>⋯ → Aceitar convite</strong> in the header - paste the invite code, Preview, then Accept.
@@ -211,6 +211,23 @@
 </section>
 
 <style>
+  .action-card {
+    padding: 0.75rem 1.25rem 1.1rem;
+  }
+
+  .action-card h3 {
+    margin: 0 0 0.45rem;
+    font-size: 1rem;
+  }
+
+  .action-card :global(.btn) {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 6px;
+    gap: 0.35rem;
+  }
+
   .invite-code {
     color: var(--muted);
     font-size: 0.8rem;
