@@ -23,7 +23,7 @@
 
   const moreLinks = [
     { href: '/connections', label: 'Connections' },
-    { href: '/invite', label: 'Aceitar convite' },
+    { href: '/invite', label: 'Accept invite' },
     { href: '/outbox', label: 'Outbox' }
   ];
 

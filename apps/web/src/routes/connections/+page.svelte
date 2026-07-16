@@ -106,7 +106,7 @@
   <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem;">
     Each link works <strong>once</strong> and expires in <strong>15 minutes</strong>. Stay online with the app open while your friend accepts.
     Send via SMS, iMessage, or show the QR in person.
-    On another phone: tap <strong>Copy for phone</strong>, open Inertia → <strong>Aceitar convite</strong>, paste, Preview. Do not tap the link in Messages.
+    On another phone: tap <strong>Copy for phone</strong>, open Inertia → <strong>Accept invite</strong>, paste, Preview. Do not tap the link in Messages.
   </p>
 
   {#if error}<p class="error">{error}</p>{/if}
@@ -153,11 +153,12 @@
 <div class="card action-card">
   <h3>Accept an invite</h3>
   <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem;">
-    Use <strong>⋯ → Aceitar convite</strong> in the header - paste the invite code, Preview, then Accept.
-    On another phone: tap <strong>Copy for phone</strong> above, then paste there (do not tap the link in Messages).
+    Use <strong>⋯ → Accept invite</strong> in the header, or open the accept page below. Paste the
+    invite code, Preview, then Accept. On another phone: tap <strong>Copy for phone</strong> above,
+    then paste there (do not tap the link in Messages).
   </p>
 
-  <a class="btn btn-secondary" href="/invite">Open accept invite page</a>
+  <a class="btn btn-secondary" href="/invite">Accept invite</a>
 </div>
 
 <section class="roster">

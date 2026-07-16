@@ -157,7 +157,7 @@ Both stages use `http://127.0.0.1:4783` on-device (Stage B) or via reverse (Stag
 2. Rebuild if UI or Rust changed: `npm run android:stage-b` (not bare `npx cap sync` from repo root — use `npm run android:sync`)
 3. Install from Android Studio or `npm run android:run`
 4. PC inviter: `npm run api:release`, relay connected + reservation active (Generate enabled), **Copy for phone** (payload only)
-5. Phone: **⋯ → Aceitar convite** → paste → Preview → Accept
+5. Phone: **⋯ → Accept invite** → paste → Preview → Accept
 
 Pick up polish from the **Resume next** list in [AGENTS.md](../AGENTS.md) (P2pStatus panel, invite avatar dot, Stage A smoke).
 
