@@ -12,7 +12,6 @@
   let { status, loading = false, compact = false }: Props = $props();
 
   let open = $state(false);
-  let root: HTMLDivElement | null = $state(null);
 
   const tone = $derived(loading ? 'loading' : (status?.tone ?? 'off'));
 
@@ -28,25 +27,15 @@
     return `P2P: ${status.labels.headline}`;
   });
 
-  const hoverTitle = $derived.by(() => {
-    if (loading || !status) return 'Checking P2P connection…';
-    return [
-      status.labels.headline,
-      '',
-      status.labels.node,
-      status.labels.relay,
-      status.labels.friends,
-      status.labels.sync
-    ].join('\n');
-  });
-
   const dotOnline = $derived(
     tone === 'online' || tone === 'idle' || tone === 'warn' || tone === 'loading'
   );
 
   const showPulse = $derived(!loading && (presencePulseActive() || tone === 'warn'));
 
-  function toggle() {
+  function toggle(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
     open = !open;
   }
 
@@ -61,22 +50,29 @@
     }
   }
 
+  // Defer outside-dismiss so the opening click cannot immediately close the panel.
   $effect(() => {
     if (typeof document === 'undefined' || !open) return;
 
     const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (target && root && !root.contains(target)) close();
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest('.p2p-wrap')) close();
     };
 
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
+    const timer = window.setTimeout(() => {
+      document.addEventListener('pointerdown', onPointerDown);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('pointerdown', onPointerDown);
+    };
   });
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="p2p-wrap" bind:this={root}>
+<div class="p2p-wrap">
   <button
     type="button"
     class="p2p-status"
@@ -88,7 +84,6 @@
     class:is-loading={loading}
     class:is-pulse={showPulse}
     class:is-open={open}
-    title={open ? undefined : hoverTitle}
     aria-label={summaryLabel}
     aria-expanded={open}
     aria-haspopup="dialog"
