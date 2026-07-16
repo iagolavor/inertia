@@ -176,9 +176,11 @@
             <li class="comment">
               <Avatar seed={comment.author_id} alt={comment.author_name} size={24} />
               <div class="comment-body">
-                <span class="comment-author">{comment.author_name}</span>
+                <div class="comment-meta">
+                  <span class="comment-author">{comment.author_name}</span>
+                  <span class="comment-time">{commentTimeAgo(comment.created_at)}</span>
+                </div>
                 <FormattedText text={comment.body} class="comment-text" />
-                <span class="comment-time">{commentTimeAgo(comment.created_at)}</span>
               </div>
             </li>
           {/each}
@@ -386,23 +388,30 @@
     flex: 1;
   }
 
+  .comment-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 24px;
+  }
+
   .comment-author {
     font-weight: 600;
     font-size: 0.82rem;
-    margin-right: 0.3rem;
-  }
-
-  :global(.comment-text) {
-    display: inline;
-    font-size: 0.88rem;
-    line-height: 1.4;
+    line-height: 1.2;
   }
 
   .comment-time {
-    display: block;
-    margin-top: 0.15rem;
     font-size: 0.7rem;
+    line-height: 1.2;
     color: var(--muted);
+  }
+
+  :global(.comment-text) {
+    display: block;
+    margin-top: 0.1rem;
+    font-size: 0.88rem;
+    line-height: 1.4;
   }
 
   .comment-composer {
@@ -417,10 +426,14 @@
     padding: 0.45rem 0.7rem;
     border: 1px solid var(--border);
     border-radius: 8px;
-    background: var(--bg);
+    background: var(--surface);
     color: var(--text);
     font: inherit;
     font-size: 0.85rem;
+  }
+
+  .comment-composer input::placeholder {
+    color: var(--muted);
   }
 
   .send-comment {
