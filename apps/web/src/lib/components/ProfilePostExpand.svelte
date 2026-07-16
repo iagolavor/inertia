@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { api, blobUrl, type FeedItem, type PostComment } from '$lib/api';
+	import { api, blobUrl, type FeedItem, type PostComment, type ProfileComment } from '$lib/api';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FormattedText from '$lib/components/FormattedText.svelte';
 	import VideoMedia from '$lib/components/VideoMedia.svelte';
@@ -16,6 +16,10 @@
 		authorId?: string;
 		authorName?: string;
 		showClose?: boolean;
+		/** Durable profile item id for profile comments (preferred over feed post comments). */
+		profileItemId?: string | null;
+		/** Friend contact id when viewing someone else's profile. */
+		ownerContactId?: string | null;
 		onclose?: () => void;
 		oncomment?: () => void;
 	}
@@ -32,11 +36,13 @@
 		authorId = '',
 		authorName = '',
 		showClose = true,
+		profileItemId = null,
+		ownerContactId = null,
 		onclose,
 		oncomment
 	}: Props = $props();
 
-	let comments = $state<PostComment[]>([]);
+	let comments = $state<Array<PostComment | ProfileComment>>([]);
 	let commentsLoading = $state(false);
 	let commentBody = $state('');
 	let posting = $state(false);
@@ -54,6 +60,7 @@
 					? blobUrl(post.media_ref)
 					: null
 	);
+	const useProfileComments = $derived(!!profileItemId);
 
 	$effect(() => {
 		if (draft || !post) {
@@ -62,14 +69,32 @@
 			error = '';
 			return;
 		}
-		void loadComments(post.content_id);
+		if (profileItemId) {
+			void loadProfileComments(profileItemId);
+		} else {
+			void loadFeedComments(post.content_id);
+		}
 	});
 
-	async function loadComments(postId: string) {
+	async function loadFeedComments(postId: string) {
 		commentsLoading = true;
 		error = '';
 		try {
 			comments = await api.listPostComments(postId);
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load comments';
+		} finally {
+			commentsLoading = false;
+		}
+	}
+
+	async function loadProfileComments(itemId: string) {
+		commentsLoading = true;
+		error = '';
+		try {
+			comments = ownerContactId
+				? await api.listFriendProfileComments(ownerContactId, itemId)
+				: await api.listOwnProfileComments(itemId);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load comments';
 		} finally {
@@ -82,8 +107,16 @@
 		posting = true;
 		error = '';
 		try {
-			const comment = await api.addPostComment(post.content_id, commentBody.trim());
-			comments = [...comments, comment];
+			const body = commentBody.trim();
+			if (useProfileComments && profileItemId) {
+				const comment = ownerContactId
+					? await api.addFriendProfileComment(ownerContactId, profileItemId, body)
+					: await api.addOwnProfileComment(profileItemId, body);
+				comments = [...comments, comment];
+			} else {
+				const comment = await api.addPostComment(post.content_id, body);
+				comments = [...comments, comment];
+			}
 			commentBody = '';
 			oncomment?.();
 		} catch (e) {

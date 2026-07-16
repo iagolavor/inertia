@@ -1,3 +1,4 @@
+mod archive;
 mod blobs;
 mod contacts;
 mod expiry;
@@ -23,9 +24,16 @@ use crate::state::AppState;
 const DEFAULT_BODY_LIMIT: usize = 8 * 1024 * 1024;
 /// Base64-encoded video + thumb for `POST /posts/video` (~50 MiB video + headroom).
 const VIDEO_POST_BODY_LIMIT: usize = 72 * 1024 * 1024;
+/// Legacy base64 shared-folder upload (chunked ingest has no product file cap).
+const ARCHIVE_BODY_LIMIT: usize = 72 * 1024 * 1024;
+/// Per-chunk raw PUT for archive ingest (matches core CHUNK_SIZE + small headroom).
+const ARCHIVE_CHUNK_BODY_LIMIT: usize = 1024 * 1024;
 
 pub fn router() -> Router<AppState> {
     let video_posts = posts::video_routes().layer(DefaultBodyLimit::max(VIDEO_POST_BODY_LIMIT));
+    let archive = archive::routes().layer(DefaultBodyLimit::max(ARCHIVE_BODY_LIMIT));
+    let archive_chunks =
+        archive::chunk_routes().layer(DefaultBodyLimit::max(ARCHIVE_CHUNK_BODY_LIMIT));
 
     Router::new()
         .merge(health::routes())
@@ -41,6 +49,8 @@ pub fn router() -> Router<AppState> {
         .merge(feed::routes())
         .merge(settings::routes())
         .merge(profile::routes())
+        .merge(archive_chunks)
+        .merge(archive)
         .merge(blobs::routes())
         .merge(p2p::routes())
         .merge(expiry::routes())

@@ -151,7 +151,9 @@ public final class InertiaRuntime {
         if (isExtractedWebCurrent(context, versionFile, webDir, expected)) {
             return;
         }
-        deleteRecursive(installDir);
+        // Replace packaged web only. data/ lives under installDir and must survive rebuilds.
+        deleteRecursive(webDir);
+        versionFile.delete();
         installDir.mkdirs();
         copyAssetTree(context, ASSET_WEB_DIR, webDir);
         writeUtf8(versionFile, expected);

@@ -11,6 +11,10 @@ use super::{FeedItem, Store};
 pub const CHUNK_SIZE: usize = 512 * 1024;
 pub const MAX_VIDEO_BYTES: usize = 50 * 1024 * 1024;
 pub const MAX_THUMB_BYTES: usize = 256 * 1024;
+/// Legacy single-shot base64 archive upload cap (chunked ingest has no product cap).
+pub const MAX_ARCHIVE_FILE_BYTES: usize = 50 * 1024 * 1024;
+/// Soft guidance for UI zip-in-browser warnings (not enforced server-side on chunked path).
+pub const ARCHIVE_ZIP_SOFT_WARN_BYTES: u64 = 200 * 1024 * 1024;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ManifestBody {
@@ -37,6 +41,17 @@ impl Store {
         self.conn.execute(
             "INSERT OR REPLACE INTO media_manifests (root_hash, manifest_json, expires_at)
              VALUES (?1, ?2, datetime('now', '+7 days'))",
+            rusqlite::params![manifest.root_hash, json],
+        )?;
+        Ok(())
+    }
+
+    /// Durable manifest for shared-folder files (no 7d expiry).
+    pub fn insert_manifest_durable(&self, manifest: &MediaManifest) -> CoreResult<()> {
+        let json = serde_json::to_string(manifest)?;
+        self.conn.execute(
+            "INSERT OR REPLACE INTO media_manifests (root_hash, manifest_json, expires_at)
+             VALUES (?1, ?2, '2099-01-01T00:00:00+00:00')",
             rusqlite::params![manifest.root_hash, json],
         )?;
         Ok(())
@@ -145,11 +160,48 @@ impl Store {
         thumb: &[u8],
         duration_ms: u32,
     ) -> CoreResult<MediaManifest> {
-        if video.len() > MAX_VIDEO_BYTES {
+        self.chunk_and_store_bytes(
+            video,
+            thumb,
+            MediaKind::Video,
+            "video/mp4",
+            duration_ms,
+            MAX_VIDEO_BYTES,
+        )
+    }
+
+    /// Chunk and store a shared-folder file (no inbox fan-out; pull on demand).
+    pub fn chunk_and_store_file(
+        &self,
+        data: &[u8],
+        thumb: &[u8],
+        mime: &str,
+        duration_ms: u32,
+    ) -> CoreResult<MediaManifest> {
+        self.chunk_and_store_bytes(
+            data,
+            thumb,
+            MediaKind::File,
+            mime,
+            duration_ms,
+            MAX_ARCHIVE_FILE_BYTES,
+        )
+    }
+
+    fn chunk_and_store_bytes(
+        &self,
+        data: &[u8],
+        thumb: &[u8],
+        kind: MediaKind,
+        mime: &str,
+        duration_ms: u32,
+        max_bytes: usize,
+    ) -> CoreResult<MediaManifest> {
+        if data.len() > max_bytes {
             return Err(CoreError::P2p(format!(
-                "video too large ({} bytes, max {})",
-                video.len(),
-                MAX_VIDEO_BYTES
+                "file too large ({} bytes, max {})",
+                data.len(),
+                max_bytes
             )));
         }
         if thumb.len() > MAX_THUMB_BYTES {
@@ -160,16 +212,20 @@ impl Store {
             )));
         }
 
-        let thumb_hash = self.store_blob(thumb)?;
+        let thumb_hash = if thumb.is_empty() {
+            String::new()
+        } else {
+            self.store_blob(thumb)?
+        };
         let mut chunk_hashes = Vec::new();
-        for chunk in video.chunks(CHUNK_SIZE) {
+        for chunk in data.chunks(CHUNK_SIZE) {
             chunk_hashes.push(encode_hex(Sha256::digest(chunk)));
         }
 
         let body = ManifestBody {
-            kind: MediaKind::Video,
-            mime: "video/mp4".into(),
-            total_bytes: video.len() as u64,
+            kind,
+            mime: mime.into(),
+            total_bytes: data.len() as u64,
             chunk_size: CHUNK_SIZE as u32,
             chunk_hashes: chunk_hashes.clone(),
             thumb_hash: thumb_hash.clone(),
@@ -178,7 +234,7 @@ impl Store {
         let root_hash = hash_manifest_body(&body);
         let manifest = MediaManifest {
             root_hash: root_hash.clone(),
-            kind: MediaKind::Video,
+            kind,
             mime: body.mime.clone(),
             total_bytes: body.total_bytes,
             chunk_size: body.chunk_size,
@@ -187,7 +243,7 @@ impl Store {
             duration_ms: body.duration_ms,
         };
 
-        for (i, chunk) in video.chunks(CHUNK_SIZE).enumerate() {
+        for (i, chunk) in data.chunks(CHUNK_SIZE).enumerate() {
             self.store_chunk_verified(&root_hash, i as u32, &chunk_hashes[i], chunk)?;
         }
         self.insert_manifest(&manifest)?;

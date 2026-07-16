@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { api, blobUrl, type FeedItem, type ProfilePhoto } from '$lib/api';
+	import Avatar from '$lib/components/Avatar.svelte';
 	import ProfilePostExpand from '$lib/components/ProfilePostExpand.svelte';
 	import { prepareImageForUpload } from '$lib/image';
 	import {
 		computeProfileGridLayout,
-		computeProfileGridLayoutAtIndex,
 		gridCellStyle,
 		sortProfileGridCells
 	} from '$lib/profile-grid-layout';
@@ -17,11 +17,14 @@
 		photoUrl?: (hash: string) => string;
 		authorId?: string;
 		authorName?: string;
-		selectedContentId?: string | null;
+		/** Selected durable profile item id (not feed content_id). */
+		selectedItemId?: string | null;
 		selectedPost?: FeedItem | null;
 		selectedPostLoading?: boolean;
+		/** When set, comments use profile-item APIs against this contact (friend profile). */
+		ownerContactId?: string | null;
 		onuploaded?: () => void;
-		onselect?: (contentId: string | null) => void;
+		onselect?: (itemId: string | null) => void;
 		oncomment?: () => void;
 	}
 
@@ -29,13 +32,14 @@
 		photos,
 		disabled = false,
 		readonly = false,
-		emptyLabel = 'No posts yet — add your first photo.',
+		emptyLabel = 'No photos yet. Add your first photo.',
 		photoUrl,
 		authorId = '',
 		authorName = '',
-		selectedContentId = null,
+		selectedItemId = null,
 		selectedPost = null,
 		selectedPostLoading = false,
+		ownerContactId = null,
 		onuploaded,
 		onselect,
 		oncomment
@@ -43,12 +47,43 @@
 
 	const urlFor = (hash: string) => (photoUrl ? photoUrl(hash) : blobUrl(hash));
 
-	const gridCells = $derived(
-		sortProfileGridCells(computeProfileGridLayout(photos, selectedContentId))
-	);
+	let blobReady = $state<Record<string, boolean>>({});
+	const pendingBlobFetches = new Map<string, Promise<boolean>>();
 
-	const previewGridCells = $derived(
-		sortProfileGridCells(computeProfileGridLayoutAtIndex(photos, photos.length))
+	async function ensureFriendBlob(hash: string): Promise<boolean> {
+		if (!ownerContactId || disabled) return true;
+		if (blobReady[hash]) return true;
+		const pending = pendingBlobFetches.get(hash);
+		if (pending) return pending;
+
+		const task = (async () => {
+			try {
+				await api.fetchFriendBlob(ownerContactId!, hash);
+				blobReady = { ...blobReady, [hash]: true };
+				return true;
+			} catch {
+				return false;
+			} finally {
+				pendingBlobFetches.delete(hash);
+			}
+		})();
+		pendingBlobFetches.set(hash, task);
+		return task;
+	}
+
+	function friendPhotoReady(hash: string): boolean {
+		return !ownerContactId || !!blobReady[hash];
+	}
+
+	$effect(() => {
+		if (!ownerContactId || disabled) return;
+		for (const photo of photos) {
+			void ensureFriendBlob(photo.blob_hash);
+		}
+	});
+
+	const gridCells = $derived(
+		sortProfileGridCells(computeProfileGridLayout(photos, selectedItemId))
 	);
 
 	let uploading = $state(false);
@@ -61,6 +96,15 @@
 	const pendingPreviewUrl = $derived(
 		pendingBase64 ? `data:image/jpeg;base64,${pendingBase64}` : null
 	);
+
+	$effect(() => {
+		if (!captionOpen) return;
+		const prev = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		return () => {
+			document.body.style.overflow = prev;
+		};
+	});
 
 	export function openPhotoPicker() {
 		if (uploading || disabled || readonly) return;
@@ -87,6 +131,7 @@
 		captionOpen = false;
 		pendingBase64 = null;
 		captionDraft = '';
+		error = '';
 	}
 
 	async function publishPhoto() {
@@ -107,25 +152,25 @@
 	}
 
 	function togglePhoto(photo: ProfilePhoto) {
-		if (!photo.content_id || disabled) return;
-		if (selectedContentId === photo.content_id) {
+		if (disabled) return;
+		if (selectedItemId === photo.id) {
 			onselect?.(null);
 			return;
 		}
-		onselect?.(photo.content_id);
+		onselect?.(photo.id);
 	}
 
 	let expandEl = $state<HTMLElement | null>(null);
 
 	$effect(() => {
-		if (!selectedContentId || !expandEl) return;
+		if (!selectedItemId || !expandEl) return;
 		queueMicrotask(() => {
 			expandEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		});
 	});
 
 	const displayCells = $derived.by(() => {
-		if (selectedContentId == null) return gridCells;
+		if (selectedItemId == null) return gridCells;
 		const expand = gridCells.find((cell) => cell.kind === 'expand');
 		if (!expand) return gridCells;
 		return [expand, ...gridCells.filter((cell) => cell.kind !== 'expand')];
@@ -140,16 +185,18 @@
 </script>
 
 <div class="photo-section">
-	{#if photos.length === 0 && !selectedContentId}
+	{#if photos.length === 0 && !selectedItemId}
 		<p class="empty-grid muted">{emptyLabel}</p>
 	{/if}
 
-	<div class="photo-grid" class:has-selection={selectedContentId != null}>
+	<div class="photo-grid" class:has-selection={selectedItemId != null}>
 		{#each displayCells as cell (cellKey(cell))}
 			{#if cell.kind === 'expand'}
 				<div class="expand-cell" bind:this={expandEl} style={gridCellStyle(cell)}>
 					<ProfilePostExpand
 						post={selectedPost}
+						profileItemId={selectedItemId}
+						{ownerContactId}
 						loading={selectedPostLoading}
 						{disabled}
 						onclose={() => onselect?.(null)}
@@ -162,11 +209,22 @@
 					class="photo-cell photo-btn"
 					style={gridCellStyle(cell)}
 					onclick={() => togglePhoto(cell.photo)}
-					disabled={!cell.photo.content_id || disabled}
-					aria-label={cell.photo.caption ?? 'Open post'}
-					aria-pressed={selectedContentId === cell.photo.content_id}
+					disabled={disabled}
+					aria-label={cell.photo.caption ?? 'Open photo'}
+					aria-pressed={selectedItemId === cell.photo.id}
 				>
-					<img src={urlFor(cell.photo.blob_hash)} alt={cell.photo.caption ?? 'Profile photo'} loading="lazy" />
+					{#if friendPhotoReady(cell.photo.blob_hash)}
+						{#key cell.photo.blob_hash}
+							<img
+								src={urlFor(cell.photo.blob_hash)}
+								alt={cell.photo.caption ?? 'Profile photo'}
+								loading={ownerContactId ? 'eager' : 'lazy'}
+								decoding="async"
+							/>
+						{/key}
+					{:else}
+						<span class="photo-placeholder" aria-hidden="true"></span>
+					{/if}
 				</button>
 			{/if}
 		{/each}
@@ -181,51 +239,54 @@
 		onchange={onFileSelect}
 	/>
 
-	{#if error}
+	{#if error && !captionOpen}
 		<p class="error">{error}</p>
 	{/if}
 </div>
 
 {#if captionOpen && pendingPreviewUrl && !readonly}
-	<div class="caption-backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && cancelCaption()}>
-		<div class="caption-modal" role="dialog" aria-modal="true" aria-labelledby="caption-title">
-			<h2 id="caption-title">New post</h2>
-			<p class="preview-label">Preview on your profile grid</p>
+	<div
+		class="new-post-overlay"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="caption-title"
+		onclick={(e) => e.target === e.currentTarget && cancelCaption()}
+	>
+		<div class="new-post-panel">
+			<header class="new-post-header">
+				<h2 id="caption-title">New post</h2>
+			</header>
 
-			<div class="preview-frame" aria-label="Expanded grid preview">
-				<div class="preview-grid has-selection">
-					{#each previewGridCells as cell (`preview-${cellKey(cell)}`)}
-						{#if cell.kind === 'expand'}
-							<div class="expand-cell preview-expand" style={gridCellStyle(cell)}>
-								<ProfilePostExpand
-									draft
-									compact
-									showClose={false}
-									previewImageUrl={pendingPreviewUrl}
-									caption={captionDraft}
-									oncaptionchange={(value) => (captionDraft = value)}
-									authorId={authorId}
-									authorName={authorName}
-									disabled={uploading}
-								/>
-							</div>
-						{:else}
-							<div class="preview-thumb" style={gridCellStyle(cell)}>
-								<img src={urlFor(cell.photo.blob_hash)} alt="" loading="lazy" />
-							</div>
-						{/if}
-					{/each}
+			<div class="new-post-photo">
+				<img src={pendingPreviewUrl} alt="New post preview" />
+			</div>
+
+			<footer class="new-post-footer">
+				<div class="new-post-compose">
+					<Avatar seed={authorId} alt={authorName} size={28} />
+					<div class="new-post-fields">
+						<span class="new-post-name">{authorName}</span>
+						<textarea
+							class="new-post-caption"
+							bind:value={captionDraft}
+							placeholder="Write a caption…"
+							rows="2"
+							disabled={uploading}
+						></textarea>
+					</div>
 				</div>
-			</div>
-
-			<div class="caption-actions">
-				<button type="button" class="btn-secondary" onclick={cancelCaption} disabled={uploading}>
-					Cancel
-				</button>
-				<button type="button" class="btn-primary" onclick={publishPhoto} disabled={uploading}>
-					{uploading ? 'Posting…' : 'Share'}
-				</button>
-			</div>
+				{#if error}
+					<p class="error">{error}</p>
+				{/if}
+				<div class="caption-actions">
+					<button type="button" class="btn-secondary" onclick={cancelCaption} disabled={uploading}>
+						Cancel
+					</button>
+					<button type="button" class="btn-primary" onclick={publishPhoto} disabled={uploading}>
+						{uploading ? 'Posting…' : 'Share'}
+					</button>
+				</div>
+			</footer>
 		</div>
 	</div>
 {/if}
@@ -235,6 +296,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.35rem;
+		width: 100%;
 	}
 
 	.empty-grid {
@@ -246,7 +308,7 @@
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: 6px;
-		margin-bottom: 0.75rem;
+		margin-bottom: 0;
 		grid-auto-flow: row dense;
 	}
 
@@ -286,6 +348,24 @@
 		transition: opacity 0.15s ease;
 	}
 
+	.photo-placeholder {
+		display: block;
+		width: 100%;
+		height: 100%;
+		background: color-mix(in srgb, var(--border) 35%, var(--bg));
+		animation: photo-pulse 1.1s ease-in-out infinite;
+	}
+
+	@keyframes photo-pulse {
+		0%,
+		100% {
+			opacity: 0.55;
+		}
+		50% {
+			opacity: 0.9;
+		}
+	}
+
 	.photo-btn {
 		padding: 0;
 		border: none;
@@ -309,84 +389,158 @@
 		font-size: 0.8rem;
 	}
 
-	.caption-backdrop {
+	.new-post-overlay {
 		position: fixed;
 		inset: 0;
 		z-index: 50;
 		display: flex;
+		flex-direction: column;
+		background: var(--bg);
+	}
+
+	.new-post-panel {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		width: 100%;
+		background: var(--bg);
+	}
+
+	.new-post-header {
+		flex-shrink: 0;
+		padding: calc(0.65rem + var(--safe-top)) 1rem 0.65rem;
+		border-bottom: 1px solid var(--border);
+		background: var(--surface);
+		text-align: center;
+	}
+
+	.new-post-header h2 {
+		margin: 0;
+		font-size: 1rem;
+		font-weight: 700;
+	}
+
+	.new-post-photo {
+		flex: 1;
+		min-height: 0;
+		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 1rem;
-		background: rgba(0, 0, 0, 0.45);
+		background: #000;
 	}
 
-	.caption-modal {
-		width: 100%;
-		max-width: 520px;
-		padding: 1.25rem;
-		border-radius: 12px;
-		border: 1px solid var(--border);
-		background: var(--surface);
-	}
-
-	.caption-modal h2 {
-		margin: 0 0 0.35rem;
-		font-size: 1.05rem;
-	}
-
-	.preview-label {
-		margin: 0 0 0.65rem;
-		font-size: 0.82rem;
-		color: var(--muted);
-	}
-
-	.preview-frame {
-		max-height: 360px;
-		overflow: auto;
-		margin-bottom: 0.85rem;
-		padding: 3px;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: var(--bg);
-		scrollbar-width: thin;
-	}
-
-	.preview-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 6px;
-		grid-auto-flow: row dense;
-		grid-auto-rows: minmax(104px, auto);
-		min-height: 220px;
-	}
-
-	.preview-thumb {
-		aspect-ratio: 1;
-		overflow: hidden;
-		background: var(--bg);
-		opacity: 0.72;
-		border: 1px solid var(--border);
-		border-radius: var(--radius-sm, 6px);
-	}
-
-	.preview-thumb img {
+	.new-post-photo img {
 		width: 100%;
 		height: 100%;
-		object-fit: cover;
+		object-fit: contain;
 		display: block;
 	}
 
-	.preview-expand {
+	.new-post-footer {
+		flex-shrink: 0;
 		display: flex;
-		min-height: 212px;
-		height: 100%;
-		animation: none;
+		flex-direction: column;
+		gap: 0.55rem;
+		padding: 0.85rem 1rem calc(0.85rem + var(--safe-bottom));
+		border-top: 1px solid var(--border);
+		background: var(--surface);
 	}
 
-	.preview-expand :global(.expand-panel) {
+	.new-post-compose {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.55rem;
+	}
+
+	.new-post-fields {
 		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.new-post-name {
+		font-size: 0.88rem;
+		font-weight: 600;
+		line-height: 1.35;
+	}
+
+	.new-post-caption {
 		width: 100%;
-		min-height: 0;
+		min-height: 2.5rem;
+		max-height: 6rem;
+		padding: 0;
+		border: none;
+		background: transparent;
+		color: var(--text);
+		font: inherit;
+		font-size: 0.88rem;
+		line-height: 1.4;
+		resize: none;
+	}
+
+	.new-post-caption:focus {
+		outline: none;
+	}
+
+	.new-post-caption::placeholder {
+		color: var(--muted);
+	}
+
+	.new-post-caption:disabled {
+		opacity: 0.6;
+	}
+
+	@media (min-width: 641px) {
+		.new-post-overlay {
+			align-items: center;
+			justify-content: center;
+			padding: 1.25rem;
+			background: rgba(0, 0, 0, 0.5);
+		}
+
+		.new-post-panel {
+			flex: none;
+			width: clamp(520px, 72vmin, 820px);
+			max-width: min(820px, 94vw);
+			max-height: 94vh;
+			border: 1px solid var(--border);
+			border-radius: var(--radius-lg, 12px);
+			background: var(--surface);
+			overflow: hidden;
+		}
+
+		.new-post-header {
+			padding: 0.85rem 1.15rem;
+			text-align: left;
+		}
+
+		.new-post-header h2 {
+			font-size: 1.05rem;
+		}
+
+		.new-post-photo {
+			flex: none;
+			width: 100%;
+			height: min(72vmin, calc(94vh - 11rem), 780px);
+			min-height: 320px;
+		}
+
+		.new-post-footer {
+			padding: 0.95rem 1.15rem 1.15rem;
+		}
+
+		.new-post-name {
+			font-size: 0.95rem;
+		}
+
+		.new-post-caption {
+			flex: 1;
+			min-height: 3rem;
+			font-size: 0.95rem;
+		}
 	}
 
 	.caption-actions {
@@ -436,16 +590,6 @@
 
 		.expand-cell {
 			min-height: 360px;
-		}
-
-		.preview-grid.has-selection {
-			grid-template-columns: 1fr;
-		}
-
-		.preview-grid.has-selection .preview-thumb,
-		.preview-grid.has-selection .preview-expand {
-			grid-column: 1 / -1 !important;
-			grid-row: auto !important;
 		}
 	}
 </style>

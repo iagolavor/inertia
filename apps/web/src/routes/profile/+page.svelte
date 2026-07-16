@@ -1,10 +1,10 @@
 <script lang="ts">
 
-  import { onMount } from 'svelte';
-
-  import { api, type FeedItem, type ProfilePhoto } from '$lib/api';
+  import { api, type ArchiveFolder, type FeedItem, type ProfilePhoto } from '$lib/api';
 
   import Avatar from '$lib/components/Avatar.svelte';
+
+  import FilesPanel from '$lib/components/FilesPanel.svelte';
 
   import PhotoGrid from '$lib/components/PhotoGrid.svelte';
 
@@ -25,6 +25,8 @@
 
   import { prepareImageForUpload } from '$lib/image';
 
+  import { profileItemToFeedItem } from '$lib/profile-photos';
+
 
 
   let error = $state('');
@@ -43,13 +45,17 @@
 
   let editError = $state('');
 
-  let selectedContentId = $state<string | null>(null);
+  let selectedItemId = $state<string | null>(null);
 
   let selectedPost = $state<FeedItem | null>(null);
 
   let selectedPostLoading = $state(false);
 
   let photoGrid = $state<{ openPhotoPicker: () => void } | null>(null);
+
+  let archiveFolders = $state<ArchiveFolder[]>([]);
+
+  let profileTab = $state<'posts' | 'files'>('posts');
 
 
 
@@ -115,6 +121,7 @@
       photos = nextPhotos;
       friendCount = contacts.length;
       await persistProfileCache(nextPhotos, friendCount);
+      await loadArchiveFolders();
     } catch {
       await hydrateFromCache();
     }
@@ -131,7 +138,10 @@
     }
   }
 
-  onMount(() => {
+  // Identity boots async in layout; reload when API + identity become ready.
+  $effect(() => {
+    if (identityState.loading) return;
+    if (!identityState.identity || !identityState.apiOnline) return;
     void loadProfile();
   });
 
@@ -227,39 +237,37 @@
 
 
 
-  async function selectPost(contentId: string | null) {
-    selectedContentId = contentId;
-    if (!contentId) {
+  async function selectItem(itemId: string | null) {
+    selectedItemId = itemId;
+    if (!itemId || !identityState.identity) {
       selectedPost = null;
       selectedPostLoading = false;
       return;
     }
 
-    if (!identityState.apiOnline) return;
-
     selectedPostLoading = true;
-    selectedPost = null;
-    error = '';
-
-    try {
-      selectedPost = await api.getPost(contentId);
-    } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to open post';
-      selectedContentId = null;
-    } finally {
-      selectedPostLoading = false;
-    }
+    const item = photos.find((p) => p.id === itemId);
+    selectedPost = item
+      ? profileItemToFeedItem(
+          item,
+          identityState.identity.signing_pubkey,
+          identityState.identity.display_name,
+          true
+        )
+      : null;
+    selectedPostLoading = false;
   }
 
-
-
   async function onCommentAdded() {
-    if (selectedPost && identityState.apiOnline) {
-      try {
-        selectedPost = await api.getPost(selectedPost.content_id);
-      } catch {
-        // ignore refresh errors
-      }
+    // Profile comments live on the item; nothing to refresh from feed.
+  }
+
+  async function loadArchiveFolders() {
+    if (!identityState.apiOnline) return;
+    try {
+      archiveFolders = await api.listArchiveFolders();
+    } catch {
+      // best-effort
     }
   }
 
@@ -348,55 +356,91 @@
 
 
   <div class="grid-tabs">
-
-    <div class="grid-tab active" aria-current="page">
-
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-
-        <rect x="3" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.75" />
-
-        <rect x="14" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.75" />
-
-        <rect x="3" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.75" />
-
-        <rect x="14" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.75" />
-
-      </svg>
-
-      <span>Posts</span>
-
-    </div>
-
-    {#if identityState.apiOnline}
+    <div class="tab-row">
       <button
         type="button"
-        class="btn-add-photo"
-        onclick={() => photoGrid?.openPhotoPicker()}
+        class="grid-tab"
+        class:active={profileTab === 'posts'}
+        aria-current={profileTab === 'posts' ? 'page' : undefined}
+        onclick={() => (profileTab = 'posts')}
       >
-        Add photo
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.75" />
+          <rect x="14" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.75" />
+          <rect x="3" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.75" />
+          <rect x="14" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.75" />
+        </svg>
+        <span>Posts</span>
       </button>
-    {/if}
-
+      <button
+        type="button"
+        class="grid-tab"
+        class:active={profileTab === 'files'}
+        aria-current={profileTab === 'files' ? 'page' : undefined}
+        onclick={() => (profileTab = 'files')}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+          />
+        </svg>
+        <span>Files</span>
+      </button>
+    </div>
   </div>
 
-
-
-  <PhotoGrid
-    bind:this={photoGrid}
-    {photos}
-    photoUrl={photoUrl}
-    disabled={!identityState.apiOnline}
-    authorId={identityState.identity.signing_pubkey}
-    authorName={identityState.identity.display_name}
-    selectedContentId={selectedContentId}
-    {selectedPost}
-    selectedPostLoading={selectedPostLoading}
-    onuploaded={reloadPhotos}
-    onselect={selectPost}
-    oncomment={onCommentAdded}
-  />
-
-
+  {#if profileTab === 'posts'}
+    <p class="tab-blurb muted">
+      Photos stay on your profile, only accessible when you are online(or have the app open). Publishing also sends a 7-day post to friends' feeds.
+    </p>
+    <div class="tab-panel">
+      <header class="panel-chrome">
+        <span class="panel-title">Posts</span>
+        {#if identityState.apiOnline}
+          <button
+            type="button"
+            class="panel-tool"
+            onclick={() => photoGrid?.openPhotoPicker()}
+          >
+            Add photo
+          </button>
+        {/if}
+      </header>
+      <div class="panel-body">
+        <PhotoGrid
+          bind:this={photoGrid}
+          {photos}
+          photoUrl={photoUrl}
+          disabled={!identityState.apiOnline}
+          authorId={identityState.identity.signing_pubkey}
+          authorName={identityState.identity.display_name}
+          selectedItemId={selectedItemId}
+          {selectedPost}
+          selectedPostLoading={selectedPostLoading}
+          onuploaded={reloadPhotos}
+          onselect={selectItem}
+          oncomment={onCommentAdded}
+        />
+      </div>
+    </div>
+  {:else if identityState.apiOnline}
+    <p class="tab-blurb muted">
+      Folders stay on your device. Friends can browse and download only when you are both online,
+      over a direct (hole-punched) connection. Transfers can resume if interrupted.
+    </p>
+    <FilesPanel
+      mode="owner"
+      folders={archiveFolders}
+      disabled={!identityState.apiOnline}
+      onfolderschange={loadArchiveFolders}
+      onerror={(msg) => (error = msg)}
+    />
+  {:else}
+    <p class="tab-blurb muted">Reconnect to manage files.</p>
+  {/if}
 
   {#if identityState.apiOnline}
 
@@ -602,52 +646,76 @@
 
     align-items: center;
 
-    justify-content: space-between;
+    justify-content: flex-start;
 
     gap: 0.75rem;
 
     border-bottom: 1px solid var(--border);
 
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 
     padding-bottom: 0.5rem;
 
   }
 
-
-
-  .btn-add-photo {
-
-    padding: 0.35rem 0.75rem;
-
-    border: 1px solid var(--border);
-
-    border-radius: 8px;
-
-    background: var(--surface);
-
-    color: var(--text);
-
-    font: inherit;
-
-    font-size: 0.78rem;
-
-    font-weight: 600;
-
-    cursor: pointer;
-
-    white-space: nowrap;
-
-    flex-shrink: 0;
-
+  .tab-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
   }
 
+  .tab-blurb {
+    margin: 0 0 0.75rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    max-width: 40rem;
+  }
 
+  .tab-panel {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    overflow: hidden;
+  }
 
-  .btn-add-photo:hover {
+  .panel-chrome {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem 0.85rem;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+  }
 
-    background: color-mix(in srgb, var(--border) 25%, var(--surface));
+  .panel-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+  }
 
+  .panel-tool {
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .panel-tool:hover {
+    background: color-mix(in srgb, var(--border) 22%, var(--surface));
+  }
+
+  .panel-body {
+    padding: 0.75rem;
   }
 
 
@@ -660,23 +728,32 @@
 
     justify-content: flex-start;
 
-    gap: 0.4rem;
+    gap: 0.35rem;
 
-    padding: 0.65rem 0;
+    padding: 0.45rem 0;
 
-    font-size: 0.72rem;
+    /* font shorthand must come before size/weight overrides */
+    font: inherit;
 
-    font-weight: 700;
+    font-size: 0.8rem;
 
-    letter-spacing: 0.06em;
+    font-weight: 600;
 
-    text-transform: uppercase;
+    letter-spacing: 0;
+
+    text-transform: none;
 
     color: var(--muted);
+
+    border: none;
 
     border-bottom: 2px solid transparent;
 
     margin-bottom: -1px;
+
+    background: transparent;
+
+    cursor: pointer;
 
   }
 
@@ -684,9 +761,9 @@
 
   .grid-tab svg {
 
-    width: 0.95rem;
+    width: 0.85rem;
 
-    height: 0.95rem;
+    height: 0.85rem;
 
   }
 
@@ -698,6 +775,11 @@
 
     border-bottom-color: var(--text);
 
+  }
+
+  .muted {
+    color: var(--muted);
+    font-size: 0.85rem;
   }
 
 </style>

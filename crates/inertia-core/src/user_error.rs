@@ -5,6 +5,7 @@ use crate::error::CoreError;
 pub enum ErrorCode {
     RelayUnreachable,
     InviterOffline,
+    FriendOffline,
     P2pNotStarted,
 }
 
@@ -13,6 +14,7 @@ impl ErrorCode {
         match self {
             Self::RelayUnreachable => "relay_unreachable",
             Self::InviterOffline => "inviter_offline",
+            Self::FriendOffline => "friend_offline",
             Self::P2pNotStarted => "p2p_not_started",
         }
     }
@@ -41,6 +43,16 @@ impl CoreError {
                 "P2P is not running on this device. Restart the API or open Settings.",
                 Some(ErrorCode::P2pNotStarted),
             ),
+            CoreError::P2p(msg)
+                if msg.contains("is offline")
+                    || msg.contains("has no peer id (offline)")
+                    || msg == "author is offline" =>
+            {
+                UserFacingError::new(
+                    "Friend is offline. Profile and files load when they are online.",
+                    Some(ErrorCode::FriendOffline),
+                )
+            }
             CoreError::Invite(msg)
                 if msg.contains("VPS port unreachable")
                     || msg.contains("relay multiaddr is not configured")
@@ -132,5 +144,13 @@ mod tests {
         );
         let facing = err.user_facing();
         assert_eq!(facing.code, Some(ErrorCode::InviterOffline));
+    }
+
+    #[test]
+    fn maps_friend_offline() {
+        let err = CoreError::P2p("friend abc is offline".into());
+        let facing = err.user_facing();
+        assert_eq!(facing.code, Some(ErrorCode::FriendOffline));
+        assert!(facing.message.contains("offline"));
     }
 }

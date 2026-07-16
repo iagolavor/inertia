@@ -86,6 +86,42 @@ impl Store {
             .ok_or_else(|| CoreError::ContactNotFound(id.to_string()))
     }
 
+    /// Remove a contact and peer-tied DM delivery state (local-only; peer is not notified).
+    pub fn delete_contact(&self, id: &str) -> CoreResult<()> {
+        let contact = self.get_contact(id)?;
+        let mut peer_keys = vec![contact.id.clone()];
+        if contact.signing_pubkey != contact.id {
+            peer_keys.push(contact.signing_pubkey.clone());
+        }
+
+        for key in &peer_keys {
+            self.conn.execute(
+                "DELETE FROM outbox WHERE recipient_id = ?1",
+                params![key],
+            )?;
+            self.conn.execute(
+                "DELETE FROM delivery_acks WHERE recipient_id = ?1",
+                params![key],
+            )?;
+            self.conn.execute(
+                "DELETE FROM sent_messages WHERE recipient_id = ?1",
+                params![key],
+            )?;
+            self.conn.execute(
+                "DELETE FROM inbox WHERE sender_id = ?1 AND content_type = 'message'",
+                params![key],
+            )?;
+        }
+
+        let removed = self
+            .conn
+            .execute("DELETE FROM contacts WHERE id = ?1", params![id])?;
+        if removed == 0 {
+            return Err(CoreError::ContactNotFound(id.to_string()));
+        }
+        Ok(())
+    }
+
     pub fn get_contact_by_phone_hash(&self, phone_hash: &str) -> CoreResult<Option<Contact>> {
         Ok(self
             .list_contacts()?

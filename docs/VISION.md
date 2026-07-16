@@ -58,7 +58,7 @@ To create a peer-to-peer social media system that:
 ## Non-Goals
 
 - **No Global Discovery**: No hashtags, trending, global feeds, or **user** search. An optional **public relay list** (connectivity nodes only) is allowed — see §2b.
-- **No Permanent Archives**: Once expired, content is gone.
+- **No Centralized Permanent Archives**: Feed posts and messages expire. There is no cloud library or global catalog. Author-hosted profile photos and optional shared folders may persist on the owner's device only.
 - **No Corporate Servers**: No central infrastructure for accounts, content, or analytics.
 - **No Phone-Based Directory**: No "type a number and find them" registry.
 - **No Algorithmic Feeds**: Chronological friends-only content only.
@@ -99,7 +99,8 @@ To create a peer-to-peer social media system that:
 
 ### 6. Ephemerality
 
-- Posts and messages vanish after 7 days. No archives by default.
+- Posts and messages vanish after 7 days.
+- Profile photos and shared folders stay on the author's device until they remove them.
 
 ---
 
@@ -294,10 +295,12 @@ Community hosts need a simple way to recover VPS costs without ads or a central 
 
 | Type | Expiration |
 |------|------------|
-| Posts | 7 days |
+| Posts (feed) | 7 days |
 | Messages | 7 days |
 | Invites | 15 minutes, single-use |
-| Profile | No auto-expire |
+| Profile items | No auto-expire (author-hosted) |
+| Profile comments | No auto-expire (author-hosted) |
+| Shared folders (Files tab) | No auto-expire (author-hosted; pull on demand; peer transfer is DCUtR/direct only - see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md)) |
 
 ---
 
@@ -306,15 +309,19 @@ Community hosts need a simple way to recover VPS costs without ads or a central 
 SQLite on device only:
 
 ```
-contacts       (display_name, peer_id, pubkeys, last_seen)
-outbox         (content_id, recipient_id, status, expires_at)
-inbox          (content_id, sender_id, body, media_ref, expires_at)
-local_posts    (own posts, 7d TTL)
-profile_photos (local photo grid)
-feed_archive   (optional persistent feed history)
-app_settings   (e.g. feed_history_enabled)
-identity       (signing_pubkey, encryption_pubkey, display_name)
-blobs/         (content-addressed media files)
+contacts          (display_name, peer_id, pubkeys, last_seen)
+outbox            (content_id, recipient_id, status, expires_at)
+inbox             (content_id, sender_id, body, media_ref, expires_at)
+local_posts       (own feed posts, 7d TTL)
+profile_items     (durable gallery; profile_photos kept as legacy mirror)
+profile_comments  (comments on profile items; author-hosted)
+archive_folders   (shared folders metadata)
+archive_entries   (chunked files in shared folders; no inbox fan-out)
+archive_uploads   (pending local chunked ingest)
+feed_archive      (optional persistent feed history)
+app_settings      (e.g. feed_history_enabled)
+identity          (signing_pubkey, encryption_pubkey, display_name)
+blobs/            (content-addressed media files)
 ```
 
 ---
@@ -339,7 +346,7 @@ blobs/         (content-addressed media files)
 
 ## Open Questions
 
-1. Profile caching when friend is offline?
+1. Profile caching when friend is offline? *(v1: online-only live fetch; roster may still show from local cache)*
 2. Web/PWA vs mobile-first for v1?
 3. Media size limits for strict P2P? *(~2 MB per image, client-side compression)*
 4. User-configurable post TTL? *(optional local feed archive exists)*

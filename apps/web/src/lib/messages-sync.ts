@@ -1,4 +1,6 @@
 import { api, type Contact, type InboxEntry } from '$lib/api';
+import { getOpenConversationId } from '$lib/conversation-sync';
+import { markDmThreadRead } from '$lib/dm-unread';
 import { identityState } from '$lib/identity.svelte';
 import { writeCachedMessages } from '$lib/local-cache';
 import type { P2pUiEvent } from '$lib/p2p-event-handlers';
@@ -29,7 +31,7 @@ function emit(snapshot: InboxSnapshot) {
 	for (const listener of listeners) listener(snapshot);
 }
 
-/** Background fetch used by SSE fallback while any /friends route is open. */
+/** Background fetch used by SSE fallback while Messages or chat routes are open. */
 export async function refreshInboxSilently(): Promise<void> {
 	if (!identityState.identity || !identityState.apiOnline) return;
 	try {
@@ -65,5 +67,10 @@ export function patchInboxFromEvent(event: P2pUiEvent): boolean {
 	const inbox = [entry, ...lastSnapshot.inbox];
 	void writeCachedMessages(lastSnapshot.contacts, inbox);
 	emit({ contacts: lastSnapshot.contacts, inbox });
+
+	const openId = getOpenConversationId();
+	if (openId && (openId === senderId || openId === event.contact_id)) {
+		markDmThreadRead(openId, entry.received_at);
+	}
 	return true;
 }

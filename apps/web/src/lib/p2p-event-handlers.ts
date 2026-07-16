@@ -29,7 +29,11 @@ const PEER_REFRESH_KINDS = new Set(['peer_connected', 'peer_disconnected']);
 
 const CONTACT_REFRESH_KINDS = new Set(['friend_request']);
 
-const FEED_REFRESH_KINDS = new Set(['comment_received', 'blob_sync']);
+const FEED_REFRESH_KINDS = new Set([
+	'comment_received',
+	'profile_comment_received',
+	'blob_sync'
+]);
 
 export function shouldRefreshMessagesFromEvent(event: P2pUiEvent): boolean {
 	if (event.kind === 'catch_up') return true;

@@ -10,6 +10,8 @@ pub enum ContentType {
     Message,
     Post,
     Comment,
+    /// Comment on a durable profile item; delivered to the profile owner only.
+    ProfileComment,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +47,8 @@ pub struct MessagePayload {
 pub enum MediaKind {
     Photo,
     Video,
+    /// Generic archive / shared-folder file (chunked like video).
+    File,
 }
 
 /// Chunked video metadata (512 KiB chunks). `root_hash` content-addresses the manifest body.
@@ -75,6 +79,12 @@ pub struct PostPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommentPayload {
     pub post_id: String,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileCommentPayload {
+    pub profile_item_id: String,
     pub body: String,
 }
 
@@ -129,6 +139,26 @@ impl ContentEnvelope {
             author_signing_pubkey,
             author_encryption_pubkey,
             content_type: ContentType::Comment,
+            created_at: now,
+            expires_at: now + chrono::Duration::seconds(POST_TTL_SECS),
+            ciphertext,
+            signature,
+        }
+    }
+
+    pub fn new_profile_comment(
+        author_signing_pubkey: String,
+        author_encryption_pubkey: String,
+        ciphertext: Vec<u8>,
+        signature: Vec<u8>,
+    ) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4().to_string(),
+            author_signing_pubkey,
+            author_encryption_pubkey,
+            content_type: ContentType::ProfileComment,
+            // Envelope TTL is for delivery retry only; stored comments on the owner do not expire.
             created_at: now,
             expires_at: now + chrono::Duration::seconds(POST_TTL_SECS),
             ciphertext,

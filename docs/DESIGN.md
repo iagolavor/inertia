@@ -53,19 +53,23 @@ Inertia is a **local-first**, **ephemeral** social network for your inner circle
 Colored dot + textual label `online` or `offline` side by side. No ambiguity.
 
 ### Profile
-- Header: avatar, name.
-- **Personal photos**: local grid, stored on device.
-- Posts live on the **Feed** tab, not on the profile screen.
+- Header: avatar, name, bio.
+- **Posts | Files** tabs on own and friend profiles. Each tab has a short how-it-works blurb, then a bordered panel with a sticky title/toolbar row (e.g. Add photo / New folder) and content below.
+- **Posts**: durable photo grid on the author's device. Publishing a photo also emits a 7-day feed announcement.
+- Friend profiles load live over P2P when the friend is online (thumbs auto-fetch on visit).
+- **Files**: folder icons for author-hosted shared folders. Owner creates folders and adds files (zip drop or folder auto-zip). Friends browse and download only. Neutral naming (not a media catalog). Large peer downloads require a direct connection; see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md).
+- Files UI is a small **finder-style** pane: sticky breadcrumb (`Files / folder`) and toolbar actions stay fixed; the content area below lists folders or files and accepts drops when a folder is open.
 
 ### Post
 - Optional text + optional photo.
-- Author, relative time, time until expiry (7d) or “saved” when archived.
+- Author, relative time, time until expiry (7d) or "saved" when archived.
 - Simple card layout, no engagement chrome.
 
 ### Feed (home)
 - Chronological, friends only (P2P contacts).
 - User publishes → post stored locally → sent to contacts when peers are online.
 - Ephemeral by default: disappears after 7 days unless local history is enabled.
+- Separate from the durable profile grid.
 
 ### Settings
 - Theme, optional feed history, backup export/restore, cryptographic identity details.
@@ -96,7 +100,8 @@ This document complements [VISION.md](./VISION.md):
 
 | Concept | Design | Technical |
 |---------|--------|-----------|
-| Profile | Photo grid | SQLite + local blobs |
+| Profile | Durable photo grid (Posts tab) | `profile_items` + local blobs; friend view via `ProfileManifest` P2P |
+| Files | Folder icons; opt-in download | `archive_folders` / `archive_entries` + chunked ingest; peer pull is DCUtR-only ([ARCHIVE-P2P.md](./ARCHIVE-P2P.md)) |
 | Post | Card in feed | `ContentType::Post`, 7d TTL |
 | Feed | Chronological home | `local_posts` + friend inbox + optional `feed_archive` |
 | Friends | Closed circle | P2P contacts |

@@ -194,6 +194,11 @@ pub async fn log_p2p_event(
             let suffix = if body.chars().count() > 40 { "…" } else { "" };
             format!("New comment: {preview}{suffix}")
         }
+        P2pEvent::ProfileCommentReceived { body, .. } => {
+            let preview: String = body.chars().take(40).collect();
+            let suffix = if body.chars().count() > 40 { "…" } else { "" };
+            format!("New profile comment: {preview}{suffix}")
+        }
     };
 
     let kind = match event {
@@ -204,6 +209,7 @@ pub async fn log_p2p_event(
         P2pEvent::BlobNeeded { .. } => "blob_sync",
         P2pEvent::FriendRequestReceived(_) => "friend_request",
         P2pEvent::CommentReceived { .. } => "comment_received",
+        P2pEvent::ProfileCommentReceived { .. } => "profile_comment_received",
     };
 
     let ui_event = match event {
@@ -269,6 +275,24 @@ pub async fn log_p2p_event(
                 ..base
             }
         }
+        P2pEvent::ProfileCommentReceived {
+            profile_item_id,
+            content_id,
+            author_id,
+            body,
+        } => {
+            let mut log = activity.lock().await;
+            let base =
+                log.push_with_content_type(kind, detail, Some("profile_comment".to_string()));
+            P2pUiEvent {
+                sender_id: Some(author_id.clone()),
+                content_id: Some(content_id.clone()),
+                post_id: Some(profile_item_id.clone()),
+                body: Some(body.clone()),
+                content_type: Some("profile_comment".to_string()),
+                ..base
+            }
+        }
         P2pEvent::FriendRequestReceived(req) => {
             let mut log = activity.lock().await;
             let base = log.push(kind, detail);
@@ -288,6 +312,7 @@ fn content_type_to_str(content_type: ContentType) -> &'static str {
         ContentType::Message => "message",
         ContentType::Post => "post",
         ContentType::Comment => "comment",
+        ContentType::ProfileComment => "profile_comment",
     }
 }
 

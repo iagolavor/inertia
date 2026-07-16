@@ -1,10 +1,158 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { api, type Contact, type InboxEntry } from '$lib/api';
+  import { ApiRequestError } from '$lib/api-errors';
+  import DmThreadList from '$lib/components/DmThreadList.svelte';
+  import { buildDmThreads } from '$lib/dmThreads';
+  import { identityState } from '$lib/identity.svelte';
+  import { formatCacheAge, readCachedMessages } from '$lib/local-cache';
+  import { subscribeInboxSync, seedInboxSnapshot } from '$lib/messages-sync';
+
+  let contacts = $state<Contact[]>([]);
+  let inbox = $state<InboxEntry[]>([]);
+  let loading = $state(true);
+  let error = $state('');
+  let showingCached = $state(false);
+  let cacheAge = $state<string | null>(null);
+
+  async function hydrateFromCache() {
+    const cached = await readCachedMessages();
+    if (!cached) return false;
+    contacts = cached.contacts;
+    inbox = cached.inbox;
+    cacheAge = formatCacheAge(cached.saved_at);
+    showingCached = true;
+    seedInboxSnapshot({ contacts: cached.contacts, inbox: cached.inbox });
+    return true;
+  }
+
+  async function load() {
+    if (!identityState.identity) {
+      loading = false;
+      return;
+    }
+
+    if (!identityState.apiOnline) {
+      loading = true;
+      error = '';
+      await hydrateFromCache();
+      loading = false;
+      return;
+    }
+
+    loading = true;
+    error = '';
+    try {
+      [contacts, inbox] = await Promise.all([api.listContacts(), api.listInbox()]);
+      showingCached = false;
+      cacheAge = null;
+      seedInboxSnapshot({ contacts, inbox });
+    } catch (e) {
+      const hadCache = await hydrateFromCache();
+      if (!hadCache) {
+        error = e instanceof ApiRequestError ? e.message : 'Failed to load messages';
+      }
+    } finally {
+      loading = false;
+    }
+  }
 
   onMount(() => {
-    void goto('/friends', { replaceState: true });
+    void hydrateFromCache().then(() => load());
+    const unsub = subscribeInboxSync(({ contacts: nextContacts, inbox: nextInbox }) => {
+      contacts = nextContacts;
+      inbox = nextInbox;
+      showingCached = false;
+      cacheAge = null;
+    });
+    return () => unsub();
   });
+
+  const threads = $derived(buildDmThreads(contacts, inbox));
 </script>
 
-<p class="empty">Redirecting…</p>
+<div class="page-head">
+  <div class="page-intro">
+    <h1 class="page-title">
+      Messages
+      {#if showingCached && cacheAge}
+        <span class="cache-badge">saved · {cacheAge}</span>
+      {/if}
+    </h1>
+    <p class="subtitle">Connected - active session. Reachable - seen in the last day.</p>
+  </div>
+  <a class="head-action" href="/connections">Connections</a>
+</div>
+
+{#if !identityState.apiOnline && identityState.identity}
+  <p class="offline-hint muted">Thread list may be outdated while the API is offline.</p>
+{/if}
+
+{#if error}
+  <p class="error">{error}</p>
+{/if}
+
+<DmThreadList {threads} {loading} />
+
+<style>
+  .page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .page-intro {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .page-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .cache-badge {
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .head-action {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+  }
+
+  .head-action:hover {
+    background: var(--hover-bg);
+    text-decoration: none;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .offline-hint {
+    margin: -0.5rem 0 1rem;
+    font-size: 0.875rem;
+  }
+</style>

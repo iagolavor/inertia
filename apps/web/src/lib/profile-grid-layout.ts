@@ -97,12 +97,12 @@ export function computeProfileGridLayoutAtIndex(
 
 export function computeProfileGridLayout(
 	photos: ProfilePhoto[],
-	selectedContentId: string | null
+	selectedItemId: string | null
 ): ProfileGridCell[] {
 	const selectedIndex =
-		selectedContentId == null
+		selectedItemId == null
 			? -1
-			: photos.findIndex((photo) => photo.content_id === selectedContentId);
+			: photos.findIndex((photo) => photo.id === selectedItemId);
 
 	return computeProfileGridLayoutAtIndex(photos, selectedIndex);
 }

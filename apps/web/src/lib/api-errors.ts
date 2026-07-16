@@ -49,7 +49,7 @@ export function classifyHttpFailure(
 	if (code === 'relay_unreachable' || code === 'p2p_not_started') {
 		return { kind: 'server', message: msg, code };
 	}
-	if (code === 'inviter_offline') {
+	if (code === 'inviter_offline' || code === 'friend_offline') {
 		return { kind: 'client', message: msg, code };
 	}
 	if (status === 502 || status === 503 || status === 504 || PROXY_OFFLINE_RE.test(msg)) {

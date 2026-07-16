@@ -24,9 +24,11 @@ use super::multiaddr::{
     peer_id_from_multiaddr,
 };
 use super::protocol::{
-    BlobChunkRequest, BlobData, BlobRequest, FriendRequest, InertiaRequest,
-    InertiaResponse, InviteRedemption, SendEnvelope,
+    ArchiveListRequest, BlobChunkRequest, BlobData, BlobRequest, FriendRequest, InertiaRequest,
+    InertiaResponse, InviteRedemption, ProfileCommentsRequest, ProfileManifestRequest,
+    SendEnvelope,
 };
+use crate::storage::{ArchiveEntry, ArchiveFolderSummary, ProfileComment, ProfileManifest};
 use super::swarm_task::{self, Command, NetState};
 
 #[derive(Clone)]
@@ -361,6 +363,87 @@ impl P2pNode {
             InertiaResponse::Error(msg) => Err(CoreError::P2p(msg)),
             other => Err(CoreError::P2p(format!(
                 "unexpected blob response: {other:?}"
+            ))),
+        }
+    }
+
+    pub async fn request_profile_manifest_from_peer(
+        &self,
+        peer_id: PeerId,
+    ) -> CoreResult<ProfileManifest> {
+        let rx = self.send_request(
+            peer_id,
+            InertiaRequest::ProfileManifest(ProfileManifestRequest {}),
+        )?;
+        let response = tokio::time::timeout(Duration::from_secs(30), rx)
+            .await
+            .map_err(|_| CoreError::P2p("profile manifest request timed out".into()))?
+            .map_err(|_| CoreError::P2p("profile manifest channel closed".into()))?;
+
+        match response {
+            InertiaResponse::ProfileManifest(manifest) => Ok(manifest),
+            InertiaResponse::Error(msg) => Err(CoreError::P2p(msg)),
+            other => Err(CoreError::P2p(format!(
+                "unexpected profile manifest response: {other:?}"
+            ))),
+        }
+    }
+
+    pub async fn request_profile_comments_from_peer(
+        &self,
+        peer_id: PeerId,
+        profile_item_id: &str,
+    ) -> CoreResult<Vec<ProfileComment>> {
+        let rx = self.send_request(
+            peer_id,
+            InertiaRequest::ProfileComments(ProfileCommentsRequest {
+                profile_item_id: profile_item_id.to_string(),
+            }),
+        )?;
+        let response = tokio::time::timeout(Duration::from_secs(30), rx)
+            .await
+            .map_err(|_| CoreError::P2p("profile comments request timed out".into()))?
+            .map_err(|_| CoreError::P2p("profile comments channel closed".into()))?;
+
+        match response {
+            InertiaResponse::ProfileComments(comments) => Ok(comments),
+            InertiaResponse::Error(msg) => Err(CoreError::P2p(msg)),
+            other => Err(CoreError::P2p(format!(
+                "unexpected profile comments response: {other:?}"
+            ))),
+        }
+    }
+
+    pub async fn request_archive_list_from_peer(
+        &self,
+        peer_id: PeerId,
+        folder_id: &str,
+    ) -> CoreResult<(
+        ArchiveFolderSummary,
+        Vec<ArchiveEntry>,
+        Vec<crate::content::MediaManifest>,
+    )> {
+        let rx = self.send_request(
+            peer_id,
+            InertiaRequest::ArchiveList(ArchiveListRequest {
+                folder_id: folder_id.to_string(),
+            }),
+        )?;
+        let response = tokio::time::timeout(Duration::from_secs(30), rx)
+            .await
+            .map_err(|_| CoreError::P2p("archive list request timed out".into()))?
+            .map_err(|_| CoreError::P2p("archive list channel closed".into()))?;
+
+        match response {
+            InertiaResponse::ArchiveList {
+                folder,
+                entries,
+                manifests,
+            } => Ok((folder, entries, manifests)),
+            InertiaResponse::ArchiveNotFound => Err(CoreError::ContentNotFound(folder_id.into())),
+            InertiaResponse::Error(msg) => Err(CoreError::P2p(msg)),
+            other => Err(CoreError::P2p(format!(
+                "unexpected archive list response: {other:?}"
             ))),
         }
     }

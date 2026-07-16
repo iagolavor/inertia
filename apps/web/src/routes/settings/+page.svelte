@@ -79,10 +79,7 @@
 
 <style>
   .page-title {
-    margin: 0 0 1rem;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
   }
 
   .identity-list {
