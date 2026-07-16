@@ -38,6 +38,9 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 
 <p align="center"><em>Feed</em> - your circle, in order, no algorithm</p>
 
+<details>
+<summary><strong>Messages and chat</strong> - reach friends and send DMs that expire in 7 days</summary>
+<br />
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
@@ -49,6 +52,13 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 <em>Chat</em> - private DMs that expire in 7 days
 </td>
 </tr>
+</table>
+</details>
+
+<details>
+<summary><strong>Your profile</strong> - durable posts and shared folders on your device</summary>
+<br />
+<table>
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="docs/screenshots/profile-posts.jpg" alt="Inertia Profile Posts tab" width="100%" /><br />
@@ -60,13 +70,19 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 </td>
 </tr>
 </table>
+</details>
 
+<details>
+<summary><strong>Connections</strong> - signed invites for a closed circle</summary>
+<br />
 <p align="center">
   <img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="720" />
 </p>
+</details>
 
-<p align="center"><em>Connections</em> - signed invites for a closed circle, not a global network</p>
-
+<details>
+<summary><strong>Friend profile (when both online)</strong> - browse their posts and files</summary>
+<br />
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
@@ -75,10 +91,11 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 </td>
 <td width="50%" valign="top" align="center">
 <img src="docs/screenshots/friend-profile-files.jpg" alt="Friend profile Files while online" width="100%" /><br />
-<em>Their files</em> - folders they shared; download over a DCUtR hole punching
+<em>Their files</em> - folders they shared; download over a direct path
 </td>
 </tr>
 </table>
+</details>
 
 ---
 
