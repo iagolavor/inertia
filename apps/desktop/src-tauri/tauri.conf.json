@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Inertia",
+  "version": "0.15.0",
+  "identifier": "social.inertia.app",
+  "build": {
+    "frontendDist": "../splash"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Inertia",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 720,
+        "minHeight": 520,
+        "backgroundColor": "#08090c",
+        "url": "index.html"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' http://127.0.0.1:4783; connect-src 'self' http://127.0.0.1:4783 ws://127.0.0.1:4783; img-src 'self' http://127.0.0.1:4783 data: blob:; style-src 'self' 'unsafe-inline' http://127.0.0.1:4783; script-src 'self' 'unsafe-inline' http://127.0.0.1:4783; font-src 'self' http://127.0.0.1:4783 data:; media-src 'self' http://127.0.0.1:4783 blob:;"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": ["binaries/inertia-api"],
+    "resources": ["resources/web"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "shortDescription": "Ephemeral P2P social - local API in one window",
+    "longDescription": "Inertia desktop shell starts the local inertia-api sidecar and opens the Svelte UI without a separate browser.",
+    "category": "SocialNetworking",
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

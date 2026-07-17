@@ -22,6 +22,9 @@
     "android:api:build": "node scripts/run-native.mjs build-android-api",
     "android:package": "node scripts/run-native.mjs package-android",
     "android:install": "npm run android:api:build && npm run web:build && npm run android:package && npm run android:sync",
-    "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1"
+    "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
+    "desktop:package": "node scripts/run-native/desktop.mjs package",
+    "desktop:dev": "node scripts/run-native/desktop.mjs dev",
+    "desktop:build": "node scripts/run-native/desktop.mjs build"
   }
 }

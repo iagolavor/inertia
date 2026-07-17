@@ -6,6 +6,7 @@ members = [
     "crates/inertia-relay",
     "tools/inertia-lint",
 ]
+exclude = ["apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"

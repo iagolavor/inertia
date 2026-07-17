@@ -31,11 +31,11 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 | 0–4 | Done | Rust core, P2P, Svelte UI, invites, feed, profile, backup, relay |
 | 4c | Done | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) |
 | 5 | Done | Capacitor Android on-device install (v0.10+); iOS + mobile polish remain |
-| 6 | **Next** | Tauri desktop shell + easier install path |
+| 6 | **In progress** | Tauri desktop shell (`apps/desktop`) - sidecar API + one window; see [docs/TAURI.md](docs/TAURI.md) |
 | 7 | Planned | Thumbnails, orphan blob GC |
 | 8 | Planned | Community relays |
 
-**Yes - the Svelte app is the shared UI** for web, Android (Capacitor), and upcoming desktop (Tauri). Do not fork product UI per shell.
+**Yes - the Svelte app is the shared UI** for web, Android (Capacitor), and desktop (Tauri). Do not fork product UI per shell.
 
 ## Capacitor + Ionic
 
@@ -50,6 +50,10 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 ### Capacitor Android (v0.10+)
 
 **Shipped** - self-contained APK with on-device API. See [docs/CAPACITOR.md](docs/CAPACITOR.md).
+
+### Tauri desktop
+
+**In progress** - `npm run desktop:dev` / `desktop:build`. Sidecar `inertia-api` + WebView on `http://127.0.0.1:4783`. See [docs/TAURI.md](docs/TAURI.md).
 
 ```powershell
 npm run android:install

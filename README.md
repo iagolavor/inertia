@@ -159,6 +159,7 @@ In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`**
 | Relay circuits & invite bootstrap | [docs/RELAY-CONNECTIVITY.md](docs/RELAY-CONNECTIVITY.md) |
 | UI philosophy | [docs/DESIGN.md](docs/DESIGN.md) |
 | Windows install & updates | [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) |
+| Tauri desktop shell | [docs/TAURI.md](docs/TAURI.md) |
 | VPS relay deploy | [crates/inertia-relay/README.md](crates/inertia-relay/README.md) |
 | Releases & tagging | [docs/RELEASE.md](docs/RELEASE.md) |
 | Git workflow | [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md) |
@@ -199,6 +200,7 @@ Local data lives in `./data` (`inertia.db` + content-addressed `blobs/`). The AP
 | `npm run api:stop` | Free port 4783 |
 | `npm run web` | Vite dev server (UI work) |
 | `npm run web:build` / `web:preview` | Static build + serve |
+| `npm run desktop:dev` / `desktop:build` | Tauri shell (sidecar API + window) |
 | `npm run relay` | Local relay binary |
 | `cargo test -p inertia-core` | Core tests |
 | `cd apps/web && npm run check` | Frontend typecheck |
@@ -225,9 +227,11 @@ inertia/
 │   ├── inertia-core/       # identity, storage, P2P, invites, archives
 │   ├── inertia-api/        # local Axum HTTP bridge (127.0.0.1:4783)
 │   └── inertia-relay/      # optional VPS circuit relay
-├── apps/web/               # SvelteKit PWA (shared UI)
-│   ├── src/                # routes, lib, sync modules, components
-│   └── android/            # Capacitor Android shell (on-device API)
+├── apps/
+│   ├── web/                # SvelteKit PWA (shared UI)
+│   │   ├── src/            # routes, lib, sync modules, components
+│   │   └── android/        # Capacitor Android shell (on-device API)
+│   └── desktop/            # Tauri shell (sidecar API + native window)
 ├── tools/inertia-lint/     # workspace lint helpers
 ├── docker/relay/           # Compose stack for inertia-relay
 ├── docs/                   # vision, design, Capacitor, live sync, screenshots
@@ -247,7 +251,7 @@ inertia/
 | 0–4 | Core, P2P, Svelte UI, invites, feed, profile, backup, VPS relay (**done**) |
 | 4c | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) (**done**) |
 | 5 | Android Capacitor on-device install (**shipped** in v0.10+); iOS + mobile polish remain ([CAPACITOR.md](docs/CAPACITOR.md)) |
-| 6 | **Next:** Tauri desktop shell + easier install path (one app window, less zip/`run.cmd` friction) |
+| 6 | **In progress:** Tauri desktop shell ([docs/TAURI.md](docs/TAURI.md)) - one window + local API sidecar |
 | 7 | Thumbnails, orphan blob GC |
 | 8 | Community relays (public list, optional host funding hints) |
 

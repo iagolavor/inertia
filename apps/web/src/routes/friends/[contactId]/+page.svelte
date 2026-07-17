@@ -11,6 +11,7 @@
     createOptimisticMessage,
     isOptimisticMessageId,
     mergeConversationMessages,
+    messageTtlLabel,
     timeAgo
   } from '$lib/dmThreads';
   import { identityState } from '$lib/identity.svelte';
@@ -221,8 +222,10 @@
     }
   }
 
-  function messageTime(msg: ConversationMessage): string {
-    return isOptimisticMessageId(msg.content_id) ? 'now' : timeAgo(msg.at);
+  function messageMeta(msg: ConversationMessage): string {
+    const when = isOptimisticMessageId(msg.content_id) ? 'now' : timeAgo(msg.at);
+    const ttl = messageTtlLabel(msg.expires_at);
+    return ttl ? `${when} · ${ttl}` : when;
   }
 </script>
 
@@ -246,8 +249,6 @@
   {/if}
 
   <div class="chat-shell">
-    <p class="ephemeral-note">Messages auto-delete after 7 days</p>
-
     <div class="chat-panel" bind:this={chatPanel}>
       {#if messages.length === 0}
         <p class="empty chat-empty">No messages yet. Say hello.</p>
@@ -259,7 +260,7 @@
                 <FormattedText text={msg.body} />
               </div>
               <span class="msg-meta" class:own={msg.is_own}>
-                {messageTime(msg)}
+                {messageMeta(msg)}
                 {#if msg.is_own}
                   <DeliveryTicks
                     status={msg.delivery_status}
@@ -301,10 +302,6 @@
   .offline-hint {
     margin: 0 0 0.5rem;
     font-size: 0.875rem;
-  }
-
-  .ephemeral-note {
-    margin: 0.65rem 0.75rem 0.35rem;
   }
 
   .chat-fill {
