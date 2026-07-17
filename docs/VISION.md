@@ -368,7 +368,7 @@ blobs/            (content-addressed media files)
 | 4b | **VPS relay** (`inertia-relay`), relay client, invite v2 with embedded relay | Done |
 | 4c | **Event-driven live sync** (SSE), Messages/Connections polish, Profile Posts + Files (archive P2P / DCUtR) | Done |
 | 5 | Capacitor Android on-device install (API + UI on device, v0.10+) | Done; iOS + mobile polish remain |
-| 6 | **Tauri desktop shell** + easier install path (sidecar or in-process API, app data dir, installers) | **Next** |
+| 6 | **Tauri desktop shell** + easier install path (sidecar API, app data dir, installers) | **In progress** ([TAURI.md](./TAURI.md)) |
 | 7 | Thumbnails, orphan blob GC | Planned |
 | 8 | **Community relays** - public relay list, optional PIX join fee in invite v3, host health hints | Planned |
 
