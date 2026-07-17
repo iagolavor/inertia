@@ -43,6 +43,6 @@ Invoke-InertiaGit tag -a $tag -m "Release $tag"
 Invoke-InertiaGit push origin $tag
 
 Write-Host "Tag $tag pushed."
-Write-Host "GitHub Actions builds inertia-windows-x64.zip and publishes the release."
+Write-Host "GitHub Actions builds Windows zip + desktop installers (NSIS, RPM, AppImage) and publishes the release."
 Write-Host "Track: https://github.com/iagolavor/inertia/actions"
 Write-Host "Release: https://github.com/iagolavor/inertia/releases/tag/$tag"

@@ -53,6 +53,41 @@ npm run desktop:build
 npm run desktop:package
 ```
 
+`desktop:build` sets `NO_STRIP=true` and `ARCH` on Linux so AppImage/linuxdeploy works on Fedora (without that, bundling often fails with `failed to run linuxdeploy`).
+
+Optional bundle filter (used by release CI):
+
+```bash
+npm run desktop:build -- --bundles nsis
+npm run desktop:build -- --bundles rpm,appimage
+# or: DESKTOP_BUNDLES=rpm,appimage npm run desktop:build
+```
+
+### GitHub Releases
+
+Tagging a stable cut (`./scripts/release-tag.sh`) runs [`.github/workflows/release.yml`](../.github/workflows/release.yml), which publishes:
+
+| Asset | Notes |
+|-------|--------|
+| `Inertia-<version>-windows-x64-setup.exe` | NSIS installer |
+| `Inertia-<version>-linux-x86_64.rpm` | Fedora / RHEL-family |
+| `Inertia-<version>-linux-x86_64.AppImage` | Portable Linux |
+| `inertia-windows-x64.zip` | Existing portable zip |
+
+End-user install: [WINDOWS-SETUP.md](./WINDOWS-SETUP.md), [LINUX-SETUP.md](./LINUX-SETUP.md). Version on the desktop package is synced from the git tag in CI via [`scripts/sync-desktop-version.mjs`](../scripts/sync-desktop-version.mjs).
+
+### Linux install (after a successful local build)
+
+Artifacts land under `apps/desktop/src-tauri/target/release/bundle/`:
+
+| Format | Path | Install |
+|--------|------|---------|
+| **RPM** (Fedora) | `rpm/Inertia-*-x86_64.rpm` | `sudo dnf install ./Inertia-*-x86_64.rpm` |
+| **deb** | `deb/Inertia_*_amd64.deb` | `sudo apt install ./Inertia_*_amd64.deb` |
+| **AppImage** | `appimage/Inertia_*_amd64.AppImage` | `chmod +x ... && ./Inertia_*.AppImage` |
+
+Then open **Inertia** from the app menu (rpm/deb) or double-click the AppImage.
+
 `desktop:package` / `desktop:dev` / `desktop:build` invoke [`scripts/package-desktop.sh`](../scripts/package-desktop.sh) (Linux/macOS) or [`scripts/package-desktop.ps1`](../scripts/package-desktop.ps1) (Windows).
 
 ## Layout
@@ -85,6 +120,7 @@ Linux (verified on Fedora with WebKitGTK 4.1):
 - [x] `npm run desktop:dev` opens a native window (not an external browser)
 - [x] Health + UI at `http://127.0.0.1:4783`; data under OS app data (`~/.local/share/social.inertia.app` on Linux)
 - [x] Closing the window / SIGTERM on the shell stops `inertia-api` (port 4783 freed; Linux uses `PR_SET_PDEATHSIG`)
+- [x] `npm run desktop:build` produces rpm/deb; AppImage with `NO_STRIP` + `ARCH` (wired into `desktop:build`)
 - [ ] Invite / Messages / Settings relay behave like the Windows zip + browser flow
 
 Windows (run before treating installers as release-ready):
@@ -97,7 +133,7 @@ If port 4783 is already taken (`npm run api:release`, zip `run.cmd`, etc.), the 
 
 ## Relation to Windows zip
 
-[`npm run package:windows`](../docs/WINDOWS-SETUP.md) remains the zip + `run.cmd` path. Tauri is the simpler double-click install UX; zip stays until desktop installers are the default release artifact.
+Release CI publishes both the Tauri NSIS installer and [`inertia-windows-x64.zip`](./WINDOWS-SETUP.md) (`run.cmd`). Prefer the installer for end users; zip remains for portable / `update.cmd` workflows.
 
 ### Windows build path (summary)
 
@@ -107,6 +143,8 @@ npm run desktop:build
 # -> scripts/package-desktop.ps1 (release inertia-api + web:build)
 # -> tauri build (NSIS under src-tauri/target/release/bundle/)
 ```
+
+On Fedora, a dockur Windows 11 VM can build the same installer: see [tools/windows-vm/README.md](../tools/windows-vm/README.md) (Desktop Shared = `\\host.lan\Data`, then `guest-setup.ps1` + `guest-build.ps1`).
 
 macOS packaging is deferred.
 

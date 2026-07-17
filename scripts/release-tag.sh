@@ -23,6 +23,6 @@ git tag -a "$tag" -m "Release $tag"
 git push origin "$tag"
 
 echo "Tag $tag pushed."
-echo "GitHub Actions builds inertia-windows-x64.zip and publishes the release."
+echo "GitHub Actions builds Windows zip + desktop installers (NSIS, RPM, AppImage) and publishes the release."
 echo "Track: https://github.com/iagolavor/inertia/actions"
 echo "Release: https://github.com/iagolavor/inertia/releases/tag/$tag"

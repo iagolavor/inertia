@@ -34,6 +34,10 @@ try {
     Write-Host "==> sidecar $DestApi"
     Copy-Item -Force $SrcApi $DestApi
 
+    Write-Host "==> npm install (apps/web)"
+    npm install --prefix apps/web
+    if ($LASTEXITCODE -ne 0) { throw "npm install apps/web failed" }
+
     Write-Host "==> web:build"
     npm run web:build
 
