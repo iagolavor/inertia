@@ -14,9 +14,17 @@ function run(cmd, args, cwd = root, env = process.env) {
 }
 
 /** Tauri expects sidecars under apps/desktop/src-tauri/target; ignore shared CARGO_TARGET_DIR. */
-function tauriEnv() {
+function tauriEnv({ forBuild = false } = {}) {
   const env = { ...process.env };
   delete env.CARGO_TARGET_DIR;
+  // Fedora / rolling distros: linuxdeploy strip breaks AppImage; ARCH needed by appimagetool.
+  if (forBuild && !isWin && platform() === 'linux') {
+    env.NO_STRIP = env.NO_STRIP || 'true';
+    if (!env.ARCH) {
+      const map = { x64: 'x86_64', arm64: 'aarch64' };
+      env.ARCH = map[process.arch] || process.arch;
+    }
+  }
   return env;
 }
 
@@ -36,8 +44,17 @@ function packageDesktop(debugApi = false) {
   }
 }
 
+/** e.g. --bundles nsis or DESKTOP_BUNDLES=rpm,appimage */
+function parseBundles(argv) {
+  const i = argv.indexOf('--bundles');
+  if (i >= 0 && argv[i + 1]) return argv[i + 1];
+  if (process.env.DESKTOP_BUNDLES) return process.env.DESKTOP_BUNDLES;
+  return null;
+}
+
 const cmd = process.argv[2];
 const debugApi = process.argv.includes('--debug-api');
+const bundles = parseBundles(process.argv);
 
 if (cmd === 'package') {
   packageDesktop(debugApi);
@@ -48,8 +65,12 @@ if (cmd === 'package') {
 } else if (cmd === 'build') {
   packageDesktop(false);
   run('npm', ['install'], desktop);
-  run('npm', ['run', 'tauri', '--', 'build'], desktop, tauriEnv());
+  const tauriArgs = ['run', 'tauri', '--', 'build'];
+  if (bundles) tauriArgs.push('--bundles', bundles);
+  run('npm', tauriArgs, desktop, tauriEnv({ forBuild: true }));
 } else {
-  console.error('Usage: node scripts/run-native/desktop.mjs package|dev|build [--debug-api]');
+  console.error(
+    'Usage: node scripts/run-native/desktop.mjs package|dev|build [--debug-api] [--bundles nsis|rpm,appimage|...]'
+  );
   process.exit(1);
 }

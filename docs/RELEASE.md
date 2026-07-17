@@ -98,29 +98,43 @@ This will:
 
 1. Create an annotated tag `v0.2.0` on `master`
 2. Push the tag to GitHub
-3. Run **GitHub Actions** (`.github/workflows/release.yml`) to build **`inertia-windows-x64.zip`** and publish a [GitHub Release](https://github.com/iagolavor/inertia/releases) with auto-generated notes
+3. Run **GitHub Actions** (`.github/workflows/release.yml`) to build release assets and publish a [GitHub Release](https://github.com/iagolavor/inertia/releases) with auto-generated notes
 
-Track the workflow: [Actions](https://github.com/iagolavor/inertia/actions). The zip appears on the release page in a few minutes.
+Track the workflow: [Actions](https://github.com/iagolavor/inertia/actions). Assets appear on the release page when all jobs finish.
 
-### Windows zip (maintainers, local test)
+### Release assets
 
-After `cargo build --release -p inertia-api` and `npm run web:build`:
+| Asset | Platform |
+|-------|----------|
+| `Inertia-<version>-windows-x64-setup.exe` | Windows desktop installer (NSIS / Tauri) |
+| `inertia-windows-x64.zip` | Windows portable zip (`run.cmd`) |
+| `Inertia-<version>-linux-x86_64.rpm` | Fedora / RHEL-family |
+| `Inertia-<version>-linux-x86_64.AppImage` | Portable Linux |
+
+CI syncs the desktop package version from the git tag, then runs `npm run desktop:build` with `--bundles nsis` (Windows) or `--bundles rpm,appimage` (Linux). See [TAURI.md](./TAURI.md).
+
+### Local packaging (maintainers)
 
 ```powershell
+# Windows zip
 npm run package:windows
 # → dist/inertia-windows-x64.zip
+
+# Desktop installers (same as CI, all bundles)
+npm run desktop:build
+# → apps/desktop/src-tauri/target/release/bundle/
 ```
 
 ## Versioning
 
 Early project: use **semver** loosely (`v0.1.0`, `v0.2.0`). Bump:
 
-- **Patch** — bugfixes only
-- **Minor** — features, refactors, docs batches worth a stable cut
-- **Major** — breaking API/storage/P2P protocol changes (rare pre-1.0)
+- **Patch** - bugfixes only
+- **Minor** - features, refactors, docs batches worth a stable cut
+- **Major** - breaking API/storage/P2P protocol changes (rare pre-1.0)
 
 ## What visitors see
 
-GitHub’s default branch should be **development** (active README and docs). **master** + tags reflect the latest stable release.
+GitHub's default branch should be **development** (active README and docs). **master** + tags reflect the latest stable release.
 
-**Windows users** should download **`inertia-windows-x64.zip`** from Releases — not clone the repo. See [WINDOWS-SETUP.md](./WINDOWS-SETUP.md).
+End users should download installers from Releases - not clone the repo. See [WINDOWS-SETUP.md](./WINDOWS-SETUP.md) and [LINUX-SETUP.md](./LINUX-SETUP.md).

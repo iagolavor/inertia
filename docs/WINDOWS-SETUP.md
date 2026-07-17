@@ -1,6 +1,25 @@
 # Windows setup
 
-Download **[inertia-windows-x64.zip](https://github.com/iagolavor/inertia/releases/latest)** from GitHub Releases, extract anywhere, then double-click **`run.cmd`**.
+Download from **[GitHub Releases](https://github.com/iagolavor/inertia/releases/latest)**.
+
+| Asset | When |
+|-------|------|
+| **`Inertia-<version>-windows-x64-setup.exe`** | Recommended: desktop shell (Tauri). Double-click to install. |
+| **`inertia-windows-x64.zip`** | Portable: extract anywhere, run `run.cmd` (browser UI). |
+
+## Desktop installer (recommended)
+
+1. Download **`Inertia-*-windows-x64-setup.exe`**
+2. Run the installer (current-user install; no admin required)
+3. Launch **Inertia** from the Start menu
+
+Data is stored in the OS app data directory (not next to the exe). See [TAURI.md](./TAURI.md).
+
+Windows may show a SmartScreen / unknown publisher warning until releases are code-signed. Choose **More info → Run anyway** if you trust the GitHub release asset.
+
+## Portable zip
+
+Download **`inertia-windows-x64.zip`**, extract anywhere, then double-click **`run.cmd`**.
 
 | Step | Action |
 |------|--------|
@@ -10,9 +29,7 @@ Download **[inertia-windows-x64.zip](https://github.com/iagolavor/inertia/releas
 
 Nothing else to install: no Rust, Node, Git, or winget.
 
----
-
-## Troubleshooting
+### Troubleshooting (zip)
 
 | Problem | Fix |
 |---------|-----|

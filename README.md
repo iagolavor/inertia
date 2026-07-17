@@ -13,6 +13,7 @@
 <p align="center">
   <a href="docs/VISION.md">Vision</a> ·
   <a href="docs/WINDOWS-SETUP.md">Windows</a> ·
+  <a href="docs/LINUX-SETUP.md">Linux</a> ·
   <a href="docs/CAPACITOR.md">Android</a> ·
   <a href="crates/inertia-relay/README.md">Relay</a> ·
   <a href="https://github.com/iagolavor/inertia/releases">Releases</a>
@@ -105,13 +106,16 @@ Identity is cryptographic. There is no signup server. You add friends with signe
 <tr>
 <td width="50%" valign="top">
 
-### Windows
+### Install (Windows / Linux)
 
-Download **[inertia-windows-x64.zip](https://github.com/iagolavor/inertia/releases/latest)**, extract, double-click **`run.cmd`**.
+From **[Releases](https://github.com/iagolavor/inertia/releases/latest)**:
 
-Opens **http://127.0.0.1:4783**. No Rust, Node, or Git required.
+- **Windows:** `Inertia-*-windows-x64-setup.exe` (recommended), or portable `inertia-windows-x64.zip` + `run.cmd`
+- **Linux:** `Inertia-*-linux-x86_64.rpm` (Fedora) or `*.AppImage`
 
-[Full guide](docs/WINDOWS-SETUP.md)
+No Rust, Node, or Git required.
+
+[Windows guide](docs/WINDOWS-SETUP.md) · [Linux guide](docs/LINUX-SETUP.md)
 
 </td>
 <td width="50%" valign="top">
@@ -159,6 +163,7 @@ In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`**
 | Relay circuits & invite bootstrap | [docs/RELAY-CONNECTIVITY.md](docs/RELAY-CONNECTIVITY.md) |
 | UI philosophy | [docs/DESIGN.md](docs/DESIGN.md) |
 | Windows install & updates | [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) |
+| Linux install (RPM / AppImage) | [docs/LINUX-SETUP.md](docs/LINUX-SETUP.md) |
 | Tauri desktop shell | [docs/TAURI.md](docs/TAURI.md) |
 | VPS relay deploy | [crates/inertia-relay/README.md](crates/inertia-relay/README.md) |
 | Releases & tagging | [docs/RELEASE.md](docs/RELEASE.md) |
