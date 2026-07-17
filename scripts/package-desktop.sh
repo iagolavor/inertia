@@ -36,6 +36,9 @@ echo "==> sidecar $DEST_API"
 cp -f "$SRC_API" "$DEST_API"
 chmod +x "$DEST_API" 2>/dev/null || true
 
+echo "==> npm install (apps/web)"
+(cd "$ROOT" && npm install --prefix apps/web)
+
 echo "==> web:build"
 (cd "$ROOT" && npm run web:build)
 
