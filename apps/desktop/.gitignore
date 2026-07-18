@@ -16,6 +16,10 @@ src-tauri/binaries/*
 src-tauri/resources/web/*
 !src-tauri/resources/web/.gitkeep
 
+# `tauri icon` also dumps iOS/Android sets; desktop does not use them
+src-tauri/icons/ios/
+src-tauri/icons/android/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
