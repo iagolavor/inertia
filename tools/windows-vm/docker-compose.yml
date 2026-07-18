@@ -1,0 +1,35 @@
+# Windows 11 VM via dockur/windows (KVM). Fedora host.
+# Docs: https://github.com/dockur/windows
+#
+# Usage (from this directory):
+#   mkdir -p data
+#   docker compose up -d
+#   open http://127.0.0.1:8006
+#
+# First boot downloads the ISO and installs Windows (long). Data persists in ./data/.
+# Repo appears in the guest as Desktop -> Shared (bind of ../.. to /shared).
+services:
+  windows:
+    image: dockurr/windows
+    container_name: inertia-windows11
+    environment:
+      VERSION: "11"
+      RAM_SIZE: "8G"
+      CPU_CORES: "4"
+      DISK_SIZE: "64G"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "8006:8006"
+      - "3389:3389/tcp"
+      - "3389:3389/udp"
+    volumes:
+      # :Z = private SELinux label so the container can write (Fedora)
+      - ./data:/storage:Z
+      # Repo root -> Samba \\host.lan\Data / Desktop "Shared" (copy to NTFS before build)
+      - ../..:/shared:rw,Z
+    stop_grace_period: 2m
+    restart: unless-stopped

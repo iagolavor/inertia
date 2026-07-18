@@ -1,0 +1,21 @@
+---
+description: Developer host OS - prefer Fedora (and Windows) when giving install/run commands
+alwaysApply: true
+---
+
+# Host OS for this developer
+
+Primary daily driver: **Fedora Linux** (current generation, e.g. fc44+). Also uses **Windows** for packaging and end-user paths.
+
+## When giving shell / package commands
+
+- Default to **Fedora** (`dnf`, Fedora package names). Do not assume Debian/Ubuntu (`apt`) or generic Docker Hub package names without checking.
+- Examples that differ on Fedora:
+  - Docker engine: `moby-engine` (+ `docker-compose`, `runc`), not a package named `docker` / `docker-compose-plugin` from Fedora repos. Official Docker CE is a separate repo path. After `usermod -aG docker`, log out/in (group is session-scoped).
+  - Prefer checking `user_info` / environment before inventing install steps.
+- When the task is Windows-specific (NSIS, `package:windows`, PowerShell scripts), use Windows commands and note they run on Windows (or a Windows VM), not on the Fedora host.
+
+## Do not
+
+- Paste Ubuntu-only one-liners as the first answer for this machine.
+- Forget that CI may still be Windows/Ubuntu while the developer's laptop is Fedora.
