@@ -85,8 +85,8 @@
 <section class="card settings-section">
   <h2 class="section-title">Connection</h2>
   <p class="muted">
-    How this device listens and connects to friends. Set relay and announce addresses so
-    invites work across networks.
+    How this device listens and connects to friends. A VPS relay multiaddr is required for
+    invites and friend reachability.
   </p>
 
   {#if loading}
@@ -125,9 +125,9 @@
         bind:value={webOrigin}
       />
       <p class="field-hint">
-        Overrides the browser URL in invite links. Use your LAN IP and web port so friends can open
-        the link on their machine. Leave empty to use this browser&apos;s address, or set
-        <code>INERTIA_WEB_ORIGIN</code> via env.
+        Overrides the browser URL in invite links (how friends open the invite page). Leave empty
+        to use this browser&apos;s address, or set <code>INERTIA_WEB_ORIGIN</code> via env. Friend
+        P2P still goes through the relay, not this URL.
       </p>
     </div>
 
@@ -137,7 +137,7 @@
         <button type="button" class="btn btn-secondary btn-compact" onclick={copyShareAddress}>Copy</button>
       </div>
     {:else if identityState.p2pInfo?.peer_id}
-      <p class="muted">No shareable multiaddr yet — set announce addresses or wait for P2P.</p>
+      <p class="muted">No shareable multiaddr yet - set announce addresses or wait for P2P.</p>
     {/if}
 
     <div class="actions">

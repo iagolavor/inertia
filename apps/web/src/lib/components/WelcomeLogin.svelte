@@ -486,7 +486,7 @@
           </p>
         {:else}
           <p class="muted preview-meta">
-            No relay configured yet. Invites work best once Relay OK appears in the app header.
+            No relay configured yet. Add a VPS relay in Settings and wait for Relay OK before inviting.
           </p>
         {/if}
         <div class="btn-row" style="margin-top: 1.25rem;">
