@@ -17,3 +17,4 @@ apps/web/android/.idea
 .env
 .inertia-version
 *.db
+tools/windows-vm/data/
