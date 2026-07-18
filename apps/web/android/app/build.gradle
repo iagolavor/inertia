@@ -29,20 +29,6 @@ android {
     }
 }
 
-// Optional release signing for CI / local Play builds (see docs/RELEASE.md).
-def androidKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
-if (androidKeystorePath != null && !androidKeystorePath.isEmpty()) {
-    android.signingConfigs {
-        release {
-            storeFile file(androidKeystorePath)
-            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            keyAlias System.getenv("ANDROID_KEY_ALIAS")
-            keyPassword System.getenv("ANDROID_KEY_PASSWORD")
-        }
-    }
-    android.buildTypes.release.signingConfig android.signingConfigs.release
-}
-
 repositories {
     flatDir{
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
