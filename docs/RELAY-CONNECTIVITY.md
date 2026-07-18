@@ -1,6 +1,6 @@
 # Relay connectivity: P2P circuits and invite bootstrap
 
-Inertia routes friend traffic over **libp2p relay circuits** through `inertia-relay` on a VPS (or a local relay in dev). Each device still runs `inertia-api` + `inertia-core` locally; the relay is connectivity only (no SQLite, no decrypted payloads).
+Inertia routes friend traffic over **libp2p relay circuits** through `inertia-relay` on a VPS (or a local relay in dev). A configured relay is **required** for invites and friend reachability; LAN and direct TCP are not used for friends. Each device still runs `inertia-api` + `inertia-core` locally; the relay is connectivity only (no SQLite, no decrypted payloads).
 
 This doc describes the current **inertia-core** connection design: swarm actor, relay bootstrap, invite gates, and friend redials. For deployment, see [inertia-relay README](../crates/inertia-relay/README.md).
 
@@ -271,7 +271,7 @@ Raising `INERTIA_RELAY_MAX_CIRCUITS_PER_PEER` from 4 to 8 allows heavier poster 
 
 ## DCUtR (optional upgrade)
 
-DCUtR hole punching remains in the behaviour stack. Friend **discovery and redial** stay on relay circuits; a live session may later upgrade to direct transport. Bulk transfer logic (e.g. video chunks) may prefer direct when available — see [VIDEO-P2P-PLAN.md](./VIDEO-P2P-PLAN.md).
+DCUtR hole punching remains in the behaviour stack. Friend **discovery and redial** stay on relay circuits; a live session may later upgrade to direct transport. Bulk transfer logic (e.g. video chunks) may prefer direct when available - see [VIDEO-P2P-PLAN.md](./VIDEO-P2P-PLAN.md).
 
 ---
 
