@@ -110,8 +110,9 @@ Track the workflow: [Actions](https://github.com/iagolavor/inertia/actions). Ass
 | `inertia-windows-x64.zip` | Windows portable zip (`run.cmd`) |
 | `Inertia-<version>-linux-x86_64.rpm` | Fedora / RHEL-family |
 | `Inertia-<version>-linux-x86_64.AppImage` | Portable Linux |
+| `Inertia-<version>-android-arm64-debug.apk` | Android arm64 sideload (debug-signed; same as local `android:run`) |
 
-CI syncs the desktop package version from the git tag, then runs `npm run desktop:build` with `--bundles nsis` (Windows) or `--bundles rpm,appimage` (Linux). See [TAURI.md](./TAURI.md).
+CI syncs desktop and Android package versions from the git tag. Desktop: `npm run desktop:build` with `--bundles nsis` (Windows) or `--bundles rpm,appimage` (Linux). Android: `npm run android:install` then Gradle `assembleDebug`. See [TAURI.md](./TAURI.md) and [CAPACITOR.md](./CAPACITOR.md).
 
 ### Local packaging (maintainers)
 
@@ -123,7 +124,14 @@ npm run package:windows
 # Desktop installers (same as CI, all bundles)
 npm run desktop:build
 # → apps/desktop/src-tauri/target/release/bundle/
+
+# Android Stage B APK (debug)
+npm run android:install
+cd apps/web/android && ./gradlew assembleDebug
+# → app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Play Store / release-keystore signing can be added later when secrets exist.
 
 ## Versioning
 
@@ -137,4 +145,4 @@ Early project: use **semver** loosely (`v0.1.0`, `v0.2.0`). Bump:
 
 GitHub's default branch should be **development** (active README and docs). **master** + tags reflect the latest stable release.
 
-End users should download installers from Releases - not clone the repo. See [WINDOWS-SETUP.md](./WINDOWS-SETUP.md) and [LINUX-SETUP.md](./LINUX-SETUP.md).
+End users should download installers from Releases - not clone the repo. See [WINDOWS-SETUP.md](./WINDOWS-SETUP.md), [LINUX-SETUP.md](./LINUX-SETUP.md), and [CAPACITOR.md](./CAPACITOR.md) for Android.

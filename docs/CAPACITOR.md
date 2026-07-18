@@ -83,6 +83,10 @@ No PC API required.
 
 Packaged assets are gitignored; run `android:install` before shipping or sideloading an APK.
 
+### GitHub Releases
+
+Tagging a stable cut publishes `Inertia-<version>-android-arm64-debug.apk` (debug-signed sideload; same as local `android:run`). Play / release-keystore signing can be added later.
+
 ## Cleartext HTTP
 
 The app uses `http://127.0.0.1:4783` on-device. `usesCleartextTraffic="true"` is set in the manifest. Tighten before wide public release (see [SECURITY-TODO.md](./SECURITY-TODO.md)).
@@ -123,7 +127,7 @@ Pick up polish from the **Resume next** list in [AGENTS.md](../AGENTS.md) (invit
 
 ## Not yet implemented
 
-- Play Store / release signing in CI
+- Play Store / release-keystore signing in CI (debug APK already ships on `v*` tags; see [RELEASE.md](./RELEASE.md))
 - API auth on localhost
 - Private keys in Android Keystore
 - iOS shell

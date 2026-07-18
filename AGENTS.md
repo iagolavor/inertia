@@ -71,7 +71,7 @@ npm run android:run
 **Resume next** (mobile polish - branch from `development` as `feature/android-*`)
 
 1. **Invite preview UX** - remove or fix misleading red offline dot on `ProfileHeader` (not inviter presence)
-2. **Release** - Play signing, optional APK in CI (desktop installers + Windows zip ship on `v*` tags; see [RELEASE.md](docs/RELEASE.md))
+2. **Release** - Play Store / release-keystore signing later. Debug APK ships on `v*` tags (see [RELEASE.md](docs/RELEASE.md))
 3. **Optional** - `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
 
 **Done recently:** header **P2pStatus** tap-to-open details panel (touch-friendly). No hover `title` (it steals clicks on some desktops).
