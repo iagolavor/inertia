@@ -57,7 +57,7 @@ To create a peer-to-peer social media system that:
 
 ## Non-Goals
 
-- **No Global Discovery**: No hashtags, trending, global feeds, or **user** search. An optional **public relay list** (connectivity nodes only) is allowed — see §2b.
+- **No Global Discovery**: No hashtags, trending, global feeds, or **user** search. A future **public relay list** (connectivity nodes only) may help pick a relay - see §2b. A configured relay is still required.
 - **No Centralized Permanent Archives**: Feed posts and messages expire. There is no cloud library or global catalog. Author-hosted profile photos and optional shared folders may persist on the owner's device only.
 - **No Corporate Servers**: No central infrastructure for accounts, content, or analytics.
 - **No Phone-Based Directory**: No "type a number and find them" registry.
@@ -121,7 +121,7 @@ Each user runs **local-first** software on their own device. A small **VPS relay
                         │ circuit relay (TCP)
                         ▼
               ┌─────────────────────┐
-              │  VPS (optional)     │
+              │  VPS                │
               │  inertia-relay      │
               │  libp2p relay only  │
               │  no user data       │
@@ -164,12 +164,12 @@ See [inertia-relay README](../crates/inertia-relay/README.md) for relay deployme
 |----------|--------|-------------|
 | Friend discovery | **Invite link + QR** | No global directory. Users share invites over channels they already trust. |
 | Identity | **Cryptographic keypair** | No phone numbers, no SMS relay, no account database. |
-| Connectivity | **libp2p relay circuits + optional VPS relay** | Friend paths are `/p2p-circuit/` via `inertia-relay`; relay is connectivity only. See [RELAY-CONNECTIVITY.md](./RELAY-CONNECTIVITY.md). |
+| Connectivity | **libp2p relay circuits via VPS (`inertia-relay`)** | Friend paths are `/p2p-circuit/` only; LAN/direct TCP are not used for friends. Relay is connectivity only. See [RELAY-CONNECTIVITY.md](./RELAY-CONNECTIVITY.md). |
 | Post expiration | **7 days** | Default TTL for posts. |
 | Message expiration | **7 days** | Same as posts. |
 | Invite expiration | **15 minutes** | Links expire quickly; generate a fresh one anytime. |
 | Invite usage | **Single-use** | Each nonce can be redeemed once; issuer must be online to accept. |
-| Relay hosting | **Community VPS (optional)** | Anyone can run `inertia-relay`. No user data on the host — connectivity only. |
+| Relay hosting | **Self-hosted or community VPS** | Every circle needs a reachable `inertia-relay`. Anyone can run one. No user data on the host - connectivity only. |
 | Public relay list | **Curated directory of relays** | Not a user directory. Helps clients pick bootstrap relays; no accounts or content. |
 
 ---
@@ -192,8 +192,8 @@ peer_id, multiaddrs[], relay_multiaddr,
 created_at, expires_at, nonce, signature
 ```
 
-- **`multiaddrs`** — how to dial the inviter (circuit addresses via relay preferred).
-- **`relay_multiaddr`** — shared VPS relay (`/ip4/HOST/tcp/9000/p2p/RELAY_PEER_ID`), signed by the inviter. On accept, the accepter applies this to Settings so new users can reach the network without a separate relay handoff.
+- **`multiaddrs`** - how to dial the inviter (`/p2p-circuit/` addresses via the shared relay).
+- **`relay_multiaddr`** - shared VPS relay (`/ip4/HOST/tcp/9000/p2p/RELAY_PEER_ID`), signed by the inviter. On accept, the accepter applies this to Settings so new users join the same relay network without a separate handoff.
 
 Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<payload>`.
 
@@ -220,7 +220,7 @@ Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<pay
 
 ## 2b. Community Relays and Public Relay List (planned)
 
-Today every invite embeds one `relay_multiaddr` from the inviter's settings. That works for private circles (family, friends). To grow beyond hand-picked relays without a central **account** server, Inertia can support **public community relays** — optional VPS nodes run by volunteers or small operators, listed in a **public relay list**.
+Today every invite embeds one `relay_multiaddr` from the inviter's settings. That works for private circles (family, friends). To grow beyond hand-picked relays without a central **account** server, Inertia can support **public community relays** - VPS nodes run by volunteers or small operators, listed in a **public relay list**.
 
 This is **not** global user discovery. It is a directory of **connectivity helpers** (multiaddr + metadata), similar in spirit to public Matrix or email relay lists — not a searchable people graph.
 
@@ -286,7 +286,7 @@ Community hosts need a simple way to recover VPS costs without ads or a central 
 
 - **Relay ≠ social server** — paying for relay access buys **connectivity**, not your posts, keys, or feed on someone else's disk.
 - **No central wallet** — funds flow host-to-joiner via PIX; Inertia software stays out of custody where possible.
-- **Public relays are optional** — private invites with a free family relay remain the core model.
+- **A relay is required** - private/family VPS remains the core model; a future public relay list is only another way to pick one.
 - **Abuse** — open relays need rate limits and monitoring (see [SECURITY-TODO.md](./SECURITY-TODO.md)); paid join is one **social** throttle, not a crypto guarantee by itself.
 
 ---

@@ -1,6 +1,6 @@
 # inertia-relay
 
-libp2p **circuit relay v2** for Inertia. Run it on a small VPS you control so friends behind home NAT can reach each other.
+libp2p **circuit relay v2** for Inertia. Required for friend invites and reachability: run it on a small VPS you (or your circle) control so devices behind home NAT can dial each other over `/p2p-circuit/` paths.
 
 **Connectivity only.** No SQLite, no user profiles, no posts, no keys, no decrypted content. The relay never sees message payloads.
 
@@ -65,7 +65,7 @@ Replace `0.0.0.0` with your VPS **public IP** and copy the full string:
 
 1. Open **Settings → Connection**
 2. Paste into **Relay multiaddr**
-3. Save and wait for **Relay OK** in the header. Before generating an invite, wait until **Generate** is enabled (relay reservation active — see `GET /invite/readiness` or the Friends add screen).
+3. Save and wait for **Relay OK** in the header. Before generating an invite, wait until **Generate** is enabled (relay reservation active; see `GET /invite/readiness` or the Friends add screen).
 
 Or set an environment variable when starting the API (overrides saved settings):
 

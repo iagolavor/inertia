@@ -25,7 +25,7 @@
 
 **Inertia** is a small, chronological social app for a closed circle of friends. Each person runs the stack on their own machine: a Rust API, embedded database, and libp2p networking. Posts and messages expire after seven days unless you keep a local archive.
 
-Identity is cryptographic. There is no signup server. You add friends with signed invite links (and optional QR codes). When both sides are online, content travels peer-to-peer; an optional [VPS relay](crates/inertia-relay/README.md) you control helps with NAT.
+Identity is cryptographic. There is no signup server. You add friends with signed invite links (and optional QR codes). Friend paths use relay circuits through a [VPS `inertia-relay`](crates/inertia-relay/README.md) you (or your circle) run. Content stays end-to-end encrypted; the relay is connectivity only.
 
 > **Status:** Usable alpha for a small circle. Web + Windows zip + Android install work; desktop install UX and polish are the main gaps. Default branch is `development`.
 
@@ -181,10 +181,10 @@ In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`**
  │ SQLite + libp2p  │                │ SQLite + libp2p  │
  └────────┬─────────┘                └────────┬─────────┘
           └────────────┬──────────────────────┘
-                       │ optional circuit relay
+                       │ circuit relay (required)
                        ▼
               ┌─────────────────┐
-              │ inertia-relay   │  VPS you control (:9000)
+              │ inertia-relay   │  VPS (:9000)
               │ connectivity    │  no posts, keys, or profiles
               └─────────────────┘
 ```
@@ -231,7 +231,7 @@ inertia/
 ├── crates/
 │   ├── inertia-core/       # identity, storage, P2P, invites, archives
 │   ├── inertia-api/        # local Axum HTTP bridge (127.0.0.1:4783)
-│   └── inertia-relay/      # optional VPS circuit relay
+│   └── inertia-relay/      # VPS circuit relay (required for friends)
 ├── apps/
 │   ├── web/                # SvelteKit PWA (shared UI)
 │   │   ├── src/            # routes, lib, sync modules, components

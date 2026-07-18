@@ -86,7 +86,7 @@ npm run android:run
 
 Friend traffic routes over **relay circuits** via `inertia-relay`. See **[docs/RELAY-CONNECTIVITY.md](docs/RELAY-CONNECTIVITY.md)** for topology diagrams, relay session vs reservation, invite bootstrap, and source file map.
 
-**Short summary:** header **Relay OK** = outbound relay session; invite create also needs an inbound **reservation**. LAN/direct TCP are not stored or redialed for friends.
+**Short summary:** a VPS/`inertia-relay` is **required** for friend paths. Header **Relay OK** = outbound relay session; invite create also needs an inbound **reservation**. LAN/direct TCP are not stored or redialed for friends.
 
 ## Commands
 
