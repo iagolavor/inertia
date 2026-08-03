@@ -50,13 +50,13 @@ fi
 if [[ ${#pr_lines[@]} -gt 0 ]]; then
   changes="$(printf '%s\n' "${pr_lines[@]}")"
 else
-  changes="- (no merge commits parsed — list highlights manually)"
+  changes="- (no merge commits parsed - list highlights manually)"
 fi
 
 body="$(cat <<EOF
 ## Summary
 
-Promote development to master — **${tag}**.
+Promote development to master - **${tag}**.
 
 ${since_line}
 

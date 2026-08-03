@@ -15,12 +15,12 @@ android_api=24
 
 sdk="$(inertia_android_sdk_root)"
 if [[ ! -d "$sdk" ]]; then
-	echo "Android SDK not found at $sdk — run: npm run android:sdk" >&2
+	echo "Android SDK not found at $sdk  -  run: npm run android:sdk" >&2
 	exit 1
 fi
 
 if [[ ! -d "$sdk/ndk" ]]; then
-	echo "Android NDK not found under $sdk/ndk — install via Android Studio SDK Manager" >&2
+	echo "Android NDK not found under $sdk/ndk  -  install via Android Studio SDK Manager" >&2
 	exit 1
 fi
 

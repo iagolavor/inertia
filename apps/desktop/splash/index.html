@@ -40,7 +40,40 @@
   <body>
     <main>
       <h1>Inertia</h1>
-      <p id="status">Starting local API…</p>
+      <p id="status">Starting local API...</p>
     </main>
+    <script>
+      (function () {
+        var origin = "http://127.0.0.1:4783";
+        var statusEl = document.getElementById("status");
+        var started = Date.now();
+        var timeoutMs = 45000;
+
+        function go(url) {
+          window.location.replace(url);
+        }
+
+        function tick() {
+          if (Date.now() - started > timeoutMs) {
+            if (statusEl) {
+              statusEl.textContent = "Local API did not start. Restart the app.";
+            }
+            return;
+          }
+          fetch(origin + "/api/health", { cache: "no-store" })
+            .then(function (resp) {
+              if (!resp.ok) {
+                throw new Error("unhealthy");
+              }
+              go(origin + "/");
+            })
+            .catch(function () {
+              setTimeout(tick, 200);
+            });
+        }
+
+        tick();
+      })();
+    </script>
   </body>
 </html>

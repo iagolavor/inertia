@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Package inertia-api (jniLibs) + web (assets) for on-device Android. Mirrors Windows zip layout.
+# Package inertia-api (jniLibs) + web (assets) for Tauri Android. Mirrors Windows zip layout.
 
 set -euo pipefail
 
@@ -9,17 +9,18 @@ source "$(dirname "$0")/lib/android-env.sh"
 root="$(inertia_repo_root)"
 api_bin="$root/dist/android-arm64/inertia-api"
 web_build="$root/apps/web/build"
-assets_root="$root/apps/web/android/app/src/main/assets/inertia"
-jni_libs="$root/apps/web/android/app/src/main/jniLibs/arm64-v8a"
+android_main="$root/apps/desktop/src-tauri/gen/android/app/src/main"
+assets_root="$android_main/assets/inertia"
+jni_libs="$android_main/jniLibs/arm64-v8a"
 jni_lib_name='libinertia_api.so'
 
 if [[ ! -f "$api_bin" ]]; then
-	echo "Missing $api_bin — run: npm run android:api:build" >&2
+	echo "Missing $api_bin - run: npm run android:api:build" >&2
 	exit 1
 fi
 
 if [[ ! -f "$web_build/index.html" ]]; then
-	echo 'Missing apps/web/build — run: npm run web:build' >&2
+	echo 'Missing apps/web/build - run: npm run web:build' >&2
 	exit 1
 fi
 
@@ -35,4 +36,4 @@ cp -f "$api_bin" "$jni_libs/$jni_lib_name"
 
 echo "Packaged web assets at $assets_root"
 echo "Packaged API binary at $jni_libs/$jni_lib_name"
-echo 'Next: npm run android:sync (or rebuild/install from Android Studio)'
+echo 'Next: npm run android:apk (or android:run)'
