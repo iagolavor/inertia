@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Run scripts/<name>.ps1 on Windows or scripts/<name>.sh elsewhere.
- * Built-ins: android-open (Capacitor open with auto-detected Android Studio).
+ * Built-ins: android-open (open Tauri Android project in Android Studio).
  *
  * Usage: node scripts/run-native.mjs <name> [args...]
  */
@@ -69,15 +69,22 @@ function androidStudioEnv() {
 }
 
 function runAndroidOpen() {
-	const web = join(root, 'apps/web');
+	const androidProject = join(root, 'apps/desktop/src-tauri/gen/android');
 	const env = androidStudioEnv();
+	const studio = env.CAPACITOR_ANDROID_STUDIO_PATH || resolveAndroidStudio();
 
-	let result = spawnSync('npm', ['run', 'cap:sync'], { cwd: web, stdio: 'inherit', env });
-	if (result.status) {
-		process.exit(result.status);
+	if (!existsSync(androidProject)) {
+		console.error('Missing Tauri Android project at apps/desktop/src-tauri/gen/android');
+		console.error('Run: cd apps/desktop && npx tauri android init --ci');
+		process.exit(1);
 	}
 
-	result = spawnSync('npx', ['cap', 'open', 'android'], { cwd: web, stdio: 'inherit', env });
+	if (!studio) {
+		console.error('Android Studio not found. Set CAPACITOR_ANDROID_STUDIO_PATH or install Studio.');
+		process.exit(1);
+	}
+
+	const result = spawnSync(studio, [androidProject], { stdio: 'inherit', env });
 	process.exit(result.status ?? 1);
 }
 

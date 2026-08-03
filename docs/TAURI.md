@@ -1,15 +1,17 @@
-# Tauri desktop shell
+# Tauri shell (desktop + Android)
 
-Desktop twin of the Android on-device install: one app window starts **`inertia-api`** as a sidecar and loads the Svelte UI from `http://127.0.0.1:4783`.
+One native shell in [`apps/desktop`](../apps/desktop) starts **`inertia-api`** and loads the Svelte UI from `http://127.0.0.1:4783`.
 
-| | **Desktop (Tauri)** |
-|---|---------------------|
-| UI | Served by local `inertia-api` |
-| API | Sidecar on `127.0.0.1:4783` |
-| Data | OS app data dir (`INERTIA_DATA_DIR`) |
-| Web assets | Bundled `resources/web` (`INERTIA_WEB_DIR`) |
+| | **Desktop** | **Android** |
+|---|-------------|----------------|
+| UI | Served by local `inertia-api` | Same |
+| API | Sidecar (`externalBin`) | `libinertia_api.so` via jniLibs + FGS |
+| Data | OS app data dir (`INERTIA_DATA_DIR`) | App files dir (`inertia/data`) |
+| Web assets | Bundled `resources/web` | Extracted from APK assets |
 
-Same Svelte app as web/Android ([`apps/web`](../apps/web)). No forked product UI.
+Same Svelte app ([`apps/web`](../apps/web)). No forked product UI. Capacitor is removed; see [CAPACITOR.md](./CAPACITOR.md).
+
+Official Tauri sidecars are desktop-only. Android uses the same process model as the old Capacitor path: ship the binary as a `.so` under `jniLibs`, run it with `ProcessBuilder`, foreground service, health gate, then WebView.
 
 ## Prerequisites
 
@@ -19,7 +21,7 @@ Same Svelte app as web/Android ([`apps/web`](../apps/web)). No forked product UI
 - Rust toolchain (`rustup`)
 - From repo root: workspace builds `inertia-api` with `cargo build --release -p inertia-api`
 
-### Linux
+### Linux (desktop)
 
 Install Tauri system libraries ([prerequisites](https://tauri.app/start/prerequisites/)):
 
@@ -27,128 +29,116 @@ Install Tauri system libraries ([prerequisites](https://tauri.app/start/prerequi
 # Fedora
 sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file \
   libappindicator-gtk3-devel librsvg2-devel gcc
-
-# Debian / Ubuntu
-sudo apt install libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
-  librsvg2-dev patchelf build-essential curl wget file libssl-dev
 ```
 
-### Windows
+### Windows (desktop)
 
 - [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (C++ workload)
 - WebView2 (usually preinstalled on Windows 10/11)
 
 macOS packaging is deferred.
 
+### Android
+
+- [Android Studio](https://developer.android.com/studio) (SDK + NDK)
+- `npm run android:sdk` (platform-tools, Android 35/36, NDK 26.3, `local.properties`)
+- Rust target `aarch64-linux-android` + `cargo-ndk`
+- JDK **17 or 21** (Fedora default Java 25 breaks Gradle)
+
 ## Commands (repo root)
 
+### Desktop
+
 ```bash
-# Prepare sidecar + web assets, then run the shell
 npm run desktop:dev
-
-# Production installers / bundles under apps/desktop/src-tauri/target/release/bundle/
 npm run desktop:build
-
-# Only copy API + web into apps/desktop/src-tauri/{binaries,resources}
 npm run desktop:package
 ```
 
-`desktop:build` sets `NO_STRIP=true` and `ARCH` on Linux so AppImage/linuxdeploy works on Fedora (without that, bundling often fails with `failed to run linuxdeploy`).
+`desktop:build` sets `NO_STRIP=true` and `ARCH` on Linux so AppImage/linuxdeploy works on Fedora.
 
 Optional bundle filter (used by release CI):
 
 ```bash
 npm run desktop:build -- --bundles nsis
 npm run desktop:build -- --bundles rpm,appimage
-# or: DESKTOP_BUNDLES=rpm,appimage npm run desktop:build
 ```
 
-### GitHub Releases
+### Android
 
-Tagging a stable cut (`./scripts/release-tag.sh`) runs [`.github/workflows/release.yml`](../.github/workflows/release.yml), which publishes:
+```bash
+# Cross-compile API, build web, package jniLibs/assets, build debug APK
+npm run android:install
+
+# Same prep, then install/run on a connected device
+npm run android:run
+
+# Open the Tauri Android project in Android Studio
+npm run android:open
+```
+
+`android:install` runs:
+
+1. `android:api:build` - `cargo ndk` arm64 → `dist/android-arm64/inertia-api`
+2. `web:build` - Svelte static UI
+3. `android:package` - copy into `apps/desktop/src-tauri/gen/android/.../{jniLibs,assets}`
+4. `android:apk` - `tauri android build --debug --apk --target aarch64`
+
+Layout:
+
+```
+apps/desktop/
+  splash/                 # brief page before navigate to API
+  src-tauri/
+    gen/android/          # Tauri Android Studio project (committed)
+    binaries/             # desktop sidecar (gitignored)
+    resources/web/        # desktop web copy (gitignored)
+    src/lib.rs            # desktop sidecar vs mobile health-wait
+    tauri.conf.json
+    tauri.android.conf.json
+```
+
+### Android lifecycle
+
+1. **SplashActivity** starts **InertiaApiService** (foreground notification).
+2. Extracts web assets, runs `libinertia_api.so` with `INERTIA_DATA_DIR` / `INERTIA_WEB_DIR`.
+3. Waits for `GET /api/health`.
+4. **MainActivity** (Tauri) opens; Rust navigates to `http://127.0.0.1:4783/` (or pending invite URL).
+
+Deep links: `inertia://invite/…` and `http://127.0.0.1:4783/invite…`.
+
+## GitHub Releases
+
+Tagging a stable cut (`./scripts/release-tag.sh`) runs [`.github/workflows/release.yml`](../.github/workflows/release.yml):
 
 | Asset | Notes |
 |-------|--------|
 | `Inertia-<version>-windows-x64-setup.exe` | NSIS installer |
 | `Inertia-<version>-linux-x86_64.rpm` | Fedora / RHEL-family |
 | `Inertia-<version>-linux-x86_64.AppImage` | Portable Linux |
-| `inertia-windows-x64.zip` | Existing portable zip |
+| `inertia-windows-x64.zip` | Portable zip |
+| `Inertia-<version>-android-arm64-debug.apk` | Tauri Android debug APK (sideload) |
 
-End-user install: [WINDOWS-SETUP.md](./WINDOWS-SETUP.md), [LINUX-SETUP.md](./LINUX-SETUP.md). Version on the desktop package is synced from the git tag in CI via [`scripts/sync-desktop-version.mjs`](../scripts/sync-desktop-version.mjs).
-
-### Linux install (after a successful local build)
-
-Artifacts land under `apps/desktop/src-tauri/target/release/bundle/`:
-
-| Format | Path | Install |
-|--------|------|---------|
-| **RPM** (Fedora) | `rpm/Inertia-*-x86_64.rpm` | `sudo dnf install ./Inertia-*-x86_64.rpm` |
-| **deb** | `deb/Inertia_*_amd64.deb` | `sudo apt install ./Inertia_*_amd64.deb` |
-| **AppImage** | `appimage/Inertia_*_amd64.AppImage` | `chmod +x ... && ./Inertia_*.AppImage` |
-
-Then open **Inertia** from the app menu (rpm/deb) or double-click the AppImage.
-
-`desktop:package` / `desktop:dev` / `desktop:build` invoke [`scripts/package-desktop.sh`](../scripts/package-desktop.sh) (Linux/macOS) or [`scripts/package-desktop.ps1`](../scripts/package-desktop.ps1) (Windows).
-
-## Layout
-
-```
-apps/desktop/
-  splash/                 # brief "Starting…" page before navigate to API
-  src-tauri/
-    binaries/             # gitignored: inertia-api-<target-triple>
-    resources/web/        # gitignored: copy of apps/web/build
-    src/lib.rs            # spawn sidecar, health wait, navigate, kill on exit
-    tauri.conf.json
-```
-
-## Lifecycle
-
-1. Shell resolves OS **app data** dir and bundled (or dev) **web** dir.
-2. Spawns sidecar `binaries/inertia-api` with:
-   - `INERTIA_DATA_DIR` - app data (not repo `./data`)
-   - `INERTIA_WEB_DIR` - packaged UI
-   - `INERTIA_API_ADDR=127.0.0.1:4783`
-3. Polls `GET /api/health` (up to ~45s).
-4. Navigates the main window to `http://127.0.0.1:4783/`.
-5. On exit, kills the sidecar so port 4783 is freed.
+Version sync: [`scripts/sync-desktop-version.mjs`](../scripts/sync-desktop-version.mjs) and [`scripts/sync-android-version.mjs`](../scripts/sync-android-version.mjs).
 
 ## Smoke checklist
 
-Linux (verified on Fedora with WebKitGTK 4.1):
+### Desktop (Linux)
 
-- [x] `npm run desktop:dev` opens a native window (not an external browser)
-- [x] Health + UI at `http://127.0.0.1:4783`; data under OS app data (`~/.local/share/social.inertia.app` on Linux)
-- [x] Closing the window / SIGTERM on the shell stops `inertia-api` (port 4783 freed; Linux uses `PR_SET_PDEATHSIG`)
-- [x] `npm run desktop:build` produces rpm/deb; AppImage with `NO_STRIP` + `ARCH` (wired into `desktop:build`)
-- [ ] Invite / Messages / Settings relay behave like the Windows zip + browser flow
+- [x] `npm run desktop:dev` opens a native window
+- [x] Health + UI at `http://127.0.0.1:4783`; data under OS app data
+- [x] Closing the window stops `inertia-api`
+- [x] `npm run desktop:build` produces rpm/deb/AppImage (with `NO_STRIP` + `ARCH`)
+- [ ] Invite / Messages / Settings relay like the Windows zip flow
 
-Windows (run before treating installers as release-ready):
+### Android
 
-- [ ] Prerequisites above, then `npm run desktop:package` and `npm run desktop:build`
-- [ ] NSIS/MSI (or exe) under `apps/desktop/src-tauri/target/release/bundle/`
-- [ ] Same smoke circle as Linux (identity, invite, Messages, Settings relay)
-
-If port 4783 is already taken (`npm run api:release`, zip `run.cmd`, etc.), the shell exits with a clear error. Stop the other process first (`npm run api:stop` on this repo).
-
-## Relation to Windows zip
-
-Release CI publishes both the Tauri NSIS installer and [`inertia-windows-x64.zip`](./WINDOWS-SETUP.md) (`run.cmd`). Prefer the installer for end users; zip remains for portable / `update.cmd` workflows.
-
-### Windows build path (summary)
-
-```powershell
-# From repo root (PowerShell)
-npm run desktop:build
-# -> scripts/package-desktop.ps1 (release inertia-api + web:build)
-# -> tauri build (NSIS under src-tauri/target/release/bundle/)
-```
-
-On Fedora, a dockur Windows 11 VM can build the same installer: see [tools/windows-vm/README.md](../tools/windows-vm/README.md) (Desktop Shared = `\\host.lan\Data`, then `guest-setup.ps1` + `guest-build.ps1`).
-
-macOS packaging is deferred.
+- [x] `npm run android:install` produces an arm64 debug APK
+- [ ] Splash → API healthy → UI at `127.0.0.1:4783` (device smoke)
+- [ ] Invite deep link / paste accept
+- [ ] Messages + relay status
 
 ## Security notes
 
-- Cleartext `http://127.0.0.1` only (same as Capacitor / zip). See [SECURITY-TODO.md](./SECURITY-TODO.md) for localhost API auth before exposing beyond loopback.
-- Single instance: do not run zip `inertia-api` and the Tauri sidecar on the same port at once.
+- Cleartext `http://127.0.0.1` only. See [SECURITY-TODO.md](./SECURITY-TODO.md).
+- Do not run zip `inertia-api` and the Tauri desktop sidecar on the same port at once.

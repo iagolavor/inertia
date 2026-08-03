@@ -12,7 +12,7 @@ You work on **apps/web**: SvelteKit 5 PWA that talks to the local Rust API via `
 
 - Svelte 5 runes (`$state`, `$derived`, `$props`).
 - Client-only: `ssr = false`, `prerender = true` in `+layout.ts`.
-- Static adapter — **Capacitor-ready**; do not add SSR-only features.
+- Static adapter (SPA); shared UI for Tauri desktop/Android. Do not add SSR-only features.
 - Dev proxy: `/api` → `127.0.0.1:4783` (see `vite.config.ts`).
 
 ## Design
@@ -47,6 +47,6 @@ Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chro
 - **No em dashes (`—`)** anywhere in the repo (see **Copy** in `AGENTS.md`). Use `-`, periods, commas, or colons.
 - Run `npm run check` after non-trivial changes.
 
-## Capacitor (future)
+## Native shells
 
-Do not block web delivery for mobile. Avoid Node-only APIs. Centralize API base URL so Phase 5 can swap `API_BASE` per platform.
+Do not block web delivery for mobile. Avoid Node-only APIs. Centralize API base URL (`api-base.ts`) so Tauri / on-device API origins resolve correctly.

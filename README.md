@@ -234,12 +234,10 @@ inertia/
 │   └── inertia-relay/      # VPS circuit relay (required for friends)
 ├── apps/
 │   ├── web/                # SvelteKit PWA (shared UI)
-│   │   ├── src/            # routes, lib, sync modules, components
-│   │   └── android/        # Capacitor Android shell (on-device API)
-│   └── desktop/            # Tauri shell (sidecar API + native window)
+│   └── desktop/            # Tauri shell (desktop + Android; local API)
 ├── tools/inertia-lint/     # workspace lint helpers
 ├── docker/relay/           # Compose stack for inertia-relay
-├── docs/                   # vision, design, Capacitor, live sync, screenshots
+├── docs/                   # vision, design, Tauri, live sync, screenshots
 ├── scripts/                # release, Android NDK/package, Windows zip helpers
 │   └── windows/            # run.cmd / update.cmd shipped in the zip
 ├── .github/workflows/      # CI and release builds
@@ -255,8 +253,8 @@ inertia/
 |-------|--------|
 | 0–4 | Core, P2P, Svelte UI, invites, feed, profile, backup, VPS relay (**done**) |
 | 4c | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) (**done**) |
-| 5 | Android Capacitor on-device install (**shipped** in v0.10+); iOS + mobile polish remain ([CAPACITOR.md](docs/CAPACITOR.md)) |
-| 6 | **In progress:** Tauri desktop shell ([docs/TAURI.md](docs/TAURI.md)) - one window + local API sidecar |
+| 5 | Android on-device install (**shipped**; now Tauri, was Capacitor) |
+| 6 | **In progress:** Tauri desktop + Android ([docs/TAURI.md](docs/TAURI.md)) |
 | 7 | Thumbnails, orphan blob GC |
 | 8 | Community relays (public list, optional host funding hints) |
 

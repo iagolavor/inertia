@@ -1,4 +1,4 @@
-# Install Android SDK command-line tools + packages required by apps/web/android (Capacitor).
+# Install Android SDK command-line tools + packages for Tauri Android (`apps/desktop`).
 # Uses the JDK bundled with Android Studio. Run once after winget install Google.AndroidStudio.
 
 $ErrorActionPreference = 'Stop'
@@ -9,7 +9,7 @@ $StudioBin = 'C:\Program Files\Android\Android Studio\bin\studio64.exe'
 $CmdlineZip = Join-Path $env:TEMP 'commandlinetools-win.zip'
 $CmdlineUrl = 'https://dl.google.com/android/repository/commandlinetools-win-13114758_latest.zip'
 $RepoRoot = Split-Path $PSScriptRoot -Parent
-$LocalProps = Join-Path $RepoRoot 'apps\web\android\local.properties'
+$LocalProps = Join-Path $RepoRoot 'apps\desktop\src-tauri\gen\android\local.properties'
 
 if (-not (Test-Path $JavaHome)) {
     Write-Error "Android Studio JDK not found at $JavaHome. Install with: winget install Google.AndroidStudio"
@@ -59,4 +59,4 @@ Write-Host ""
 Write-Host "Done. SDK: $SdkRoot"
 Write-Host "Wrote $LocalProps"
 Write-Host "Set user env: ANDROID_HOME, JAVA_HOME, CAPACITOR_ANDROID_STUDIO_PATH"
-Write-Host "Restart terminals / Android Studio, then: npm run android:sync && npm run android:open"
+Write-Host "Restart terminals / Android Studio, then: npm run android:open"

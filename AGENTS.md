@@ -30,49 +30,47 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 |-------|--------|-------|
 | 0–4 | Done | Rust core, P2P, Svelte UI, invites, feed, profile, backup, relay |
 | 4c | Done | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) |
-| 5 | Done | Capacitor Android on-device install (v0.10+); iOS + mobile polish remain |
-| 6 | **In progress** | Tauri desktop shell (`apps/desktop`) - sidecar API + one window; see [docs/TAURI.md](docs/TAURI.md) |
+| 5 | Done | Android on-device install (was Capacitor; now Tauri) |
+| 6 | **In progress** | Tauri desktop + Android (`apps/desktop`) - local API process + one WebView; see [docs/TAURI.md](docs/TAURI.md) |
 | 7 | Planned | Thumbnails, orphan blob GC |
 | 8 | Planned | Community relays |
 
-**Yes - the Svelte app is the shared UI** for web, Android (Capacitor), and desktop (Tauri). Do not fork product UI per shell.
+**Yes - the Svelte app is the shared UI** for web, Android, and desktop (Tauri). Do not fork product UI per shell.
 
-## Capacitor + Ionic
+## Mobile + desktop shells
 
-**Capacitor** wraps the built Svelte SPA in a native WebView (iOS/Android). **Ionic** is an optional UI kit — we use **Svelte** for UI, not Ionic components. Capacitor alone is enough for “web + app from one codebase.”
+**Tauri** (`apps/desktop`) is the native shell for **desktop and Android**. The Svelte SPA stays in `apps/web` (static adapter, `ssr = false`). Capacitor has been removed; see [docs/CAPACITOR.md](docs/CAPACITOR.md).
 
-### Already Capacitor-ready
+### Shared UI (already shell-ready)
 
 - `@sveltejs/adapter-static` with SPA `fallback: 'index.html'`
 - `ssr = false`, `prerender = true` (client-only app)
 - All data via `apps/web/src/lib/api.ts` → `/api` (no server-side Svelte data fetching)
 
-### Capacitor Android (v0.10+)
+### Tauri desktop + Android
 
-**Shipped** - self-contained APK with on-device API. See [docs/CAPACITOR.md](docs/CAPACITOR.md).
+**Desktop:** `npm run desktop:dev` / `desktop:build`. Sidecar `inertia-api` + WebView on `http://127.0.0.1:4783`.
 
-### Tauri desktop
+**Android:** `npm run android:install` / `android:run`. Same on-device API via `jniLibs` + Splash/FGS. See [docs/TAURI.md](docs/TAURI.md).
 
-**In progress** - `npm run desktop:dev` / `desktop:build`. Sidecar `inertia-api` + WebView on `http://127.0.0.1:4783`. See [docs/TAURI.md](docs/TAURI.md).
-
-```powershell
+```bash
 npm run android:install
 npm run android:run
 ```
 
 **Done**
 
-- `@capacitor/core` + Android project under `apps/web/android`
-- `webDir` → SvelteKit `build/`; native shell uses absolute `http://127.0.0.1:4783/api` ([api-base.ts](apps/web/src/lib/api-base.ts))
-- Bundled `inertia-api` on device: NDK arm64 cross-compile, `jniLibs` + `InertiaRuntime` / foreground `InertiaApiService`
-- Splash → health wait → WebView at `127.0.0.1:4783`; invite deep links stay in-app (`InertiaWebViewClient`, `inertia://invite/…`)
+- Tauri project under `apps/desktop` (desktop sidecar + `gen/android`)
+- Bundled `inertia-api` on device: NDK arm64, `jniLibs` + `InertiaRuntime` / `InertiaApiService`
+- Splash → health wait → WebView at `127.0.0.1:4783`; invite deep links (`inertia://invite/…`)
 - Invite accept: relay apply + dial waits, paste normalization ([invite-input.ts](apps/web/src/lib/invite-input.ts))
+- Debug APK on `v*` tags ([RELEASE.md](docs/RELEASE.md))
 
 **Resume next** (mobile polish - branch from `development` as `feature/android-*`)
 
 1. **Invite preview UX** - remove or fix misleading red offline dot on `ProfileHeader` (not inviter presence)
-2. **Release** - Play signing, optional APK in CI (desktop installers + Windows zip ship on `v*` tags; see [RELEASE.md](docs/RELEASE.md))
-3. **Optional** - `@capacitor/camera` / filesystem for profile photos; iOS shell; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
+2. **Release** - Play Store / release-keystore signing later
+3. **Optional** - camera/filesystem for profile photos; iOS via Tauri; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
 
 **Done recently:** header **P2pStatus** tap-to-open details panel (touch-friendly). No hover `title` (it steals clicks on some desktops).
 
@@ -81,7 +79,7 @@ npm run android:run
 - Avoid SSR-only SvelteKit features.
 - Avoid APIs that assume Node.js on the server.
 - Keep using `api.ts` as the single HTTP boundary so the base URL can switch per platform.
-
+- Do not reintroduce Capacitor; new mobile work goes through Tauri.
 ## P2P and relay connectivity
 
 Friend traffic routes over **relay circuits** via `inertia-relay`. See **[docs/RELAY-CONNECTIVITY.md](docs/RELAY-CONNECTIVITY.md)** for topology diagrams, relay session vs reservation, invite bootstrap, and source file map.

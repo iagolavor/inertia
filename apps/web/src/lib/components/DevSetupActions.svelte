@@ -7,7 +7,6 @@
     webUiMode
   } from '$lib/dev-commands';
   import { identityState, refreshIdentity } from '$lib/identity.svelte';
-  import { Capacitor } from '@capacitor/core';
 
   interface Props {
     /** Smaller buttons for the header banner. */
@@ -27,7 +26,11 @@
   }: Props = $props();
 
   const uiMode = $derived(webUiMode());
-  const onDevice = $derived(Capacitor.isNativePlatform());
+  const onDevice = $derived(
+    typeof window !== 'undefined' &&
+      window.location.hostname === '127.0.0.1' &&
+      window.location.port === '4783'
+  );
   const showWebAction = $derived(showWeb && !onDevice && uiMode === 'other');
 
   let retrying = $state(false);

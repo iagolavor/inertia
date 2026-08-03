@@ -23,7 +23,7 @@ inertia_require_adb() {
 	local adb
 	adb="$(inertia_android_adb)"
 	if [[ ! -x "$adb" ]]; then
-		echo "adb not found at $adb — run: npm run android:sdk" >&2
+		echo "adb not found at $adb  -  run: npm run android:sdk" >&2
 		exit 1
 	fi
 }
