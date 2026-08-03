@@ -175,10 +175,11 @@ jobs:
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
+            "platforms;android-36" \
             "build-tools;35.0.0" \
             "ndk;${NDK_VERSION}"
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
-          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > apps/web/android/local.properties
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > apps/desktop/src-tauri/gen/android/local.properties
           echo "ANDROID_HOME=${ANDROID_HOME}"
           ls -la "${ANDROID_HOME}/ndk/${NDK_VERSION}" | head
 
@@ -193,17 +194,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: |
+            apps/web/package-lock.json
+            apps/desktop/package-lock.json
 
-      - name: Sync Android version from tag
+      - name: Sync Android / desktop version from tag
         run: node scripts/sync-android-version.mjs "${{ github.ref_name }}"
 
-      - name: Build Stage B package (API + web + Cap sync)
-        run: npm ci --prefix apps/web && npm run android:install
+      - name: Install npm deps
+        run: npm ci --prefix apps/web && npm ci --prefix apps/desktop
 
-      - name: Assemble debug APK
-        working-directory: apps/web/android
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Build Tauri Android debug APK (API + web + shell)
+        run: npm run android:install
 
       - name: Stage release asset
         run: |
@@ -211,13 +213,25 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
           mkdir -p dist/release
-          src="apps/web/android/app/build/outputs/apk/debug/app-debug.apk"
-          dest="dist/release/Inertia-${VERSION}-android-arm64-debug.apk"
-          if [[ ! -f "$src" ]]; then
-            echo "Missing APK at $src" >&2
-            find apps/web/android/app/build/outputs -type f -name '*.apk' || true
+          shopt -s nullglob
+          candidates=(
+            apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
+            apps/desktop/src-tauri/gen/android/app/build/outputs/apk/debug/*.apk
+            apps/desktop/src-tauri/gen/android/app/build/outputs/apk/*/debug/*.apk
+          )
+          src=""
+          for f in "${candidates[@]}"; do
+            if [[ -f "$f" ]]; then
+              src="$f"
+              break
+            fi
+          done
+          if [[ -z "$src" ]]; then
+            echo "Missing Tauri Android APK under gen/android outputs" >&2
+            find apps/desktop/src-tauri/gen/android/app/build/outputs -type f -name '*.apk' 2>/dev/null || true
             exit 1
           fi
+          dest="dist/release/Inertia-${VERSION}-android-arm64-debug.apk"
           cp -f "$src" "$dest"
           ls -la dist/release/
 

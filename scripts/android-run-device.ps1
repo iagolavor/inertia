@@ -1,18 +1,17 @@
-# Build, sync, and install the Android app on a connected device (no interactive picker).
+# Build and install the Tauri Android app on a connected device (no interactive picker).
 # Usage:
 #   npm run android:run:device
 #   powershell -File scripts/android-run-device.ps1 -Target RQCX302579V
 #   $env:ANDROID_SERIAL = 'RQCX302579V'; npm run android:run:device
 
 param(
-    [string]$Target = $env:ANDROID_SERIAL,
-    [switch]$NoSync
+    [string]$Target = $env:ANDROID_SERIAL
 )
 
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$web = Join-Path $root 'apps/web'
+$desktop = Join-Path $root 'apps/desktop'
 
 $sdk = $env:ANDROID_HOME
 if (-not $sdk) {
@@ -39,15 +38,12 @@ if (-not $Target) {
     throw "Target $Target not connected. Available: $($ids -join ', ')"
 }
 
-Write-Host "Installing on $Target ..."
+Write-Host "Building and installing on $Target ..."
 
-Push-Location $web
+Push-Location $desktop
 try {
-    $capArgs = @('run', 'android', '--target', $Target)
-    if ($NoSync) {
-        $capArgs += '--no-sync'
-    }
-    & npx cap @capArgs
+    $env:CI = 'true'
+    & npx tauri android run --no-watch $Target
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

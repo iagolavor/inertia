@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install Android SDK command-line tools + packages required by apps/web/android (Capacitor).
+# Install Android SDK command-line tools + packages for Tauri Android (`apps/desktop`).
 # Run once after installing Android Studio on Linux.
 
 set -euo pipefail
@@ -9,7 +9,7 @@ source "$(dirname "$0")/lib/android-env.sh"
 
 repo_root="$(inertia_repo_root)"
 sdk_root="$(inertia_android_sdk_root)"
-local_props="$repo_root/apps/web/android/local.properties"
+local_props="$repo_root/apps/desktop/src-tauri/gen/android/local.properties"
 cmdline_zip="${TMPDIR:-/tmp}/commandlinetools-linux.zip"
 cmdline_url='https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip'
 
@@ -56,4 +56,4 @@ echo 'Add to ~/.bashrc if needed:'
 echo "  export ANDROID_HOME=\"$sdk_root\""
 echo "  export ANDROID_SDK_ROOT=\"$sdk_root\""
 echo "  export JAVA_HOME=\"$JAVA_HOME\""
-echo 'Then: npm run android:sync && npm run android:open'
+echo 'Then: npm run android:open'

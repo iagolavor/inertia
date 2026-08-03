@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Build, sync, and install the Android app on a connected device (no interactive picker).
+# Build, package, and install the Tauri Android app on a connected device.
 # Usage:
 #   npm run android:run:device
 #   ANDROID_SERIAL=DEVICE npm run android:run:device
-#   bash scripts/android-run-device.sh --no-sync DEVICE_SERIAL
 
 set -euo pipefail
 
@@ -11,16 +10,13 @@ set -euo pipefail
 source "$(dirname "$0")/lib/android-env.sh"
 
 root="$(inertia_repo_root)"
-web="$root/apps/web"
 adb="$(inertia_android_adb)"
 inertia_require_adb
 
 target="${ANDROID_SERIAL:-}"
-no_sync=0
 
 for arg in "$@"; do
 	case "$arg" in
-		--no-sync) no_sync=1 ;;
 		*) target="$arg" ;;
 	esac
 done
@@ -52,11 +48,9 @@ else
 	fi
 fi
 
-echo "Installing on $target ..."
-
-cap_args=(run android --target "$target")
-if [[ "$no_sync" -eq 1 ]]; then
-	cap_args+=(--no-sync)
-fi
-
-(cd "$web" && npx cap "${cap_args[@]}")
+echo "Building and installing on $target ..."
+(
+	cd "$root/apps/desktop"
+	export CI=true
+	npx tauri android run --no-watch "$target"
+)
