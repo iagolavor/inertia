@@ -1,5 +1,3 @@
-import { Capacitor } from '@capacitor/core';
-
 interface InertiaDownloadBridge {
 	enqueue: (url: string, fileName: string) => void;
 	saveBase64?: (fileName: string, mimeType: string, dataBase64: string) => void;
@@ -11,7 +9,7 @@ function nativeDownloadBridge(): InertiaDownloadBridge | null {
 	return bridge?.enqueue ? bridge : null;
 }
 
-/** On-device install serves UI from the local API; Capacitor may still report "web". */
+/** On-device install serves UI from the local API. */
 function isOnDeviceApiOrigin(): boolean {
 	if (typeof window === 'undefined') return false;
 	const { hostname, port } = window.location;
@@ -19,7 +17,7 @@ function isOnDeviceApiOrigin(): boolean {
 }
 
 function isNativeDownloadContext(): boolean {
-	return Capacitor.isNativePlatform() || isOnDeviceApiOrigin();
+	return isOnDeviceApiOrigin() || nativeDownloadBridge() != null;
 }
 
 /** Save a file served by inertia-api (uses Content-Disposition when provided). */
@@ -30,7 +28,7 @@ export async function saveFileFromApi(url: string, filename: string): Promise<vo
 	const name = filename.trim() || 'download';
 	const bridge = nativeDownloadBridge();
 
-	// Bridge is registered on Android even when Capacitor.isNativePlatform() is false (on-device API).
+	// Bridge is registered on Android WebView for the on-device API shell.
 	if (bridge) {
 		bridge.enqueue(url, name);
 		return;
