@@ -269,4 +269,4 @@ cd apps/web && npm run test
 
 - [VISION.md](./VISION.md) - product and stack overview
 - [DESIGN.md](./DESIGN.md) - UI philosophy
-- [CAPACITOR.md](./CAPACITOR.md) - mobile shell (same sync modules in the WebView)
+- [TAURI.md](./TAURI.md) - desktop + Android shell (same sync modules in the WebView)

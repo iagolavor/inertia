@@ -21,9 +21,11 @@ if (!name) {
 }
 
 function resolveAndroidStudio() {
-	const override = process.env.CAPACITOR_ANDROID_STUDIO_PATH;
-	if (override && existsSync(override)) {
-		return override;
+	for (const key of ['ANDROID_STUDIO_PATH', 'CAPACITOR_ANDROID_STUDIO_PATH']) {
+		const override = process.env[key];
+		if (override && existsSync(override)) {
+			return override;
+		}
 	}
 
 	const candidates = [
@@ -65,13 +67,13 @@ function androidStudioEnv() {
 	if (!studio) {
 		return process.env;
 	}
-	return { ...process.env, CAPACITOR_ANDROID_STUDIO_PATH: studio };
+	return { ...process.env, ANDROID_STUDIO_PATH: studio };
 }
 
 function runAndroidOpen() {
 	const androidProject = join(root, 'apps/desktop/src-tauri/gen/android');
 	const env = androidStudioEnv();
-	const studio = env.CAPACITOR_ANDROID_STUDIO_PATH || resolveAndroidStudio();
+	const studio = env.ANDROID_STUDIO_PATH || resolveAndroidStudio();
 
 	if (!existsSync(androidProject)) {
 		console.error('Missing Tauri Android project at apps/desktop/src-tauri/gen/android');
@@ -80,7 +82,7 @@ function runAndroidOpen() {
 	}
 
 	if (!studio) {
-		console.error('Android Studio not found. Set CAPACITOR_ANDROID_STUDIO_PATH or install Studio.');
+		console.error('Android Studio not found. Set ANDROID_STUDIO_PATH or install Studio.');
 		process.exit(1);
 	}
 

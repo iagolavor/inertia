@@ -331,8 +331,8 @@ blobs/            (content-addressed media files)
 - **inertia-core** (Rust): identity, invites, P2P, storage, expiry.
 - **inertia-api** (Rust): local HTTP bridge — runs on the user's machine, not in the cloud.
 - **SvelteKit** (web/PWA): feed, profile, settings, invites, connections, messages, outbox, Files tab. Live updates: [LIVE-SYNC.md](./LIVE-SYNC.md).
-- **Tauri** (desktop + Android): native WebView shell + on-device / sidecar `inertia-api`. See [TAURI.md](./TAURI.md). Capacitor removed ([CAPACITOR.md](./CAPACITOR.md)).
-- **iOS**: planned via Tauri (not Capacitor).
+- **Tauri** (desktop + Android): native WebView shell + on-device / sidecar `inertia-api`. See [TAURI.md](./TAURI.md).
+- **iOS**: planned via the same Tauri shell.
 
 ---
 
