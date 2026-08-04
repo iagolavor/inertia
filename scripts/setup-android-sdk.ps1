@@ -49,7 +49,7 @@ $sdkDirEscaped = ($SdkRoot -replace '\\', '\\')
 [Environment]::SetEnvironmentVariable('JAVA_HOME', $JavaHome, 'User')
 if (Test-Path $StudioBin) {
     [Environment]::SetEnvironmentVariable(
-        'CAPACITOR_ANDROID_STUDIO_PATH',
+        'ANDROID_STUDIO_PATH',
         $StudioBin,
         'User'
     )
@@ -58,5 +58,5 @@ if (Test-Path $StudioBin) {
 Write-Host ""
 Write-Host "Done. SDK: $SdkRoot"
 Write-Host "Wrote $LocalProps"
-Write-Host "Set user env: ANDROID_HOME, JAVA_HOME, CAPACITOR_ANDROID_STUDIO_PATH"
+Write-Host "Set user env: ANDROID_HOME, JAVA_HOME, ANDROID_STUDIO_PATH"
 Write-Host "Restart terminals / Android Studio, then: npm run android:open"

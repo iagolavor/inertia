@@ -30,8 +30,8 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 |-------|--------|-------|
 | 0–4 | Done | Rust core, P2P, Svelte UI, invites, feed, profile, backup, relay |
 | 4c | Done | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) |
-| 5 | Done | Android on-device install (was Capacitor; now Tauri) |
-| 6 | **In progress** | Tauri desktop + Android (`apps/desktop`) - local API process + one WebView; see [docs/TAURI.md](docs/TAURI.md) |
+| 5 | Done | Android on-device install (Tauri shell) |
+| 6 | **In progress** | Tauri multiplatform shell (`apps/desktop`) - desktop polish; Android shipped in same project; see [docs/TAURI.md](docs/TAURI.md) |
 | 7 | Planned | Thumbnails, orphan blob GC |
 | 8 | Planned | Community relays |
 
@@ -39,7 +39,7 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 
 ## Mobile + desktop shells
 
-**Tauri** (`apps/desktop`) is the native shell for **desktop and Android**. The Svelte SPA stays in `apps/web` (static adapter, `ssr = false`). Capacitor has been removed; see [docs/CAPACITOR.md](docs/CAPACITOR.md).
+**Tauri** (`apps/desktop`) is the native shell for **desktop and Android**. The Svelte SPA stays in `apps/web` (static adapter, `ssr = false`). See [docs/TAURI.md](docs/TAURI.md).
 
 ### Shared UI (already shell-ready)
 
@@ -79,7 +79,7 @@ npm run android:run
 - Avoid SSR-only SvelteKit features.
 - Avoid APIs that assume Node.js on the server.
 - Keep using `api.ts` as the single HTTP boundary so the base URL can switch per platform.
-- Do not reintroduce Capacitor; new mobile work goes through Tauri.
+- Do not add a second mobile framework; new native work stays in the Tauri shell (`apps/desktop`).
 ## P2P and relay connectivity
 
 Friend traffic routes over **relay circuits** via `inertia-relay`. See **[docs/RELAY-CONNECTIVITY.md](docs/RELAY-CONNECTIVITY.md)** for topology diagrams, relay session vs reservation, invite bootstrap, and source file map.
