@@ -34,13 +34,39 @@ To create a peer-to-peer social media system that:
 
 ## Content Model
 
-- **Personal profile**: A user's own profile and pictures are stored only on their device.
-- **Friend profiles**: Friends' profiles and posts are fetched only when the user chooses to view them.
-- **Posts**: Shared asynchronously, synced when devices connect. Delivery is not real-time.
-- **Messages**: Delivered like familiar private DMs: reliable once both peers are online, and asynchronous when they are not.
-- **Ephemeral lifecycle**:
-  - Posts and messages expire after **7 days**.
-  - Failed-to-send messages remain on the sender's device for manual retry.
+Inertia keeps **server needs intentionally low**. A small relay helps devices find each other. Profiles, photos, folders, and messages live on the people who create them. Friends pull what they need when both sides are online.
+
+### Author-hosted by default
+
+- **Your profile is your node.** Display name, bio, durable photos, and shared folders stay in local SQLite and `blobs/` on your device. Friends browse them live from you; nothing is uploaded to a social cloud.
+- **Relay = connectivity.** `inertia-relay` carries encrypted circuits so peers can dial. It does not store profiles, media libraries, or message history.
+- **Presence is part of the product.** Viewing a friend's Posts or Files expects them online (or recently reachable). That tradeoff replaces always-on media hosting.
+
+### Content-addressed seeding
+
+Media is treated like a **seeded token**, not a file parked on a central CDN:
+
+1. The author stores bytes under a **content hash** (and, for larger files, a chunked **manifest** of hashes).
+2. Friends receive a **reference** (hash / manifest) through a signed envelope, profile listing, or folder index, not a full copy up front for every durable item.
+3. When someone wants the bytes, they **pull from the author** (the seeder). After download, their device can keep a local copy and, where the protocol allows, help seed further in the circle.
+
+Photos, videos, and shared-folder files share this pattern. Feed announcements and DMs may push small payloads eagerly; bulk media stays pull-oriented so bandwidth and disk scale with interest, not with every friend fan-out.
+
+| Kind | Where it lives | How friends get it |
+|------|----------------|--------------------|
+| **Profile photos** | Author device (durable) | Live `ProfileManifest` when online; blobs by hash |
+| **Shared folders (Files)** | Author device (durable) | Browse index online; chunked pull, prefer direct path ([ARCHIVE-P2P.md](./ARCHIVE-P2P.md)) |
+| **Feed posts** | Author outbox → friend inbox | Envelope sync when peers connect; media by hash; **7-day** TTL |
+| **Messages** | Sender outbox until ACK | Store-and-forward on the sender; **7-day** TTL |
+| **Invites** | Issuer device | Single-use link / QR; **15 minutes** |
+
+### Lifecycle
+
+- **Ephemeral social traffic:** feed posts and DMs age out after seven days unless the reader keeps a local archive.
+- **Durable author libraries:** profile gallery and Files folders stay until the owner removes them. Friends who downloaded a blob keep their local copy; the author remains the source of truth for the live grid and folder listing.
+- **Failed delivery:** undelivered posts and messages stay on the sender for retry until they expire.
+
+This model is why a circle can run on phones and laptops plus one modest VPS for relay: each person is the host for their own library, and hashes are the interchange tokens that make seeding between friends practical.
 
 ---
 
@@ -96,13 +122,13 @@ These boundaries keep the product focused on a trusted circle and local ownershi
 
 ### 5. Consumption
 
-- Friend's profile and posts fetched on-demand from their device.
-- Feed is friends-only, chronological.
+- Friend's profile grid and Files folders load on demand from their device while they are online.
+- Feed is friends-only and chronological; media resolves by content hash from the author (or a local copy already seeded).
 
-### 6. Ephemerality
+### 6. Ephemerality and durable libraries
 
 - Posts and messages vanish after 7 days.
-- Profile photos and shared folders stay on the author's device until they remove them.
+- Profile photos and shared folders stay on the author's device until they remove them; friends pull and keep copies as seeds for their own use.
 
 ---
 
