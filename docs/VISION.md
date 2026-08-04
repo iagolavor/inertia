@@ -5,19 +5,19 @@
 To create a peer-to-peer social media system that:
 
 - Stores all data locally on users' devices.
-- Prevents tech companies from harvesting user activity for AI models or advertising.
-- Embraces ephemerality as a core design principle — posts vanish naturally, leaving no permanent archive.
-- Offers Instagram-like sharing within your real social circle — without ads, algorithms, or doomscrolling.
+- Keeps activity private to your circle so it is not harvested for advertising or model training.
+- Treats ephemerality as a core design principle: posts and messages age out on their own.
+- Offers familiar photo and message sharing within your real social circle, in chronological order.
 
 ---
 
 ## Core Principles
 
-- **Local-first**: All posts, messages, and profiles live on the user's device. No central servers.
-- **Ephemeral by design**: Content auto-expires after a set time. If delivery fails, the post simply disappears.
+- **Local-first**: All posts, messages, and profiles live on the user's device. Each person runs their own API and database.
+- **Ephemeral by design**: Content auto-expires after a set time. If delivery fails, the post ages out on the sender's device.
 - **Direct connections**: Users connect by sharing invite links or QR codes. Each friendship is a secure peer-to-peer link with mutual consent.
 - **Transparency**: Failed deliveries are visible to the sender, who can choose to retry or let the post expire.
-- **Zero tracking**: No global user database, no analytics, no corporate intermediaries.
+- **Private by default**: Identity and content stay on-device and among friends; the project does not run a global user database or analytics pipeline.
 
 ---
 
@@ -25,10 +25,10 @@ To create a peer-to-peer social media system that:
 
 - **Cryptographic keys = identity**: Ed25519/X25519 keypairs generated on-device at install. This is the only real identity.
 - **Display name = local label**: A human-readable name shown to friends. Not globally unique.
-- **No phone numbers, no global IDs**: Phone numbers are not used for discovery or verification. Users connect through channels they already trust (SMS, iMessage, in person).
+- **Trusted channels for discovery**: Friends find each other through invites shared over SMS, iMessage, in person, or any channel they already use. Phone numbers are not part of the product identity model.
 - **Invite links and QR codes**: The primary way to add friends. An invite contains public keys, optional P2P reachability hints, and a signed expiry.
 - **Mutual consent**: Opening an invite shows a preview with a safety code. The recipient must explicitly accept before keys are trusted.
-- **Social circle only**: You only connect with people you already know. No searchable directory, no "find users by phone."
+- **Social circle only**: You connect with people you already know through invites you share.
 
 ---
 
@@ -37,7 +37,7 @@ To create a peer-to-peer social media system that:
 - **Personal profile**: A user's own profile and pictures are stored only on their device.
 - **Friend profiles**: Friends' profiles and posts are fetched only when the user chooses to view them.
 - **Posts**: Shared asynchronously, synced when devices connect. Delivery is not real-time.
-- **Messages**: Delivered like Instagram DMs — not guaranteed instant, but reliable once both peers are online.
+- **Messages**: Delivered like familiar private DMs: reliable once both peers are online, and asynchronous when they are not.
 - **Ephemeral lifecycle**:
   - Posts and messages expire after **7 days**.
   - Failed-to-send messages remain on the sender's device for manual retry.
@@ -50,19 +50,21 @@ To create a peer-to-peer social media system that:
 - **Ephemerality**: Posts and messages are temporary by default. The system forgets naturally.
 - **Simplicity**: Delivery failures are handled on the sender's device.
 - **Transparency**: Users see what was delivered and what failed.
-- **Small-Scale Social Graphs**: Personal circles, not mass following.
-- **Open Source**: Community-driven, auditable, no corporate lock-in. Licensed under [AGPL-3.0-or-later](../LICENSE).
+- **Small-Scale Social Graphs**: Personal circles sized for people you know.
+- **Open Source**: Community-driven and auditable. Licensed under [AGPL-3.0-or-later](../LICENSE).
 
 ---
 
-## Non-Goals
+## Scope
 
-- **No Global Discovery**: No hashtags, trending, global feeds, or **user** search. A future **public relay list** (connectivity nodes only) may help pick a relay - see §2b. A configured relay is still required.
-- **No Centralized Permanent Archives**: Feed posts and messages expire. There is no cloud library or global catalog. Author-hosted profile photos and optional shared folders may persist on the owner's device only.
-- **No Corporate Servers**: No central infrastructure for accounts, content, or analytics.
-- **No Phone-Based Directory**: No "type a number and find them" registry.
-- **No Algorithmic Feeds**: Chronological friends-only content only.
-- **No Ads or Engagement Optimization**: Not designed for doomscrolling or data harvesting.
+These boundaries keep the product focused on a trusted circle and local ownership:
+
+- **Invite-based discovery**: Friends join through shared invites. Hashtags, trending, and global user search are outside scope. A future **public relay list** (connectivity nodes only) may help pick a relay - see §2b. A configured relay is still required.
+- **Local and ephemeral content**: Feed posts and messages expire. Author-hosted profile photos and optional shared folders may persist on the owner's device only. There is no cloud library of everyone's content.
+- **User-run infrastructure**: Accounts, content, and analytics live on each person's device (plus optional self-hosted relays for connectivity). The project does not operate a central social backend.
+- **Trusted-channel invites**: Discovery happens through channels you already use, not a phone-number registry inside the app.
+- **Chronological friends feed**: The home feed is friends-only and chronological.
+- **Calm product surface**: Designed for sharing with people you know, not engagement optimization or advertising.
 
 ---
 
@@ -72,7 +74,7 @@ To create a peer-to-peer social media system that:
 
 - User installs the app.
 - A cryptographic identity is generated locally (display name only).
-- No signup, no servers, no phone verification.
+- Ready to invite friends once a relay is configured.
 
 ### 2. Adding Friends (invite flow)
 
@@ -106,7 +108,7 @@ To create a peer-to-peer social media system that:
 
 ## Technical Architecture Overview
 
-Each user runs **local-first** software on their own device. A small **VPS relay** (`inertia-relay`) provides connectivity only — no accounts, no SQLite, no decrypted content. Friends exchange **signed invite links** that bootstrap both the relay network and the inviter's reachability.
+Each user runs **local-first** software on their own device. A small **VPS relay** (`inertia-relay`) provides connectivity: circuit paths so friends can reach each other. Friends exchange **signed invite links** that bootstrap both the relay network and the inviter's reachability.
 
 ```plaintext
 ┌─────────────────────┐         ┌─────────────────────┐
@@ -124,7 +126,7 @@ Each user runs **local-first** software on their own device. A small **VPS relay
               │  VPS                │
               │  inertia-relay      │
               │  libp2p relay only  │
-              │  no user data       │
+              │  circuits only      │
               └─────────────────────┘
 ```
 
@@ -162,15 +164,15 @@ See [inertia-relay README](../crates/inertia-relay/README.md) for relay deployme
 
 | Decision | Choice | Implication |
 |----------|--------|-------------|
-| Friend discovery | **Invite link + QR** | No global directory. Users share invites over channels they already trust. |
-| Identity | **Cryptographic keypair** | No phone numbers, no SMS relay, no account database. |
+| Friend discovery | **Invite link + QR** | Users share invites over channels they already trust. |
+| Identity | **Cryptographic keypair** | Created on-device; public keys travel in invites. |
 | Connectivity | **libp2p relay circuits via VPS (`inertia-relay`)** | Friend paths are `/p2p-circuit/` only; LAN/direct TCP are not used for friends. Relay is connectivity only. See [RELAY-CONNECTIVITY.md](./RELAY-CONNECTIVITY.md). |
 | Post expiration | **7 days** | Default TTL for posts. |
 | Message expiration | **7 days** | Same as posts. |
 | Invite expiration | **15 minutes** | Links expire quickly; generate a fresh one anytime. |
 | Invite usage | **Single-use** | Each nonce can be redeemed once; issuer must be online to accept. |
-| Relay hosting | **Self-hosted or community VPS** | Every circle needs a reachable `inertia-relay`. Anyone can run one. No user data on the host - connectivity only. |
-| Public relay list | **Curated directory of relays** | Not a user directory. Helps clients pick bootstrap relays; no accounts or content. |
+| Relay hosting | **Self-hosted or community VPS** | Every circle needs a reachable `inertia-relay`. Anyone can run one. Hosts provide connectivity, not social storage. |
+| Public relay list | **Curated directory of relays** | Bootstrap helpers for connectivity; accounts and content stay on user devices. |
 
 ---
 
@@ -178,11 +180,11 @@ See [inertia-relay README](../crates/inertia-relay/README.md) for relay deployme
 
 **Backbone rules:**
 
-- **Keypair is identity** — generated on-device, never leaves except as public keys in invites.
-- **Display name is cosmetic** — shown in UI, not globally authoritative.
-- **Invite links are signed** — recipient verifies signature + safety code before accepting.
-- **Friendship is mutual** — accept stores keys locally; optional P2P handshake notifies the other side.
-- **No global directory** — zero centralized user storage.
+- **Keypair is identity** - generated on-device; public keys travel in invites.
+- **Display name is cosmetic** - shown in UI for friends, not a global unique handle.
+- **Invite links are signed** - recipient verifies signature + safety code before accepting.
+- **Friendship is mutual** - accept stores keys locally; optional P2P handshake notifies the other side.
+- **Invite-based roster** - contacts live on each device after mutual accept.
 
 **Invite payload (version 2):**
 
@@ -209,10 +211,10 @@ Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<pay
 
 - libp2p with TCP / Noise / Yamux.
 - **Relay client** on every node: outbound session to `inertia-relay`, inbound **circuit reservation**, and `/p2p-circuit/` listen addresses for friend reachability.
-- **Friend paths are relay-circuit only** — stored contact multiaddrs, invite dial targets, and redials use `/p2p-circuit/` addresses built from configured relays. LAN and direct TCP are not used for friend connectivity (local TCP listen remains for transport to the VPS).
-- **Swarm actor** (`p2p/swarm_task.rs`): one task owns the libp2p swarm; `P2pNode` sends commands and reads `watch` state. Bootstrap waits in `engine/relay_dial.rs` are event-driven (no polling loops).
+- **Friend paths are relay-circuit only** - stored contact multiaddrs, invite dial targets, and redials use `/p2p-circuit/` addresses built from configured relays. LAN and direct TCP are reserved for other transport needs (local TCP listen remains for transport to the VPS).
+- **Swarm actor** (`p2p/swarm_task.rs`): one task owns the libp2p swarm; `P2pNode` sends commands and reads `watch` state. Bootstrap waits in `engine/relay_dial.rs` are event-driven.
 - **DCUtR** (hole punching) is still in the behaviour stack and may upgrade some sessions to direct transport after a circuit is up; the product path for discovery and redial remains relay circuits.
-- **VPS relay** (`inertia-relay`): one TCP port, stable relay peer id, no user payloads stored. Must advertise a routable external address in reservation responses.
+- **VPS relay** (`inertia-relay`): one TCP port, stable relay peer id, circuit connectivity only. Must advertise a routable external address in reservation responses.
 - Peers connect via circuit multiaddrs in invites; `relay_multiaddr` in invite v2 bootstraps new users onto the network.
 - Connection states: `online`, `offline`, `unreachable`. Header shows **API** vs **P2P** (relay health + friend count).
 
@@ -220,14 +222,14 @@ Encoded as base64url in `inertia://invite/<payload>` or `https://app/invite#<pay
 
 ## 2b. Community Relays and Public Relay List (planned)
 
-Today every invite embeds one `relay_multiaddr` from the inviter's settings. That works for private circles (family, friends). To grow beyond hand-picked relays without a central **account** server, Inertia can support **public community relays** - VPS nodes run by volunteers or small operators, listed in a **public relay list**.
+Today every invite embeds one `relay_multiaddr` from the inviter's settings. That works for private circles (family, friends). To grow beyond hand-picked relays while keeping accounts on each device, Inertia can support **public community relays** - VPS nodes run by volunteers or small operators, listed in a **public relay list**.
 
-This is **not** global user discovery. It is a directory of **connectivity helpers** (multiaddr + metadata), similar in spirit to public Matrix or email relay lists — not a searchable people graph.
+This list is a directory of **connectivity helpers** (multiaddr + metadata), similar in spirit to public Matrix or email relay lists: operators publish how to reach their relay, and clients can pick one for bootstrap.
 
 ### What a community relay host provides
 
 - Runs **`inertia-relay`** on a VPS (see [inertia-relay README](../crates/inertia-relay/README.md)).
-- Stable libp2p peer id, one TCP port, no SQLite, no decrypted payloads.
+- Stable libp2p peer id, one TCP port, and circuit relay for friends.
 - Enough bandwidth for **peak** circuit relay traffic; DCUtR may reduce relay load when direct upgrade succeeds, but operators should size for concurrent circuits.
 
 **Rough sizing (indicative, not guarantees):**
@@ -238,7 +240,7 @@ This is **not** global user discovery. It is a directory of **connectivity helpe
 | ~500–2,000 users | 2 vCPU, 4 GB RAM | ~R$60–120/mo |
 | ~5,000+ users | 4 vCPU, 8 GB RAM or **multiple relays** | ~R$150–300/mo per node |
 
-"Users on relay" ≠ simultaneous connections. Relay load depends on **concurrent circuits** and **blob traffic** when direct dial fails — monitor and shard before one box becomes a hotspot.
+"Users on relay" ≠ simultaneous connections. Relay load depends on **concurrent circuits** and **blob traffic** when direct dial fails - monitor and shard before one box becomes a hotspot.
 
 ### Public relay list
 
@@ -251,19 +253,19 @@ optional_join_fee, optional_pix_key, health_hint, operator_url
 
 - Clients may ship a **default list** (project-maintained) and let users add community entries in Settings.
 - Invites can still embed a specific relay; the list is for **bootstrap** when you don't know anyone yet or need a fallback.
-- Listing is **voluntary** — operators opt in; the project does not operate a user database.
+- Listing is **voluntary** - operators opt in; clients keep their own contacts and content locally.
 
 Scaling to large numbers of users means **many relays**, not one mega-host: invite trees cluster around popular relays unless the list spreads load across regions and operators.
 
 ### Optional join fee via PIX (Brazil-first)
 
-Community hosts need a simple way to recover VPS costs without ads or a central payment platform storing identities.
+Community hosts need a simple way to recover VPS costs while keeping payments between people (for example PIX in Brazil).
 
 **Idea (future invite v3, optional):** embed host funding hints in the invite or relay list entry:
 
-- **`pix_key`** — operator's PIX EVP (email, phone, or random key).
-- **`join_fee_brl`** — e.g. `1.00` (R$1 one-time chip-in).
-- **`payment_ref`** — nonce or unique amount suffix for reconciliation.
+- **`pix_key`** - operator's PIX EVP (email, phone, or random key).
+- **`join_fee_brl`** - e.g. `1.00` (R$1 one-time chip-in).
+- **`payment_ref`** - nonce or unique amount suffix for reconciliation.
 
 **User journey:**
 
@@ -275,19 +277,19 @@ Community hosts need a simple way to recover VPS costs without ads or a central 
 
 **What we must build (later):**
 
-- **Payment verification** — manual confirm, unique-amount reconciliation, or PSP webhook (OpenPix, Mercado Pago, etc.); paying PIX must not be honor-system only if access is gated on payment.
-- **Clear trust copy** — user pays **the relay operator**, not "Inertia the company."
-- **Geography** — PIX is Brazil-specific; other regions need different optional funding fields or no fee.
-- **Regulatory awareness** — charging for relay access may implicate local payment rules; community co-op framing vs commercial service TBD with real-world advice.
+- **Payment verification** - manual confirm, unique-amount reconciliation, or PSP webhook (OpenPix, Mercado Pago, etc.); paying PIX should be verifiable if access is gated on payment.
+- **Clear trust copy** - user pays **the relay operator**, and Inertia software stays out of custody where possible.
+- **Geography** - PIX is Brazil-specific; other regions need different optional funding fields or free relays.
+- **Regulatory awareness** - charging for relay access may implicate local payment rules; community co-op framing vs commercial service TBD with real-world advice.
 
-**Economics (example):** R$1 × 500 joins = R$500 gross — enough to fund a modest VPS for a long time if traffic stays community-scaled. Ongoing hosting still needs either repeated fees, donations, or operator goodwill; one-time R$1 is a **bootstrap subsidy**, not infinite margin.
+**Economics (example):** R$1 × 500 joins = R$500 gross - enough to fund a modest VPS for a long time if traffic stays community-scaled. Ongoing hosting still needs either repeated fees, donations, or operator goodwill; one-time R$1 is a **bootstrap subsidy**.
 
 ### Principles
 
-- **Relay ≠ social server** — paying for relay access buys **connectivity**, not your posts, keys, or feed on someone else's disk.
-- **No central wallet** — funds flow host-to-joiner via PIX; Inertia software stays out of custody where possible.
+- **Relay = connectivity** - paying for relay access buys circuit reachability. Posts, keys, and feeds stay on user devices.
+- **Direct funding** - funds flow host-to-joiner via PIX (or regional equivalents); Inertia software stays out of custody where possible.
 - **A relay is required** - private/family VPS remains the core model; a future public relay list is only another way to pick one.
-- **Abuse** — open relays need rate limits and monitoring (see [SECURITY-TODO.md](./SECURITY-TODO.md)); paid join is one **social** throttle, not a crypto guarantee by itself.
+- **Abuse** - open relays need rate limits and monitoring (see [SECURITY-TODO.md](./SECURITY-TODO.md)); paid join is one social throttle alongside technical limits.
 
 ---
 
@@ -298,9 +300,9 @@ Community hosts need a simple way to recover VPS costs without ads or a central 
 | Posts (feed) | 7 days |
 | Messages | 7 days |
 | Invites | 15 minutes, single-use |
-| Profile items | No auto-expire (author-hosted) |
-| Profile comments | No auto-expire (author-hosted) |
-| Shared folders (Files tab) | No auto-expire (author-hosted; pull on demand; peer transfer is DCUtR/direct only - see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md)) |
+| Profile items | Author-hosted (durable until removed) |
+| Profile comments | Author-hosted (durable until removed) |
+| Shared folders (Files tab) | Author-hosted; pull on demand; peer transfer is DCUtR/direct only - see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md) |
 
 ---
 
@@ -329,7 +331,7 @@ blobs/            (content-addressed media files)
 ## 5. Application Layers
 
 - **inertia-core** (Rust): identity, invites, P2P, storage, expiry.
-- **inertia-api** (Rust): local HTTP bridge — runs on the user's machine, not in the cloud.
+- **inertia-api** (Rust): local HTTP bridge that runs on the user's machine.
 - **SvelteKit** (web/PWA): feed, profile, settings, invites, connections, messages, outbox, Files tab. Live updates: [LIVE-SYNC.md](./LIVE-SYNC.md).
 - **Tauri** (desktop + Android): native WebView shell + on-device / sidecar `inertia-api`. See [TAURI.md](./TAURI.md).
 - **iOS**: planned via the same Tauri shell.
@@ -351,8 +353,8 @@ blobs/            (content-addressed media files)
 2. Web/PWA vs mobile-first for v1?
 3. Media size limits for strict P2P? *(~2 MB per image, client-side compression)*
 4. User-configurable post TTL? *(optional local feed archive exists)*
-5. Public relay list — who curates the default manifest, and how are unhealthy relays delisted?
-6. PIX join fee — manual confirm vs PSP webhook for v1 community hosts?
+5. Public relay list - who curates the default manifest, and how are unhealthy relays delisted?
+6. PIX join fee - manual confirm vs PSP webhook for v1 community hosts?
 
 ---
 
