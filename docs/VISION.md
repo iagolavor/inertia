@@ -256,17 +256,41 @@ This list is a directory of **connectivity helpers** (multiaddr + metadata), sim
 
 - Runs **`inertia-relay`** on a VPS (see [inertia-relay README](../crates/inertia-relay/README.md)).
 - Stable libp2p peer id, one TCP port, and circuit relay for friends.
-- Enough bandwidth for **peak** circuit relay traffic; DCUtR may reduce relay load when direct upgrade succeeds, but operators should size for concurrent circuits.
+- Enough bandwidth for **peak** circuit relay traffic; DCUtR may reduce relay load when direct upgrade succeeds, but operators should size for concurrent circuits and for blob seeding that still rides the relay when a direct path is unavailable.
 
-**Rough sizing (indicative, not guarantees):**
+### Reservations, circuits, and graph size
+
+A relay's useful size is limited by **P2P slots**, not by how many people installed the app. Two different resources matter:
+
+| Resource | Default cap | What it buys |
+|----------|-------------|--------------|
+| **Reservations** | **128** global (`INERTIA_RELAY_MAX_RESERVATIONS`) | How many peers can stay **inbound-dialable** at once (`/p2p-circuit/…/p2p/<you>`). Needed to create invites and to be reached by friends. Held while the app is online. |
+| **Circuits** | **64** global (`INERTIA_RELAY_MAX_CIRCUITS`) | How many **active relayed paths** (A ↔ B via the VPS) can run at the same time. Used for delivery, ACK, and blob pull when traffic is still on the circuit. |
+| **Per-peer caps** | **4** reservations / **4** circuits per source peer | Stops one client from hoarding slots (abuse and fan-out guard). |
+
+Registered users can exceed these numbers; only **online, reserved** peers and **open circuits** consume the caps. Feed fan-out is mostly sequential, so a poster with many online friends rarely opens dozens of circuits in the same instant. Bulk Files transfers prefer a direct path and fail closed on relay-only ([ARCHIVE-P2P.md](./ARCHIVE-P2P.md)); photos and other pulls may still load the VPS when hole punching does not upgrade.
+
+**Practical graph limits on common VPS sizes** (indicative planning numbers, not SLAs):
+
+| VPS | Comfortable circle | Soft ceiling on one relay | Why |
+|-----|--------------------|---------------------------|-----|
+| **4 GB RAM**, 2 vCPU | ~100–400 people who share the relay; tens online together | Stay near default **128 reservations** / **64 circuits**; raise carefully only with monitoring | Leaves headroom for OS, TLS/TCP buffers, and bursty encrypted relay bytes while many peers hold reservations |
+| **8 GB RAM**, 4 vCPU | ~400–1,500 people across quieter hours; larger online peaks | Often **128–256 reservations** and **64–128 circuits** before you want a second relay | More concurrent Noise/Yamux sessions and short blob bursts; still bound by bandwidth and the global circuit cap under chatter |
+
+Rules of thumb:
+
+- **Reservation count ≈ online reachable graph on that relay.** If more than ~128 devices are online and reserved at once, new reservations start failing until someone goes offline or you raise the cap / add another relay.
+- **Circuit count ≈ simultaneous conversations and sync.** Messaging and feed ACKs are light; many friends pulling media over the circuit at once is what saturates **64** open paths and the VPS NIC.
+- **Small circles stay cheap.** A family or friend group of tens of people fits easily on a modest VPS because only a handful are online and reserved together, and author-hosted libraries keep durable media off the relay disk.
+- **Grow sideways.** Past a busy 8 GB node, prefer **multiple regional relays** (and invite trees that land on different ones) over pushing one box past reservation/circuit comfort. Details and env knobs: [RELAY-CONNECTIVITY.md](./RELAY-CONNECTIVITY.md) § Relay sizing.
+
+**Rough cost band (BR/EU providers, indicative):**
 
 | Community on relay | Typical VPS | Indicative cost |
 |--------------------|-------------|-----------------|
-| ~50–200 users | 1 vCPU, 1–2 GB RAM | ~R$25–80/mo (BR/EU providers) |
-| ~500–2,000 users | 2 vCPU, 4 GB RAM | ~R$60–120/mo |
-| ~5,000+ users | 4 vCPU, 8 GB RAM or **multiple relays** | ~R$150–300/mo per node |
-
-"Users on relay" ≠ simultaneous connections. Relay load depends on **concurrent circuits** and **blob traffic** when direct dial fails - monitor and shard before one box becomes a hotspot.
+| ~50–200 users | 1 vCPU, 1–2 GB RAM | ~R$25–80/mo |
+| ~200–1,000 users | 2 vCPU, **4 GB RAM** | ~R$60–120/mo |
+| ~1,000–few thousand users | 4 vCPU, **8 GB RAM**, or **multiple relays** | ~R$150–300/mo per node |
 
 ### Public relay list
 
