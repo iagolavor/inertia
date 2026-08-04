@@ -9,9 +9,9 @@ One native shell in [`apps/desktop`](../apps/desktop) starts **`inertia-api`** a
 | Data | OS app data dir (`INERTIA_DATA_DIR`) | App files dir (`inertia/data`) |
 | Web assets | Bundled `resources/web` | Extracted from APK assets |
 
-Same Svelte app ([`apps/web`](../apps/web)). No forked product UI. Capacitor is removed; see [CAPACITOR.md](./CAPACITOR.md).
+Same Svelte app ([`apps/web`](../apps/web)). No forked product UI across web, desktop, and Android.
 
-Official Tauri sidecars are desktop-only. Android uses the same process model as the old Capacitor path: ship the binary as a `.so` under `jniLibs`, run it with `ProcessBuilder`, foreground service, health gate, then WebView.
+Official Tauri sidecars are desktop-only. Android ships `inertia-api` as `libinertia_api.so` under `jniLibs`, runs it with `ProcessBuilder`, keeps a foreground service, waits for health, then opens the WebView at `http://127.0.0.1:4783`.
 
 ## Prerequisites
 
@@ -142,3 +142,8 @@ Version sync: [`scripts/sync-desktop-version.mjs`](../scripts/sync-desktop-versi
 
 - Cleartext `http://127.0.0.1` only. See [SECURITY-TODO.md](./SECURITY-TODO.md).
 - Do not run zip `inertia-api` and the Tauri desktop sidecar on the same port at once.
+
+## Notes
+
+- Optional override for Android Studio: `ANDROID_STUDIO_PATH` (legacy `CAPACITOR_ANDROID_STUDIO_PATH` still accepted).
+- Android project path is Tauri's layout: `apps/desktop/src-tauri/gen/android` (same crate as desktop).

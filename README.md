@@ -14,7 +14,7 @@
   <a href="docs/VISION.md">Vision</a> ·
   <a href="docs/WINDOWS-SETUP.md">Windows</a> ·
   <a href="docs/LINUX-SETUP.md">Linux</a> ·
-  <a href="docs/CAPACITOR.md">Android</a> ·
+  <a href="docs/TAURI.md">Desktop / Android</a> ·
   <a href="crates/inertia-relay/README.md">Relay</a> ·
   <a href="https://github.com/iagolavor/inertia/releases">Releases</a>
 </p>
@@ -164,7 +164,7 @@ In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`**
 | UI philosophy | [docs/DESIGN.md](docs/DESIGN.md) |
 | Windows install & updates | [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) |
 | Linux install (RPM / AppImage) | [docs/LINUX-SETUP.md](docs/LINUX-SETUP.md) |
-| Tauri desktop shell | [docs/TAURI.md](docs/TAURI.md) |
+| Tauri desktop + Android shell | [docs/TAURI.md](docs/TAURI.md) |
 | VPS relay deploy | [crates/inertia-relay/README.md](crates/inertia-relay/README.md) |
 | Releases & tagging | [docs/RELEASE.md](docs/RELEASE.md) |
 | Git workflow | [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md) |
@@ -253,8 +253,8 @@ inertia/
 |-------|--------|
 | 0–4 | Core, P2P, Svelte UI, invites, feed, profile, backup, VPS relay (**done**) |
 | 4c | SSE live sync, Messages/Connections, Profile Posts + Files (archive P2P) (**done**) |
-| 5 | Android on-device install (**shipped**; now Tauri, was Capacitor) |
-| 6 | **In progress:** Tauri desktop + Android ([docs/TAURI.md](docs/TAURI.md)) |
+| 5 | Android on-device install (**shipped**; Tauri) |
+| 6 | **In progress:** Tauri multiplatform shell polish ([docs/TAURI.md](docs/TAURI.md)) |
 | 7 | Thumbnails, orphan blob GC |
 | 8 | Community relays (public list, optional host funding hints) |
 
