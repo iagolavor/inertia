@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Local-first social network for people you trust.</strong><br />
-  No central server. No ads. Your data stays on your device.
+  Your data stays on your device. Friends connect peer to peer through a relay you choose.
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@
 
 **Inertia** is a small, chronological social app for a closed circle of friends. Each person runs the stack on their own machine: a Rust API, embedded database, and libp2p networking. Posts and messages expire after seven days unless you keep a local archive.
 
-Identity is cryptographic. There is no signup server. You add friends with signed invite links (and optional QR codes). Friend paths use relay circuits through a [VPS `inertia-relay`](crates/inertia-relay/README.md) you (or your circle) run. Content stays end-to-end encrypted; the relay is connectivity only.
+Identity is cryptographic and created on your device when you set a display name. You add friends with signed invite links (and optional QR codes). Friend paths use relay circuits through a [VPS `inertia-relay`](crates/inertia-relay/README.md) you (or your circle) run. Content stays end-to-end encrypted; the relay only helps devices reach each other.
 
 > **Status:** Usable alpha for a small circle. Web + Windows zip + Android install work; desktop install UX and polish are the main gaps. Default branch is `development`.
 
@@ -37,7 +37,7 @@ Identity is cryptographic. There is no signup server. You add friends with signe
   <img src="docs/screenshots/feed.jpg" alt="Inertia Feed with Online now rail" width="720" />
 </p>
 
-<p align="center"><em>Feed</em> - your circle, in order, no algorithm</p>
+<p align="center"><em>Feed</em> - your circle, in chronological order</p>
 
 <details>
 <summary><strong>Messages and chat</strong> - reach friends and send DMs that expire in 7 days</summary>
@@ -113,7 +113,7 @@ From **[Releases](https://github.com/iagolavor/inertia/releases/latest)**:
 - **Windows:** `Inertia-*-windows-x64-setup.exe` (recommended), or portable `inertia-windows-x64.zip` + `run.cmd`
 - **Linux:** `Inertia-*-linux-x86_64.rpm` (Fedora) or `*.AppImage`
 
-No Rust, Node, or Git required.
+Installers are ready to run; you do not need Rust, Node, or Git on the machine.
 
 [Windows guide](docs/WINDOWS-SETUP.md) · [Linux guide](docs/LINUX-SETUP.md)
 
@@ -185,7 +185,7 @@ In **VS Code / Cursor**, use the **`run`** task (release + preview) or **`dev`**
                        ▼
               ┌─────────────────┐
               │ inertia-relay   │  VPS (:9000)
-              │ connectivity    │  no posts, keys, or profiles
+              │ connectivity    │  circuits only
               └─────────────────┘
 ```
 

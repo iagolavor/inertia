@@ -1,8 +1,8 @@
-# Inertia — Design Philosophy
+# Inertia - Design Philosophy
 
 ## Essence
 
-Inertia is a **local-first**, **ephemeral** social network for your inner circle. The visual language should feel **clean, minimal, and familiar** — in the basic sense of Instagram: photos front and center, a personal profile, a chronological feed — but **without** algorithms, ads, or doomscrolling.
+Inertia is a **local-first**, **ephemeral** social network for your inner circle. The visual language should feel **clean, minimal, and familiar**: photos front and center, a personal profile, and a chronological feed of people you already know.
 
 ---
 
@@ -11,23 +11,23 @@ Inertia is a **local-first**, **ephemeral** social network for your inner circle
 ### 1. Less is more
 - Generous whitespace (or dark surfaces in dark mode).
 - One primary action per screen.
-- Simple typography, no ornament.
-- Soft corners (8–12px), minimal or no shadows.
+- Simple typography with calm, readable type.
+- Soft corners (8-12px) and light elevation when needed.
 
 ### 2. Content first
 - Photos and posts are the focus.
 - Metadata (time remaining, delivery state) stays subtle.
-- Avatars identify people; identicons are a fallback, not the hero.
+- Avatars identify people; identicons are a fallback when someone has not set a photo.
 
-### 3. Familiar, not copied
-- Photo grid on the profile (visual reference, not a clone).
+### 3. Familiar basics
+- Photo grid on the profile.
 - Chronological feed of friends' posts.
-- No stories, reels, public likes, or follower counts.
+- Private messages and a clear connections surface for invites.
 
 ### 4. Honesty about state
 - **Online / offline** indicator always visible next to the status dot.
-- Failed deliveries visible in the outbox — transparency, not hiding errors.
-- Ephemeral content: show when a post expires (or “saved” when archived locally).
+- Failed deliveries visible in the outbox so senders can retry or wait for expiry.
+- Ephemeral content: show when a post expires (or "saved" when archived locally).
 
 ---
 
@@ -50,20 +50,20 @@ Inertia is a **local-first**, **ephemeral** social network for your inner circle
 ## Key components
 
 ### Status (online / offline)
-Colored dot + textual label `online` or `offline` side by side. No ambiguity.
+Colored dot + textual label `online` or `offline` side by side so connection state is clear at a glance.
 
 ### Profile
 - Header: avatar, name, bio.
 - **Posts | Files** tabs on own and friend profiles. Each tab has a short how-it-works blurb, then a bordered panel with a sticky title/toolbar row (e.g. Add photo / New folder) and content below.
 - **Posts**: durable photo grid on the author's device. Publishing a photo also emits a 7-day feed announcement.
 - Friend profiles load live over P2P when the friend is online (thumbs auto-fetch on visit).
-- **Files**: folder icons for author-hosted shared folders. Owner creates folders and adds files (zip drop or folder auto-zip). Friends browse and download only. Neutral naming (not a media catalog). Large peer downloads require a direct connection; see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md).
+- **Files**: folder icons for author-hosted shared folders. Owner creates folders and adds files (zip drop or folder auto-zip). Friends browse and download. Neutral naming for everyday shared files. Large peer downloads require a direct connection; see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md).
 - Files UI is a small **finder-style** pane: sticky breadcrumb (`Files / folder`) and toolbar actions stay fixed; the content area below lists folders or files and accepts drops when a folder is open.
 
 ### Post
 - Optional text + optional photo.
 - Author, relative time, time until expiry (7d) or "saved" when archived.
-- Simple card layout, no engagement chrome.
+- Simple card layout focused on the content itself.
 
 ### Feed (home)
 - Chronological, friends only (P2P contacts).
@@ -76,21 +76,23 @@ Colored dot + textual label `online` or `offline` side by side. No ambiguity.
 
 ---
 
-## What to avoid
+## Design preferences
 
-- Infinite feeds optimized for retention.
-- Aggressive notifications or “new activity” badges.
-- Dense UI with too many buttons and tabs.
-- Gradients, glassmorphism, or passing visual trends.
-- Anything that suggests mass scale (followers, virality).
+Prefer surfaces that stay calm and small-circle:
+
+- Finite, chronological feeds that respect the 7-day lifecycle.
+- Quiet notifications and badges that matter (for example unread messages), used sparingly.
+- Few primary actions per screen; clear hierarchy over dense toolbars.
+- Timeless layout and color tokens instead of short-lived visual trends.
+- Language and chrome that fit a closed circle of friends.
 
 ---
 
 ## Voice and tone (UI copy)
 
 - Direct and calm.
-- English by default for an international audience; avoid technical jargon on the surface.
-- Explain P2P and ephemerality only when needed (onboarding, errors).
+- English by default for an international audience; keep jargon for settings and errors where it helps.
+- Explain P2P and ephemerality when the user needs context (onboarding, connection issues, expiry).
 
 ---
 

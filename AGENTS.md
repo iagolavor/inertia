@@ -1,4 +1,4 @@
-# Inertia — Agent Guide
+# Inertia  -  Agent Guide
 
 This repo has two specialized agent contexts. Cursor rules activate them automatically when you edit matching files.
 
@@ -11,7 +11,7 @@ Read `docs/VISION.md` for product/architecture, `docs/LIVE-SYNC.md` for SSE and 
 
 ## Copy (repo-wide)
 
-**Never use em dashes (`—`).** Not in UI, docs, scripts (especially `scripts/windows/*.ps1`), errors, commits, or PRs. Use ASCII `-`, periods, commas, or colons. Unicode dashes break Windows PowerShell and are not project style.
+**Never use em dashes (` - `).** Not in UI, docs, scripts (especially `scripts/windows/*.ps1`), errors, commits, or PRs. Use ASCII `-`, periods, commas, or colons. Unicode dashes break Windows PowerShell and are not project style.
 
 ## Architecture (short)
 
@@ -19,8 +19,8 @@ Read `docs/VISION.md` for product/architecture, `docs/LIVE-SYNC.md` for SSE and 
 apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (SQLite + libp2p)
 ```
 
-- **Local-first**: no cloud backend. API binds `127.0.0.1:4783` on the user's machine.
-- **Live UI (SSE-first)**: no interval polling. `GET /api/p2p/events` drives inline patches via `messages-sync`, `feed-sync`, `conversation-sync` in `apps/web/src/lib/`. HTTP refresh reconciles on `catch_up`, tab visible, or patch miss. See [docs/LIVE-SYNC.md](docs/LIVE-SYNC.md).
+- **Local-first**: each person runs their own API on the machine (`127.0.0.1:4783`).
+- **Live UI (SSE-first)**: `GET /api/p2p/events` drives inline patches via `messages-sync`, `feed-sync`, `conversation-sync` in `apps/web/src/lib/`. HTTP refresh reconciles on `catch_up`, tab visible, or patch miss. See [docs/LIVE-SYNC.md](docs/LIVE-SYNC.md).
 - **Ephemeral content**: posts and messages 7d, invites 15min single-use.
 - **P2P**: libp2p relay-circuit paths for friends; VPS relay for NAT traversal. See [RELAY-CONNECTIVITY.md](docs/RELAY-CONNECTIVITY.md) for connectivity architecture.
 
@@ -45,7 +45,7 @@ apps/web (SvelteKit PWA)  →  HTTP /api  →  inertia-api  →  inertia-core (S
 
 - `@sveltejs/adapter-static` with SPA `fallback: 'index.html'`
 - `ssr = false`, `prerender = true` (client-only app)
-- All data via `apps/web/src/lib/api.ts` → `/api` (no server-side Svelte data fetching)
+- All data via `apps/web/src/lib/api.ts` → `/api` (client-only; keep API calls out of SSR loaders)
 
 ### Tauri desktop + Android
 
@@ -72,7 +72,7 @@ npm run android:run
 2. **Release** - Play Store / release-keystore signing later
 3. **Optional** - camera/filesystem for profile photos; iOS via Tauri; API auth on localhost ([SECURITY-TODO.md](docs/SECURITY-TODO.md))
 
-**Done recently:** header **P2pStatus** tap-to-open details panel (touch-friendly). No hover `title` (it steals clicks on some desktops).
+**Done recently:** header **P2pStatus** tap-to-open details panel (touch-friendly). Prefer the panel over hover `title` (hover can steal clicks on some desktops).
 
 ### What not to do on mobile
 
@@ -90,15 +90,15 @@ Friend traffic routes over **relay circuits** via `inertia-relay`. See **[docs/R
 
 **Git:** integration branch is `development`; feature branches use `feature/<name>`; **PRs target `development` by default**. See [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md).
 
-### Recommended — daily use (low memory)
+### Recommended  -  daily use (low memory)
 
 Release API (~12 MB) + static web preview. Avoid Vite dev unless you are editing the UI.
 
 ```powershell
-# Terminal 1 — API
+# Terminal 1  -  API
 npm run api:release
 
-# Terminal 2 — web (build once, then serve)
+# Terminal 2  -  web (build once, then serve)
 npm run web:build
 npm run web:preview
 # http://localhost:4173
@@ -112,18 +112,18 @@ npm run web:preview
 npm run api:window
 ```
 
-### Development — editing code (higher memory)
+### Development  -  editing code (higher memory)
 
 Fast rebuilds; Vite dev holds ~200 MB for HMR and file watching.
 
-1. `Terminal` → `Run Task…` → **`dev`** — debug API + Vite in two tabs  
+1. `Terminal` → `Run Task…` → **`dev`**  -  debug API + Vite in two tabs  
 2. Or manually:
 
 ```bash
-# Terminal 1 — API (debug)
+# Terminal 1  -  API (debug)
 cargo run -p inertia-api
 
-# Terminal 2 — web (Vite dev)
+# Terminal 2  -  web (Vite dev)
 cd apps/web && npm run dev
 ```
 
@@ -141,6 +141,6 @@ npm run android:install
 npm run android:run
 ```
 
-**Windows (end users):** [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md) — download `inertia-windows-x64.zip`, `run.cmd`, `update.cmd`. No npm scripts.
+**Windows (end users):** [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md)  -  download `inertia-windows-x64.zip`, `run.cmd`, `update.cmd`. No npm scripts.
 
 **Releases:** push a `v*` tag ([scripts/release-tag.ps1](scripts/release-tag.ps1)); GitHub Actions builds the Windows zip. See [docs/RELEASE.md](docs/RELEASE.md).
