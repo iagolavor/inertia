@@ -236,10 +236,9 @@
   <p class="error">Friend not found.</p>
 {:else}
   <div class="chat-fill">
-  <a class="chat-back-link" href="/messages">← Messages</a>
-
   <FriendPresenceHeader
     contact={displayContact}
+    backHref="/messages"
     href="/friends/{displayContact.id}/profile"
     cacheAge={showingCached ? cacheAge : null}
   />
