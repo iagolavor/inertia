@@ -105,15 +105,15 @@
 	});
 </script>
 
-<a class="chat-back-link" href="/messages">← Messages</a>
-
 {#if loading}
 	<p class="empty">Loading…</p>
 {:else if !contact}
+	<a class="chat-back-link" href="/messages">← Messages</a>
 	<p class="error">Friend not found.</p>
 {:else}
 	<FriendPresenceHeader
 		{contact}
+		backHref="/messages"
 		messageHref="/friends/{contact.id}"
 		detail="{photos.length} photos"
 		cacheAge={showingCached ? cacheAge : null}
