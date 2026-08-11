@@ -230,7 +230,7 @@
         <h1 class="brand-title">Inertia</h1>
       </div>
       <p class="brand-tagline">
-        Peer-to-peer social network. Decentralized, local-first, low-cost.
+        A decentralized P2P social network for minimal infrastructure cost
       </p>
     </header>
 

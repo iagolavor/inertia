@@ -1,13 +1,12 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png" />
-    <img src="docs/logo-light.png" alt="Inertia" width="180" />
+    <img src="docs/logo-light.png" alt="Inertia" width="220" />
   </picture>
 </p>
 
 <p align="center">
-  <strong>Peer-to-peer social network</strong><br />
-  Decentralized · local-first · low-cost
+  A decentralized P2P social network for minimal infrastructure cost
 </p>
 
 <p align="center">
