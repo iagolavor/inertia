@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <strong>Local-first social network for people you trust.</strong><br />
-  Your data stays on your device. Friends connect peer to peer through a relay you choose.
+  <strong>Peer-to-peer social network</strong><br />
+  Decentralized · local-first · low-cost
 </p>
 
 <p align="center">
@@ -23,11 +23,13 @@
 
 ## Overview
 
-**Inertia** is a small, chronological social app for a closed circle of friends. Each person runs the stack on their own machine: a Rust API, embedded database, and libp2p networking. Posts and messages expire after seven days unless you keep a local archive.
+**Inertia** is a decentralized, **peer-to-peer**, low-cost social network with the familiar pieces of modern social media (feed, profiles, messages, shared files). Friends connect and sync directly over libp2p. Nearly all data and compute stay on users' devices: each person runs a Rust API, SQLite database, and P2P stack locally.
 
-Identity is cryptographic and created on your device when you set a display name. You add friends with signed invite links (and optional QR codes). Friend paths use relay circuits through a [VPS `inertia-relay`](crates/inertia-relay/README.md) you (or your circle) run. Content stays end-to-end encrypted; the relay only helps devices reach each other.
+Identity is cryptographic and created on your device when you set a display name. You add contacts with signed invite links (and optional QR codes). A thin [VPS `inertia-relay`](crates/inertia-relay/README.md) helps peers reach each other through NAT; **DCUtR hole punching** then upgrades sessions so large transfers go **direct peer-to-peer** when possible, which keeps relay bandwidth and hosting cost minimal. Content stays end-to-end encrypted; the relay only forwards encrypted circuits and never holds social data.
 
-> **Status:** Usable alpha for a small circle. Web + Windows zip + Android install work; desktop install UX and polish are the main gaps. Default branch is `development`.
+Capacity grows with **more relays and more CPU/RAM**. One modest VPS is enough to start; a handful of regional relays can support thousands of concurrent sessions and much larger daily active use when direct peer paths carry bulk media.
+
+> **Status:** Usable alpha with no default public relay. Available as a standalone app on Linux, Windows and Android through a Tauri 2 shell.
 
 ---
 
@@ -37,7 +39,7 @@ Identity is cryptographic and created on your device when you set a display name
   <img src="docs/screenshots/feed.jpg" alt="Inertia Feed with Online now rail" width="720" />
 </p>
 
-<p align="center"><em>Feed</em> - your circle, in chronological order</p>
+<p align="center"><em>Feed</em> - friends' posts, in chronological order</p>
 
 <details>
 <summary><strong>Messages and chat</strong> - reach friends and send DMs that expire in 7 days</summary>
@@ -74,7 +76,7 @@ Identity is cryptographic and created on your device when you set a display name
 </details>
 
 <details>
-<summary><strong>Connections</strong> - signed invites for a closed circle</summary>
+<summary><strong>Connections</strong> - signed invites to add friends</summary>
 <br />
 <p align="center">
   <img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="720" />

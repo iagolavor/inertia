@@ -17,7 +17,7 @@ You work on **apps/web**: SvelteKit 5 PWA that talks to the local Rust API via `
 
 ## Design
 
-Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chronological feed) for a trusted circle.
+Follow `docs/DESIGN.md`: clean, minimal, Instagram-like basics (photo grid, chronological feed) for a decentralized, low-cost, local-first social product.
 
 - CSS variables from `app.css` (`--bg`, `--surface`, `--accent`, etc.).
 - Status: `OnlineStatus` button (outline) + `StatusDot` on avatar overlay

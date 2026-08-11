@@ -1,6 +1,6 @@
 # inertia-relay
 
-libp2p **circuit relay v2** for Inertia. Required for friend invites and reachability: run it on a small VPS you (or your circle) control so devices behind home NAT can dial each other over `/p2p-circuit/` paths.
+libp2p **circuit relay v2** for Inertia. Required for friend invites and reachability: run it on a VPS (self-hosted or community) so devices behind NAT can dial each other over `/p2p-circuit/` paths. Prefer **DCUtR** on clients so large transfers leave the relay when a direct path is available.
 
 **Connectivity only.** No SQLite, no user profiles, no posts, no keys, no decrypted content. The relay never sees message payloads.
 
@@ -10,7 +10,7 @@ libp2p **circuit relay v2** for Inertia. Required for friend invites and reachab
 
 | Item | Notes |
 |------|--------|
-| VPS | Any Linux host with a public IP (1 vCPU / 1 GB RAM is enough for a small circle) |
+| VPS | Any Linux host with a public IP. **1 vCPU / 1 GB RAM** is enough to start; raise CPU/RAM and add more relays as concurrent reservations and circuits grow (see [VISION.md](../../docs/VISION.md) §2b) |
 | Port **9000/tcp** | Open on the VPS firewall and your cloud provider security group |
 | Docker (recommended) | Or Rust 1.75+ if you build the binary yourself |
 
