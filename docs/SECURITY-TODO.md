@@ -44,4 +44,4 @@ Until those gates pass, focus stays on delivery and correctness.
 
 Threat model v1: [VISION.md](./VISION.md) § Security Model — passive observers and harvesting, not compromised devices or nation-states.
 
-Scaling shape: O(friends) fan-out per post; designed for small circles, not influencer-scale graphs.
+Scaling shape: O(friends) fan-out per post on each author's device. Capacity follows relay fleet (reservations/circuits) and how often DCUtR moves bulk media off the VPS.

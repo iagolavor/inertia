@@ -1,33 +1,34 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png" />
-    <img src="docs/logo-light.png" alt="Inertia" width="180" />
+    <img src="docs/logo-light.png" alt="Inertia" width="220" />
   </picture>
 </p>
 
 <p align="center">
-  <strong>Local-first social network for people you trust.</strong><br />
-  Your data stays on your device. Friends connect peer to peer through a relay you choose.
+  A p2p social network, built for low-cost infrastructure.
 </p>
 
 <p align="center">
-  <a href="docs/VISION.md">Vision</a> ·
-  <a href="docs/WINDOWS-SETUP.md">Windows</a> ·
-  <a href="docs/LINUX-SETUP.md">Linux</a> ·
-  <a href="docs/TAURI.md">Desktop / Android</a> ·
-  <a href="crates/inertia-relay/README.md">Relay</a> ·
-  <a href="https://github.com/iagolavor/inertia/releases">Releases</a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white" alt="Rust" /></a>
+  <a href="https://svelte.dev/"><img src="https://img.shields.io/badge/Svelte-FF3E00?style=flat&logo=svelte&logoColor=white" alt="Svelte" /></a>
+  <a href="https://libp2p.io/"><img src="https://img.shields.io/badge/libp2p-01796F?style=flat" alt="libp2p" /></a>
+  <a href="https://v2.tauri.app/"><img src="https://img.shields.io/badge/Tauri-24C8DB?style=flat&logo=tauri&logoColor=white" alt="Tauri" /></a>
+  <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white" alt="SQLite" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%203.0-blue?style=flat" alt="License: AGPL-3.0" /></a>
 </p>
 
 ---
 
 ## Overview
 
-**Inertia** is a small, chronological social app for a closed circle of friends. Each person runs the stack on their own machine: a Rust API, embedded database, and libp2p networking. Posts and messages expire after seven days unless you keep a local archive.
+**Inertia** is a decentralized, **peer-to-peer**, low-cost social network with the familiar pieces of modern social media (feed, profiles, messages, shared files). Friends connect and sync directly over libp2p. Nearly all data and compute stay on users' devices: each person runs a Rust API, SQLite database, and P2P stack locally.
 
-Identity is cryptographic and created on your device when you set a display name. You add friends with signed invite links (and optional QR codes). Friend paths use relay circuits through a [VPS `inertia-relay`](crates/inertia-relay/README.md) you (or your circle) run. Content stays end-to-end encrypted; the relay only helps devices reach each other.
+Identity is cryptographic and created on your device when you set a display name. There is no global people search: Inertia assumes friends already know each other and already have a way to share a signed invite link (or QR code) outside the app. A thin [VPS `inertia-relay`](crates/inertia-relay/README.md) helps peers reach each other through NAT. After that, **DCUtR hole punching** tries to open a direct channel so large payloads (images, videos, and shared files) are rerouted peer-to-peer and avoid the relay when possible, keeping relay bandwidth and hosting cost minimal. Content stays end-to-end encrypted; the relay only forwards encrypted circuits and never holds data.
 
-> **Status:** Usable alpha for a small circle. Web + Windows zip + Android install work; desktop install UX and polish are the main gaps. Default branch is `development`.
+Capacity grows with **more relays and more CPU/RAM**. One modest VPS is enough to start; a handful of regional relays can support thousands of concurrent sessions and much larger daily active use when direct peer paths carry bulk media.
+
+> **Status:** Usable alpha with no default public relay. Available as a standalone app on Linux, Windows and Android through a Tauri 2 shell.
 
 ---
 
@@ -37,7 +38,7 @@ Identity is cryptographic and created on your device when you set a display name
   <img src="docs/screenshots/feed.jpg" alt="Inertia Feed with Online now rail" width="720" />
 </p>
 
-<p align="center"><em>Feed</em> - your circle, in chronological order</p>
+<p align="center"><em>Feed</em> - friends' posts, in chronological order</p>
 
 <details>
 <summary><strong>Messages and chat</strong> - reach friends and send DMs that expire in 7 days</summary>
@@ -74,7 +75,7 @@ Identity is cryptographic and created on your device when you set a display name
 </details>
 
 <details>
-<summary><strong>Connections</strong> - signed invites for a closed circle</summary>
+<summary><strong>Connections</strong> - signed invites to add friends</summary>
 <br />
 <p align="center">
   <img src="docs/screenshots/connections.jpg" alt="Inertia Connections" width="720" />

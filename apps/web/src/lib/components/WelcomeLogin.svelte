@@ -230,7 +230,7 @@
         <h1 class="brand-title">Inertia</h1>
       </div>
       <p class="brand-tagline">
-        Distributed, P2P, local-first social network for the people you trust.
+        A decentralized P2P social network for minimal infrastructure cost
       </p>
     </header>
 
@@ -288,7 +288,7 @@
           </span>
           <span class="path-label">I'm starting a network</span>
           <span class="path-desc muted">
-            Host a relay on your VPS, create your profile, then invite people you trust.
+            Host a relay on your VPS, create your profile, then invite friends.
           </span>
         </button>
       </div>

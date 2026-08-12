@@ -2,7 +2,7 @@
 
 ## Essence
 
-Inertia is a **local-first**, **ephemeral** social network for your inner circle. The visual language should feel **clean, minimal, and familiar**: photos front and center, a personal profile, and a chronological feed of people you already know.
+Inertia is a **decentralized**, **low-cost**, **local-first**, **ephemeral** social network. The visual language should feel **clean, minimal, and familiar**: photos front and center, a personal profile, and a chronological friends feed.
 
 ---
 
@@ -78,13 +78,13 @@ Colored dot + textual label `online` or `offline` side by side so connection sta
 
 ## Design preferences
 
-Prefer surfaces that stay calm and small-circle:
+Prefer surfaces that stay calm and readable:
 
 - Finite, chronological feeds that respect the 7-day lifecycle.
 - Quiet notifications and badges that matter (for example unread messages), used sparingly.
 - Few primary actions per screen; clear hierarchy over dense toolbars.
 - Timeless layout and color tokens instead of short-lived visual trends.
-- Language and chrome that fit a closed circle of friends.
+- Language and chrome that fit a decentralized, local-first social product.
 
 ---
 
@@ -106,7 +106,7 @@ This document complements [VISION.md](./VISION.md):
 | Files | Folder icons; opt-in download | `archive_folders` / `archive_entries` + chunked ingest; peer pull is DCUtR-only ([ARCHIVE-P2P.md](./ARCHIVE-P2P.md)) |
 | Post | Card in feed | `ContentType::Post`, 7d TTL |
 | Feed | Chronological home | `local_posts` + friend inbox + optional `feed_archive` |
-| Friends | Closed circle | P2P contacts |
+| Friends | Invite-based roster | P2P contacts |
 
 ---
 
