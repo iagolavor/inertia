@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  A decentralized P2P social network for minimal infrastructure cost
+  A p2p social network, built for low-cost infrastructure.
 </p>
 
 <p align="center">
