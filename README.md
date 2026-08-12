@@ -10,12 +10,12 @@
 </p>
 
 <p align="center">
-  <a href="docs/VISION.md">Vision</a> ·
-  <a href="docs/WINDOWS-SETUP.md">Windows</a> ·
-  <a href="docs/LINUX-SETUP.md">Linux</a> ·
-  <a href="docs/TAURI.md">Desktop / Android</a> ·
-  <a href="crates/inertia-relay/README.md">Relay</a> ·
-  <a href="https://github.com/iagolavor/inertia/releases">Releases</a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white" alt="Rust" /></a>
+  <a href="https://svelte.dev/"><img src="https://img.shields.io/badge/Svelte-FF3E00?style=flat&logo=svelte&logoColor=white" alt="Svelte" /></a>
+  <a href="https://libp2p.io/"><img src="https://img.shields.io/badge/libp2p-01796F?style=flat" alt="libp2p" /></a>
+  <a href="https://v2.tauri.app/"><img src="https://img.shields.io/badge/Tauri-24C8DB?style=flat&logo=tauri&logoColor=white" alt="Tauri" /></a>
+  <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white" alt="SQLite" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%203.0-blue?style=flat" alt="License: AGPL-3.0" /></a>
 </p>
 
 ---
