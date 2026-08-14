@@ -271,7 +271,7 @@ Raising `INERTIA_RELAY_MAX_CIRCUITS_PER_PEER` from 4 to 8 allows heavier poster 
 
 ## DCUtR (optional upgrade)
 
-DCUtR hole punching remains in the behaviour stack. Friend **discovery and redial** stay on relay circuits; a live session may later upgrade to direct transport. Bulk transfer logic (e.g. video chunks) may prefer direct when available - see [VIDEO-P2P-PLAN.md](./VIDEO-P2P-PLAN.md).
+DCUtR hole punching remains in the behaviour stack. Friend **discovery and redial** stay on relay circuits; a live session may later upgrade to direct transport. Bulk transfer logic (e.g. video chunks and shared-folder files) may prefer direct when available - see [ARCHIVE-P2P.md](./ARCHIVE-P2P.md).
 
 ---
 

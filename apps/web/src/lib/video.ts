@@ -1,5 +1,5 @@
 /** Matches `MAX_VIDEO_BYTES` in inertia-core. */
-export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 /** Matches `MAX_THUMB_BYTES` in inertia-core. */
 export const MAX_THUMB_BYTES = 256 * 1024;
 
@@ -30,7 +30,7 @@ export function assertVideoUploadAllowed(file: File): void {
 		throw new Error('Only video files are supported (MP4, WebM, MOV)');
 	}
 	if (file.size > MAX_VIDEO_BYTES) {
-		throw new Error(`Video too large — max ${MAX_VIDEO_BYTES / (1024 * 1024)} MB`);
+		throw new Error(`Video too large - max ${MAX_VIDEO_BYTES / (1024 * 1024)} MB`);
 	}
 }
 
