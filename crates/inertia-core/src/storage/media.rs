@@ -9,11 +9,10 @@ use crate::identity::encode_hex;
 use super::{FeedItem, Store};
 
 pub const CHUNK_SIZE: usize = 512 * 1024;
-pub const MAX_VIDEO_BYTES: usize = 50 * 1024 * 1024;
+/// Feed video posts (`POST /posts/video`). Not used for Files / shared-folder uploads.
+pub const MAX_VIDEO_BYTES: usize = 100 * 1024 * 1024;
 pub const MAX_THUMB_BYTES: usize = 256 * 1024;
-/// Legacy single-shot base64 archive upload cap (chunked ingest has no product cap).
-pub const MAX_ARCHIVE_FILE_BYTES: usize = 50 * 1024 * 1024;
-/// Soft guidance for UI zip-in-browser warnings (not enforced server-side on chunked path).
+/// Soft guidance for UI zip-in-browser warnings (not a hard API cap on chunked Files ingest).
 pub const ARCHIVE_ZIP_SOFT_WARN_BYTES: u64 = 200 * 1024 * 1024;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -166,11 +165,12 @@ impl Store {
             MediaKind::Video,
             "video/mp4",
             duration_ms,
-            MAX_VIDEO_BYTES,
+            Some(MAX_VIDEO_BYTES),
         )
     }
 
     /// Chunk and store a shared-folder file (no inbox fan-out; pull on demand).
+    /// No product byte cap: Files peer pull is DCUtR-oriented and uses chunked ingest.
     pub fn chunk_and_store_file(
         &self,
         data: &[u8],
@@ -184,7 +184,7 @@ impl Store {
             MediaKind::File,
             mime,
             duration_ms,
-            MAX_ARCHIVE_FILE_BYTES,
+            None,
         )
     }
 
@@ -195,14 +195,16 @@ impl Store {
         kind: MediaKind,
         mime: &str,
         duration_ms: u32,
-        max_bytes: usize,
+        max_bytes: Option<usize>,
     ) -> CoreResult<MediaManifest> {
-        if data.len() > max_bytes {
-            return Err(CoreError::P2p(format!(
-                "file too large ({} bytes, max {})",
-                data.len(),
-                max_bytes
-            )));
+        if let Some(max) = max_bytes {
+            if data.len() > max {
+                return Err(CoreError::P2p(format!(
+                    "file too large ({} bytes, max {})",
+                    data.len(),
+                    max
+                )));
+            }
         }
         if thumb.len() > MAX_THUMB_BYTES {
             return Err(CoreError::P2p(format!(

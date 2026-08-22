@@ -22,5 +22,5 @@ pub use storage::{
     ArchiveUploadStatus, ArchivedFeedItem, ConnectionState, Contact, FeedBackup, FeedItem,
     FeedRestoreReport, InboxEntry, LocalPost, OutboxEntry, PostComment, ProfileComment, ProfileItem,
     ProfileManifest, ProfilePhoto, PurgeReport, Store, ARCHIVE_ZIP_SOFT_WARN_BYTES, CHUNK_SIZE,
-    MAX_ARCHIVE_FILE_BYTES, MAX_THUMB_BYTES, MAX_VIDEO_BYTES,
+    MAX_THUMB_BYTES, MAX_VIDEO_BYTES,
 };

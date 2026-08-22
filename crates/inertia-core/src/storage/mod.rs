@@ -25,7 +25,7 @@ use crate::error::CoreResult;
 
 pub use blobs::MAX_BLOB_BYTES;
 pub use media::{
-    CHUNK_SIZE, ARCHIVE_ZIP_SOFT_WARN_BYTES, MAX_ARCHIVE_FILE_BYTES, MAX_THUMB_BYTES, MAX_VIDEO_BYTES,
+    CHUNK_SIZE, ARCHIVE_ZIP_SOFT_WARN_BYTES, MAX_THUMB_BYTES, MAX_VIDEO_BYTES,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

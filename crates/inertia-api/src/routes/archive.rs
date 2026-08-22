@@ -4,7 +4,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use inertia_core::{
-    ArchiveEntry, ArchiveFolder, ArchiveUploadStatus, CHUNK_SIZE, MAX_ARCHIVE_FILE_BYTES,
+    ArchiveEntry, ArchiveFolder, ArchiveUploadStatus, CHUNK_SIZE,
 };
 
 use crate::dto::{AddArchiveEntryRequest, BeginArchiveUploadRequest, CreateArchiveFolderRequest};
@@ -84,24 +84,13 @@ async fn list_entries(
 }
 
 /// Legacy base64 single-shot upload (kept for compat; Files tab uses chunked ingest).
+/// No product file-size cap beyond the route body limit (memory-bound legacy path).
 async fn add_entry(
     State(state): State<AppState>,
     Path(folder_id): Path<String>,
     Json(body): Json<AddArchiveEntryRequest>,
 ) -> Result<Json<ArchiveEntry>, (StatusCode, Json<ApiError>)> {
     let data = base64_decode(&body.data_base64)?;
-    if data.len() > MAX_ARCHIVE_FILE_BYTES {
-        return Err((
-            StatusCode::PAYLOAD_TOO_LARGE,
-            Json(ApiError {
-                error: format!(
-                    "file exceeds {} MB limit (use chunked upload for larger files)",
-                    MAX_ARCHIVE_FILE_BYTES / (1024 * 1024)
-                ),
-                code: None,
-            }),
-        ));
-    }
     let mime = body
         .mime
         .unwrap_or_else(|| "application/octet-stream".into());

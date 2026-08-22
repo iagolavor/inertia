@@ -22,9 +22,9 @@ use tower_http::cors::{Any, CorsLayer};
 use crate::state::AppState;
 
 const DEFAULT_BODY_LIMIT: usize = 8 * 1024 * 1024;
-/// Base64-encoded video + thumb for `POST /posts/video` (~50 MiB video + headroom).
-const VIDEO_POST_BODY_LIMIT: usize = 72 * 1024 * 1024;
-/// Legacy base64 shared-folder upload (chunked ingest has no product file cap).
+/// Base64-encoded video + thumb for `POST /posts/video` (~100 MiB video + headroom).
+const VIDEO_POST_BODY_LIMIT: usize = 150 * 1024 * 1024;
+/// Legacy base64 shared-folder upload (chunked Files ingest has no product file cap).
 const ARCHIVE_BODY_LIMIT: usize = 72 * 1024 * 1024;
 /// Per-chunk raw PUT for archive ingest (matches core CHUNK_SIZE + small headroom).
 const ARCHIVE_CHUNK_BODY_LIMIT: usize = 1024 * 1024;
