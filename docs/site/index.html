@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inertia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --ink: #1c1f18;
+      --muted: #5c6356;
+      --card: #fffdf8;
+      --accent: #c45c1a;
+      --accent-soft: #f0dcc8;
+      --line: #d9d2c4;
+      --ok: #2f6b4f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    /* subtle grid atmosphere, not flat */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(28, 31, 24, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(28, 31, 24, 0.035) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse at 50% 0%, #000 20%, transparent 75%);
+      z-index: 0;
+    }
+    .shell { position: relative; z-index: 1; width: min(1100px, 100% - 2rem); margin: 0 auto; }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 0;
+    }
+    .logo { height: 30px; }
+    nav { display: flex; gap: 1rem; align-items: center; font-size: 0.95rem; }
+    nav a { color: var(--muted); text-decoration: none; font-weight: 600; }
+    nav a:hover { color: var(--ink); }
+    .pill-nav {
+      background: var(--ink);
+      color: var(--bg) !important;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 2rem;
+      align-items: stretch;
+      padding: 2rem 0 3rem;
+    }
+    @media (max-width: 820px) {
+      .hero { grid-template-columns: 1fr; }
+    }
+    .hero-copy h1 {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-size: clamp(2.2rem, 4.5vw, 3.2rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin: 0 0 1rem;
+    }
+    .hero-copy p { color: var(--muted); font-size: 1.1rem; max-width: 40ch; margin: 0 0 1.5rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .btn {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.1rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 0.95rem;
+    }
+    .btn-fill { background: var(--accent); color: #fff; }
+    .btn-fill:hover { filter: brightness(1.05); }
+    .btn-line { background: transparent; border: 1.5px solid var(--ink); color: var(--ink); }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .panel h2 {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-size: 1rem;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+    #dl-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .os {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.65rem 0.75rem;
+      background: var(--bg);
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+    .os span { color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 1rem;
+      margin: 1rem 0 1.25rem;
+    }
+    .section-head h2 {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+    .section-head p { margin: 0; color: var(--muted); max-width: 36ch; }
+    .community {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin: 0 0 2.75rem;
+    }
+    @media (max-width: 820px) {
+      .community { grid-template-columns: 1fr; }
+    }
+    .community .mod { min-height: 0; }
+    .modules {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+    @media (max-width: 820px) {
+      .modules { grid-template-columns: 1fr; }
+    }
+    .mod {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 1.2rem;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+    }
+    .mod .num {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+    .mod h3 {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      margin: 0 0 0.5rem;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    .mod p { margin: 0; color: var(--muted); flex: 1; font-size: 0.95rem; }
+    .mod code, .ma {
+      display: block;
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      word-break: break-all;
+      background: #161910;
+      color: #c8d4a8;
+      border-radius: 6px;
+      padding: 0.45rem 0.55rem;
+      margin-top: 0.75rem;
+    }
+    .mod code { background: var(--bg); color: #3d4a32; }
+    .ma { margin: 0.7rem 0 0; white-space: pre-wrap; }
+    .mod .tag {
+      margin-top: 1rem;
+      align-self: start;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ok);
+      background: #d9ebe0;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+    }
+    .lesson {
+      background: var(--ink);
+      color: #e8eadf;
+      border-radius: 16px;
+      padding: 1.75rem;
+      margin-bottom: 3rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    @media (max-width: 820px) {
+      .lesson { grid-template-columns: 1fr; }
+    }
+    .lesson h3 {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      margin: 0 0 0.75rem;
+      font-size: 1.35rem;
+    }
+    .lesson p { margin: 0 0 0.75rem; color: #b7bbae; }
+    .steps { list-style: none; padding: 0; margin: 0; }
+    .steps li {
+      display: grid;
+      grid-template-columns: 2rem 1fr;
+      gap: 0.6rem;
+      margin-bottom: 0.85rem;
+      align-items: start;
+    }
+    .steps b {
+      width: 1.6rem;
+      height: 1.6rem;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+    }
+    .chip svg { width: 14px; height: 14px; fill: currentColor; }
+    .os a { color: inherit; text-decoration: none; display: flex; justify-content: space-between; width: 100%; }
+    .os a:hover { color: var(--accent); }
+    .tabs { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0 0 1rem; }
+    .tab {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 0.82rem;
+      border: 1px solid rgba(232, 234, 223, 0.18);
+      background: transparent;
+      color: #b7bbae;
+      padding: 0.5rem 0.85rem;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .tab[aria-selected="true"] {
+      background: #2a2d24;
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .stage { margin-top: 0.25rem; }
+    svg.topo { width: 100%; height: auto; display: block; }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: #b7bbae;
+      margin-top: 0.75rem;
+    }
+    .legend span { display: none; align-items: center; }
+    .stage[data-mode="nat"] .legend [data-for="nat"],
+    .stage[data-mode="relay"] .legend [data-for="relay"],
+    .stage[data-mode="direct"] .legend [data-for="direct"] {
+      display: inline-flex;
+    }
+    .legend i {
+      display: inline-block;
+      width: 1.5rem;
+      height: 3px;
+      border-radius: 2px;
+      vertical-align: middle;
+      margin-right: 0.35rem;
+    }
+    .caption { margin-top: 1rem; }
+    .caption h3 {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-size: 1.15rem;
+      margin: 0 0 0.35rem;
+    }
+    .caption p { margin: 0; color: #b7bbae; max-width: 62ch; }
+    .pulse-relay { stroke-dasharray: 6 8; animation: dash 1.2s linear infinite; }
+    .pulse-direct { stroke-dasharray: 4 6; animation: dash 0.9s linear infinite; }
+    .stage[data-mode="direct"] .pulse-relay { opacity: 0.22; }
+    .pkt-label { font-family: "Space Grotesk", system-ui, sans-serif; font-weight: 700; font-size: 8px; }
+    @keyframes dash { to { stroke-dashoffset: -28; } }
+    footer {
+      padding: 1.5rem 0 2.5rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--line);
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <img class="logo" src="../logo-light.png" alt="Inertia" />
+      <nav>
+        <a href="#community">Community</a>
+        <a href="#academy">Academy</a>
+        <a href="#path">Path</a>
+        <a class="chip" href="https://github.com/iagolavor/inertia" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.68 7.68 0 0 1 8 4.06c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+        <a class="pill-nav" href="#get">Get the app</a>
+      </nav>
+    </header>
+
+    <section class="hero" id="get">
+      <div class="hero-copy">
+        <h1>A minimalist social network</h1>
+        <p>
+          The only infrastructure is a data-less relay that sends packets back and
+          forth between users. It has no access to the data.
+        </p>
+        <p>
+          A small number of cheap VPS servers is enough for a community to run the
+          network themselves, and to keep control of that social layer.
+        </p>
+        <div class="actions">
+          <a class="btn btn-fill" href="#get">Download</a>
+          <a class="btn btn-line" href="#academy">Start the academy</a>
+        </div>
+      </div>
+      <aside class="panel">
+        <h2>Standalone apps</h2>
+        <p id="dl-status" style="margin:0;font-size:0.85rem;color:var(--muted)">Loading latest release…</p>
+        <div id="dl-list"></div>
+        <p style="margin:0;font-size:0.85rem;color:var(--muted)">
+          <a href="https://github.com/iagolavor/inertia/releases" target="_blank" rel="noopener">All releases</a>
+        </p>
+      </aside>
+    </section>
+
+    <div class="section-head" id="community">
+      <h2>Community-run social media</h2>
+      <p>Not a company cloud. A handful of inexpensive relays that only move ciphertext.</p>
+    </div>
+    <div class="community">
+      <article class="mod">
+        <div class="num">Control</div>
+        <h3>The community holds the pipes</h3>
+        <p>
+          Whoever operates a few VPS nodes decides how people reach each other. Accounts,
+          posts, and keys stay on user devices. There is no central social database to seize
+          or sell.
+        </p>
+      </article>
+      <article class="mod">
+        <div class="num">Cost</div>
+        <h3>A small fleet of cheap VPS</h3>
+        <p>
+          Relays are connectivity only. A modest box (or a few regional ones) can carry
+          encrypted circuits for thousands of concurrent sessions when bulk media goes
+          direct after hole punching.
+        </p>
+      </article>
+      <article class="mod">
+        <div class="num">Trust</div>
+        <h3>Cryptographic messages</h3>
+        <p>
+          Operators see packets, not content. MSG is ciphertext; ACK is a delivery receipt.
+          The relay cannot read, rank, or store a social graph.
+        </p>
+      </article>
+    </div>
+
+    <div class="section-head" id="academy">
+      <h2>Networking academy</h2>
+      <p>How a data-less relay, NAT, and hole punching actually move packets.</p>
+    </div>
+
+    <div class="modules">
+      <article class="mod">
+        <div class="num">Module 01</div>
+        <h3>Peer-to-peer basics</h3>
+        <p>
+          Each node is a full participant. Friends sync over libp2p instead of reading
+          from a central social database.
+        </p>
+        <code>/inertia/1.0.0 · /ipfs/id/1.0.0 · /libp2p/dcutr</code>
+        <div class="tag">Local-first</div>
+      </article>
+      <article class="mod">
+        <div class="num">Module 02</div>
+        <h3>Circuit relays</h3>
+        <p>
+          A VPS circuit relay only forwards encrypted packets. It has no feed, no keys,
+          and no access to the message.
+        </p>
+        <code>/ip4/203.0.113.10/tcp/9000/p2p/12D3KooWRelayExample</code>
+        <div class="tag">Data-less</div>
+      </article>
+      <article class="mod">
+        <div class="num">Module 03</div>
+        <h3>DCUtR hole punching</h3>
+        <p>
+          After meeting on a relay, peers punch a direct path. Video and files move as
+          512 KiB chunks on that mapping. NAT does not cap bytes; UDP mappings usually
+          die after tens of seconds idle. If the hole closes, DCUtR punches again until
+          every chunk is on disk.
+        </p>
+        <code>BlobChunkRequest · 512 KiB · punch again if mapping dies</code>
+        <div class="tag">Cost control</div>
+      </article>
+    </div>
+
+    <section class="lesson" id="path">
+      <div style="grid-column: 1 / -1;">
+        <h3>Watch a packet find its path</h3>
+        <p>Same three modules, as a moving diagram. NAT first, then the relay, then a hole-punched path that keeps sending chunks until the file is complete.</p>
+        <div class="tabs" role="tablist" aria-label="Path mode">
+          <button class="tab" role="tab" aria-selected="true" data-mode="nat">1. NAT</button>
+          <button class="tab" role="tab" aria-selected="false" data-mode="relay">2. Relay</button>
+          <button class="tab" role="tab" aria-selected="false" data-mode="direct">3. DCUtR</button>
+        </div>
+        <div class="stage" data-mode="nat" id="stage">
+          <svg class="topo" viewBox="0 0 900 355" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="#8fa3b8" />
+              </marker>
+              <path id="p-nat-l" d="M178 170 H 500" fill="none" />
+              <path id="p-you-relay" d="M168 155 C 250 80, 340 70, 370 75" fill="none" />
+              <path id="p-relay-friend" d="M530 75 C 600 70, 680 90, 732 155" fill="none" />
+              <path id="p-friend-relay" d="M732 155 C 680 90, 600 70, 530 75" fill="none" />
+              <path id="p-relay-you" d="M370 75 C 340 70, 250 80, 168 155" fill="none" />
+              <path id="p-direct-lr" d="M170 200 C 320 270, 580 270, 730 200" fill="none" />
+              <path id="p-direct-rl" d="M730 200 C 580 270, 320 270, 170 200" fill="none" />
+              <g id="pkt-msg">
+                <rect x="-30" y="-12" width="60" height="24" rx="5" fill="#1a2430" stroke="#c45c1a" stroke-width="1.5" />
+                <rect x="-22" y="-2" width="8" height="7" rx="1.2" fill="#f0dcc8" />
+                <path d="M-20.2 -2 V-5.1 a2.2 2.2 0 0 1 4.4 0 V-2" fill="none" stroke="#f0dcc8" stroke-width="1.35" />
+                <text class="pkt-label" x="8" y="4" text-anchor="middle" fill="#f0dcc8">MSG</text>
+              </g>
+              <g id="pkt-ack">
+                <rect x="-24" y="-11" width="48" height="22" rx="11" fill="#d9ebe0" stroke="#2f6b4f" stroke-width="1.4" />
+                <path d="M-14 -1 L-11 3 L-6 -3" fill="none" stroke="#2f6b4f" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                <text class="pkt-label" x="6" y="4" text-anchor="middle" fill="#1c1f18">ACK</text>
+              </g>
+            </defs>
+            <rect x="40" y="70" width="200" height="180" rx="16" fill="#161910" stroke="rgba(232,234,223,0.16)" />
+            <text x="140" y="100" text-anchor="middle" fill="#8b907f" font-size="13" font-family="Source Sans 3">Home NAT A</text>
+            <circle cx="140" cy="170" r="28" fill="#22261c" stroke="#c45c1a" stroke-width="2" />
+            <text x="140" y="175" text-anchor="middle" fill="#e8eadf" font-size="12" font-family="Space Grotesk" font-weight="700">You</text>
+            <rect x="660" y="70" width="200" height="180" rx="16" fill="#161910" stroke="rgba(232,234,223,0.16)" />
+            <text x="760" y="100" text-anchor="middle" fill="#8b907f" font-size="13" font-family="Source Sans 3">Home NAT B</text>
+            <circle cx="760" cy="170" r="28" fill="#22261c" stroke="#c45c1a" stroke-width="2" />
+            <text x="760" y="175" text-anchor="middle" fill="#e8eadf" font-size="12" font-family="Space Grotesk" font-weight="700">Friend</text>
+            <rect x="370" y="40" width="160" height="70" rx="12" fill="#1c2218" stroke="#4a8fd4" stroke-width="2" />
+            <text x="450" y="66" text-anchor="middle" fill="#e8eadf" font-size="13" font-family="Space Grotesk" font-weight="700">inertia-relay</text>
+            <text x="450" y="84" text-anchor="middle" fill="#8b907f" font-size="10" font-family="ui-monospace, monospace">/ip4/…/tcp/9000/p2p/…</text>
+
+            <g id="layer-nat">
+              <line x1="180" y1="170" x2="660" y2="170" stroke="#8b907f" stroke-width="2" stroke-dasharray="4 6" opacity="0.35" />
+              <g>
+                <rect x="-58" y="-28" width="116" height="56" rx="6" fill="#2a2218" stroke="#c45c1a" stroke-width="1.5" />
+                <text class="pkt-label" x="0" y="-14" text-anchor="middle" fill="#f0dcc8">packet</text>
+                <text x="0" y="0" text-anchor="middle" fill="#e8eadf" font-size="8" font-family="ui-monospace, monospace">src 203.0.113.4:54112</text>
+                <text x="0" y="12" text-anchor="middle" fill="#e8eadf" font-size="8" font-family="ui-monospace, monospace">dst 198.51.100.20:4001</text>
+                <text x="0" y="24" text-anchor="middle" fill="#8b907f" font-size="8" font-family="ui-monospace, monospace">proto UDP</text>
+                <animateMotion dur="2.2s" repeatCount="indefinite" keyTimes="0;0.55;1" keyPoints="0;1;1" calcMode="linear">
+                  <mpath href="#p-nat-l" />
+                </animateMotion>
+                <animate attributeName="opacity" dur="2.2s" repeatCount="indefinite" values="1;1;0.25;0" keyTimes="0;0.55;0.72;1" />
+              </g>
+              <g>
+                <rect x="500" y="198" width="150" height="88" rx="8" fill="#1a1410" stroke="#c45c1a" stroke-width="1.5" />
+                <text x="575" y="216" text-anchor="middle" fill="#c45c1a" font-size="10" font-family="Space Grotesk" font-weight="700">NAT table B</text>
+                <text x="575" y="232" text-anchor="middle" fill="#8b907f" font-size="8" font-family="ui-monospace, monospace">lookup 5-tuple</text>
+                <text x="575" y="246" text-anchor="middle" fill="#e8eadf" font-size="8" font-family="Source Sans 3">no mapping</text>
+                <text x="575" y="260" text-anchor="middle" fill="#8b907f" font-size="8" font-family="Source Sans 3">B did not initiate</text>
+                <text x="575" y="276" text-anchor="middle" fill="#c45c1a" font-size="11" font-family="Space Grotesk" font-weight="700">DROP</text>
+                <animate attributeName="opacity" dur="2.2s" repeatCount="indefinite" values="0.45;0.45;1;1;0.45" keyTimes="0;0.5;0.58;0.85;1" />
+              </g>
+            </g>
+
+            <g id="layer-relay" opacity="0">
+              <path class="pulse-relay" d="M168 155 C 250 80, 340 70, 370 75" fill="none" stroke="#4a8fd4" stroke-width="2.5" marker-end="url(#arrow)" />
+              <path class="pulse-relay" d="M530 75 C 600 70, 680 90, 732 155" fill="none" stroke="#4a8fd4" stroke-width="2.5" marker-end="url(#arrow)" />
+              <text x="450" y="128" text-anchor="middle" fill="#4a8fd4" font-size="12" font-family="Space Grotesk" font-weight="700">encrypted circuit</text>
+              <g>
+                <use href="#pkt-msg" />
+                <animateMotion dur="1.5s" repeatCount="indefinite">
+                  <mpath href="#p-you-relay" />
+                </animateMotion>
+              </g>
+              <g>
+                <use href="#pkt-msg" />
+                <animateMotion dur="1.5s" begin="1.5s" repeatCount="indefinite">
+                  <mpath href="#p-relay-friend" />
+                </animateMotion>
+              </g>
+              <g>
+                <use href="#pkt-ack" />
+                <animateMotion dur="1.5s" begin="3s" repeatCount="indefinite">
+                  <mpath href="#p-friend-relay" />
+                </animateMotion>
+              </g>
+              <g>
+                <use href="#pkt-ack" />
+                <animateMotion dur="1.5s" begin="4.5s" repeatCount="indefinite">
+                  <mpath href="#p-relay-you" />
+                </animateMotion>
+              </g>
+            </g>
+
+            <g id="layer-direct" opacity="0">
+              <path class="pulse-direct" d="M170 200 C 320 270, 580 270, 730 200" fill="none" stroke="#3dffa8" stroke-width="3">
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0.35;0.35;1;1;0.22;0.22;1;1" keyTimes="0;0.2;0.22;0.5;0.52;0.74;0.76;1" />
+              </path>
+              <text x="450" y="248" text-anchor="middle" fill="#3dffa8" font-size="11" font-family="Space Grotesk" font-weight="700">direct while the mapping lives</text>
+              <g>
+                <g transform="translate(424 266)">
+                  <ellipse cx="9" cy="1" rx="10" ry="8" fill="#c45c1a" />
+                  <ellipse cx="4" cy="7" rx="4.5" ry="3.5" fill="#a34b16" />
+                  <rect x="-8" y="-5" width="10" height="10" rx="2.5" fill="#e8eadf" />
+                  <rect x="-8" y="-1" width="10" height="2.5" fill="#c45c1a" opacity="0.45" />
+                </g>
+                <g transform="translate(476 266) scale(-1 1)">
+                  <ellipse cx="9" cy="1" rx="10" ry="8" fill="#c45c1a" />
+                  <ellipse cx="4" cy="7" rx="4.5" ry="3.5" fill="#a34b16" />
+                  <rect x="-8" y="-5" width="10" height="10" rx="2.5" fill="#e8eadf" />
+                  <rect x="-8" y="-1" width="10" height="2.5" fill="#c45c1a" opacity="0.45" />
+                </g>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0;1;1" keyTimes="0;0.2;0.22;0.5;0.52;0.74;0.76;1" />
+                <animateTransform attributeName="transform" type="translate" dur="16s" repeatCount="indefinite" values="0 0; 0 0; 0 0; 3 0; 0 0; 0 0; 0 0; 3 0; 0 0; 0 0" keyTimes="0;0.2;0.22;0.26;0.32;0.74;0.76;0.8;0.86;1" />
+              </g>
+              <g>
+                <rect x="-20" y="-9" width="40" height="18" rx="4" fill="#e8eadf" />
+                <text class="pkt-label" y="4" text-anchor="middle" fill="#1c1f18">SYNC</text>
+                <animateMotion dur="16s" repeatCount="indefinite" keyTimes="0;0.2;1" keyPoints="0;0.5;0.5" calcMode="linear">
+                  <mpath href="#p-direct-lr" />
+                </animateMotion>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;0.2;0.22;1" />
+              </g>
+              <g>
+                <rect x="-20" y="-9" width="40" height="18" rx="4" fill="#e8eadf" />
+                <text class="pkt-label" y="4" text-anchor="middle" fill="#1c1f18">SYNC</text>
+                <animateMotion dur="16s" repeatCount="indefinite" keyTimes="0;0.2;1" keyPoints="0;0.5;0.5" calcMode="linear">
+                  <mpath href="#p-direct-rl" />
+                </animateMotion>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;0.2;0.22;1" />
+              </g>
+              <g>
+                <rect x="-20" y="-9" width="40" height="18" rx="4" fill="#e8eadf" />
+                <text class="pkt-label" y="4" text-anchor="middle" fill="#1c1f18">SYNC</text>
+                <animateMotion dur="16s" repeatCount="indefinite" keyTimes="0;0.6;0.75;1" keyPoints="0;0;0.5;0.5" calcMode="linear">
+                  <mpath href="#p-direct-lr" />
+                </animateMotion>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.59;0.6;0.74;0.76;1" />
+              </g>
+              <g>
+                <rect x="-20" y="-9" width="40" height="18" rx="4" fill="#e8eadf" />
+                <text class="pkt-label" y="4" text-anchor="middle" fill="#1c1f18">SYNC</text>
+                <animateMotion dur="16s" repeatCount="indefinite" keyTimes="0;0.6;0.75;1" keyPoints="0;0;0.5;0.5" calcMode="linear">
+                  <mpath href="#p-direct-rl" />
+                </animateMotion>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.59;0.6;0.74;0.76;1" />
+              </g>
+              <g>
+                <text text-anchor="middle" fill="#3dffa8" font-size="11" font-family="Space Grotesk" font-weight="700" x="450" y="292">1/2 RTT · both mapped</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.2;0.22;0.32;0.36;1" />
+              </g>
+              <g>
+                <text text-anchor="middle" fill="#3dffa8" font-size="11" font-family="Space Grotesk" font-weight="700" x="450" y="292">chunks 2/4 · 512 KiB each</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.36;0.38;0.5;0.52;1" />
+              </g>
+              <g>
+                <text text-anchor="middle" fill="#c45c1a" font-size="11" font-family="Space Grotesk" font-weight="700" x="450" y="292">mapping idle · punch again</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.5;0.52;0.74;0.76;1" />
+              </g>
+              <g>
+                <text text-anchor="middle" fill="#3dffa8" font-size="11" font-family="Space Grotesk" font-weight="700" x="450" y="292">chunks 3/4 · still sending</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.78;0.8;0.93;0.94;1" />
+              </g>
+              <g>
+                <text text-anchor="middle" fill="#3dffa8" font-size="11" font-family="Space Grotesk" font-weight="700" x="450" y="292">chunks 4/4 · video complete</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1" keyTimes="0;0.94;0.95;1" />
+              </g>
+              <g>
+                <text x="140" y="262" text-anchor="middle" fill="#8b907f" font-size="9" font-family="Space Grotesk" font-weight="700">NAT A: punching</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="1;1;0;0;1;1;0;0" keyTimes="0;0.2;0.22;0.58;0.6;0.74;0.76;1" />
+              </g>
+              <g>
+                <text x="760" y="262" text-anchor="middle" fill="#8b907f" font-size="9" font-family="Space Grotesk" font-weight="700">NAT B: punching</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="1;1;0;0;1;1;0;0" keyTimes="0;0.2;0.22;0.58;0.6;0.74;0.76;1" />
+              </g>
+              <g>
+                <text x="140" y="262" text-anchor="middle" fill="#3dffa8" font-size="9" font-family="Space Grotesk" font-weight="700">NAT A: ALLOW</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0;1;1" keyTimes="0;0.2;0.22;0.5;0.52;0.74;0.76;1" />
+              </g>
+              <g>
+                <text x="760" y="262" text-anchor="middle" fill="#3dffa8" font-size="9" font-family="Space Grotesk" font-weight="700">NAT B: ALLOW</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0;1;1" keyTimes="0;0.2;0.22;0.5;0.52;0.74;0.76;1" />
+              </g>
+              <g>
+                <text x="140" y="262" text-anchor="middle" fill="#c45c1a" font-size="9" font-family="Space Grotesk" font-weight="700">NAT A: idle timeout</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.5;0.52;0.58;0.6;1" />
+              </g>
+              <g>
+                <text x="760" y="262" text-anchor="middle" fill="#c45c1a" font-size="9" font-family="Space Grotesk" font-weight="700">NAT B: idle timeout</text>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.5;0.52;0.58;0.6;1" />
+              </g>
+              <g>
+                <rect x="-22" y="-9" width="44" height="18" rx="4" fill="#3dffa8" />
+                <text class="pkt-label" y="4" text-anchor="middle" fill="#0b1520">c0</text>
+                <animateMotion dur="16s" repeatCount="indefinite" keyTimes="0;0.25;0.36;1" keyPoints="0;0;1;1" calcMode="linear">
+                  <mpath href="#p-direct-lr" />
+                </animateMotion>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.248;0.25;0.35;0.37;1" />
+              </g>
+              <g>
+                <rect x="-22" y="-9" width="44" height="18" rx="4" fill="#3dffa8" />
+                <text class="pkt-label" y="4" text-anchor="middle" fill="#0b1520">c1</text>
+                <animateMotion dur="16s" repeatCount="indefinite" keyTimes="0;0.35;0.46;1" keyPoints="0;0;1;1" calcMode="linear">
+                  <mpath href="#p-direct-lr" />
+                </animateMotion>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.348;0.35;0.45;0.47;1" />
+              </g>
+              <g>
+                <rect x="-22" y="-9" width="44" height="18" rx="4" fill="#3dffa8" />
+                <text class="pkt-label" y="4" text-anchor="middle" fill="#0b1520">c2</text>
+                <animateMotion dur="16s" repeatCount="indefinite" keyTimes="0;0.775;0.875;1" keyPoints="0;0;1;1" calcMode="linear">
+                  <mpath href="#p-direct-lr" />
+                </animateMotion>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.773;0.775;0.87;0.88;1" />
+              </g>
+              <g>
+                <rect x="-22" y="-9" width="44" height="18" rx="4" fill="#3dffa8" />
+                <text class="pkt-label" y="4" text-anchor="middle" fill="#0b1520">c3</text>
+                <animateMotion dur="16s" repeatCount="indefinite" keyTimes="0;0.875;0.975;1" keyPoints="0;0;1;1" calcMode="linear">
+                  <mpath href="#p-direct-lr" />
+                </animateMotion>
+                <animate attributeName="opacity" dur="16s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.873;0.875;0.97;0.98;1" />
+              </g>
+            </g>
+          </svg>
+          <div class="legend">
+            <span data-for="nat"><i style="background:#c45c1a"></i> 5-tuple dropped (no NAT mapping)</span>
+            <span data-for="relay"><i style="background:#c45c1a"></i> MSG (encrypted)</span>
+            <span data-for="relay"><i style="background:#2f6b4f"></i> ACK (delivered)</span>
+            <span data-for="direct"><i style="background:#e8eadf"></i> SYNC at ½ RTT</span>
+            <span data-for="direct"><i style="background:#3dffa8"></i> CHUNK 512 KiB</span>
+            <span data-for="direct"><i style="background:#c45c1a"></i> idle timeout, punch again</span>
+          </div>
+          <div class="caption">
+            <h3 id="cap-title">NAT keeps homes private</h3>
+            <p id="cap-body">Two devices behind consumer routers usually cannot dial each other by IP alone. Without help, the apps cannot open a path.</p>
+            <pre class="ma" id="cap-ma">/ip4/192.168.1.40/tcp/4001/p2p/12D3KooWYouExample
+(local listen only · not stored as a friend address)</pre>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3>From first open to direct media</h3>
+        <p>
+          The welcome screen asks how you are joining. There is no global people search
+          and no public relay list on this site.
+        </p>
+        <p>
+          Once a relay session and reservation exist, DCUtR opens a direct path. Chunks
+          ride that mapping. If NAT idle-timeouts the hole, Inertia punches again until
+          the file is complete.
+        </p>
+      </div>
+      <ol class="steps">
+        <li><b>1</b><span>Create identity on your device (keys + display name).</span></li>
+        <li><b>2</b><span>Pick a path: <strong>I have an invite</strong> (the signed link already carries a relay multiaddr) or <strong>I'm starting a network</strong> (you paste a relay multiaddr; Inertia dials it).</span></li>
+        <li><b>3</b><span>Open a relay session and hold a reservation.</span></li>
+        <li><b>4</b><span>Sync messages over the circuit; pull media as 512 KiB chunks on a hole-punched path, and punch again if the NAT mapping expires.</span></li>
+      </ol>
+    </section>
+
+    <footer>
+      A p2p social network · data-less relay
+    </footer>
+  </div>
+  <script>
+    const copy = {
+      nat: {
+        title: "Unsolicited inbound is dropped",
+        body: "You send a packet with src IP, src port, dest IP, dest port, and proto. Home B's NAT only forwards flows it already mapped. B never started this connection, so there is no table row, and the firewall drops it. That is why two homes cannot dial each other on the open internet.",
+        ma: "5-tuple: src 203.0.113.4:54112 → dst 198.51.100.20:4001 proto UDP\nNAT B lookup: no mapping (B did not initiate) → DROP"
+      },
+      relay: {
+        title: "Meet on a circuit relay",
+        body: "Both peers dial the relay multiaddr, then reserve a circuit. MSG is the encrypted envelope (post or DM) forwarded through the VPS. ACK is the friend's device saying it got that envelope: it travels back on the same circuit so your outbox can mark delivered. The relay does not store the message or the ACK; it only forwards ciphertext. If ACK never arrives, the item stays on the sender until it expires.",
+        ma: "MSG You → relay → Friend\nACK Friend → relay → You (outbox: delivered)\n/ip4/203.0.113.10/tcp/9000/p2p/12D3KooWRelayExample/p2p-circuit/p2p/12D3KooWYouExample"
+      },
+      direct: {
+        title: "Keep punching until the chunks are done",
+        body: "There is no Inertia byte cap on the direct path. Home NATs keep a mapping while packets keep flowing, then often drop UDP after about 30 to 120 seconds idle. Video is 512 KiB chunks (about 100 MiB max after transcode). If the mapping dies mid-file, wait for DCUtR again and resume the next missing chunk until the transfer is complete.",
+        ma: "SYNC at t ≈ 1/2 RTT → mapped → ALLOW\nCHUNK 0..n (512 KiB) while mapping live\nif idle timeout → punch again → resume missing chunks\n/ip4/198.51.100.42/udp/4001/quic-v1/p2p/12D3KooWFriendExample"
+      }
+    };
+    const stage = document.getElementById("stage");
+    const tabs = document.querySelectorAll(".tab");
+    function setMode(mode) {
+      stage.dataset.mode = mode;
+      document.getElementById("layer-nat").setAttribute("opacity", mode === "nat" ? "1" : "0");
+      document.getElementById("layer-relay").setAttribute("opacity", mode === "nat" ? "0" : "1");
+      document.getElementById("layer-direct").setAttribute("opacity", mode === "direct" ? "1" : "0");
+      document.getElementById("cap-title").textContent = copy[mode].title;
+      document.getElementById("cap-body").textContent = copy[mode].body;
+      document.getElementById("cap-ma").textContent = copy[mode].ma;
+      tabs.forEach((t) => t.setAttribute("aria-selected", t.dataset.mode === mode ? "true" : "false"));
+    }
+    tabs.forEach((tab) => tab.addEventListener("click", () => setMode(tab.dataset.mode)));
+    setMode("nat");
+
+    const FALLBACK = {
+      tag: "v0.16.2",
+      assets: [
+        { name: "Inertia-0.16.2-linux-x86_64.rpm", url: "https://github.com/iagolavor/inertia/releases/download/v0.16.2/Inertia-0.16.2-linux-x86_64.rpm", size: 10904200 },
+        { name: "Inertia-0.16.2-linux-x86_64.AppImage", url: "https://github.com/iagolavor/inertia/releases/download/v0.16.2/Inertia-0.16.2-linux-x86_64.AppImage", size: 84539896 },
+        { name: "Inertia-0.16.2-windows-x64-setup.exe", url: "https://github.com/iagolavor/inertia/releases/download/v0.16.2/Inertia-0.16.2-windows-x64-setup.exe", size: 6391975 },
+        { name: "inertia-windows-x64.zip", url: "https://github.com/iagolavor/inertia/releases/download/v0.16.2/inertia-windows-x64.zip", size: 5241589 },
+        { name: "Inertia-0.16.2-android-arm64-debug.apk", url: "https://github.com/iagolavor/inertia/releases/download/v0.16.2/Inertia-0.16.2-android-arm64-debug.apk", size: 54940470 }
+      ]
+    };
+    function labelFor(name) {
+      if (name.endsWith(".rpm")) return "Linux RPM";
+      if (name.endsWith(".AppImage")) return "Linux AppImage";
+      if (name.endsWith("-setup.exe")) return "Windows installer";
+      if (name.endsWith(".zip")) return "Windows zip";
+      if (name.endsWith(".apk")) return "Android APK";
+      return name;
+    }
+    function fmt(bytes) {
+      if (bytes > 1048576) return (bytes / 1048576).toFixed(1) + " MB";
+      return Math.round(bytes / 1024) + " KB";
+    }
+    function renderRelease(data) {
+      document.getElementById("dl-status").textContent = "Latest " + data.tag;
+      const list = document.getElementById("dl-list");
+      list.innerHTML = "";
+      data.assets.forEach((a) => {
+        const row = document.createElement("div");
+        row.className = "os";
+        row.innerHTML = "<a href=\"" + a.url + "\"><span>" + labelFor(a.name) + "</span><span>" + fmt(a.size) + "</span></a>";
+        list.appendChild(row);
+      });
+    }
+    fetch("https://api.github.com/repos/iagolavor/inertia/releases/latest")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((j) => renderRelease({
+        tag: j.tag_name,
+        assets: (j.assets || []).map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size }))
+      }))
+      .catch(() => renderRelease(FALLBACK));
+  </script>
+</body>
+</html>
